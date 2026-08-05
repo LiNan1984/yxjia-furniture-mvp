@@ -17,6 +17,7 @@ const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const UPLOADS_FILE = path.join(DATA_DIR, 'uploads.json');
 const PRESETS_FILE = path.join(DATA_DIR, 'presets.json');
+const FEATURE_FLAGS_FILE = path.join(DATA_DIR, 'feature-flags.json');
 const PUBLIC_DIR = __dirname;
 const IMAGES_DIR = path.join(ROOT, 'public', 'images');
 const UPLOADS_DIR = path.join(ROOT, 'uploads');
@@ -108,6 +109,13 @@ function ensureDirs() {
     };
     fs.writeFileSync(PRESETS_FILE, JSON.stringify(defaults, null, 2), 'utf-8');
   }
+  if (!fs.existsSync(FEATURE_FLAGS_FILE)) {
+    // 默认配置：试摆必须填手机号（无后端验证，仅前端 + 开关文件）
+    fs.writeFileSync(FEATURE_FLAGS_FILE, JSON.stringify({
+      tryonRequirePhone: true,
+      tryonRequirePhoneMessage: '请先填手机号再试摆，方便店员联系您看效果',
+    }, null, 2), 'utf-8');
+  }
 }
 ensureDirs();
 
@@ -197,6 +205,15 @@ function loadPresets() {
 
 function savePresets(presets) {
   writeJSON(PRESETS_FILE, { presets });
+}
+
+// 读取功能开关（前端根据这个决定是否强制手机号、是否显示某按钮等）
+function loadFeatureFlags() {
+  try {
+    return readJSON(FEATURE_FLAGS_FILE);
+  } catch (err) {
+    return { tryonRequirePhone: false };
+  }
 }
 
 function ok(res, data, status = 200) {
@@ -458,6 +475,7 @@ app.get('/admin/products', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'adm
 app.get('/admin/rooms', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'rooms.html')));
 app.get('/admin/presets', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'presets.html')));
 app.get('/admin/tryon-results', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'tryon-results.html')));
+app.get('/admin/feature-flags', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'feature-flags.html')));
 
 // Static: HTML pages served from src/ (兜底：直接访问 .html 时)
 app.use(express.static(PUBLIC_DIR, { extensions: ['html'] }));
@@ -1319,6 +1337,31 @@ app.post('/api/tryon/ai-custom', requireUser, multer({ storage: multer.memorySto
 // GET /api/tryon/presets — 5 个预设 prompt 模板（从 presets.json 读取，可后台编辑）
 app.get('/api/tryon/presets', (req, res) => {
   res.json({ presets: loadPresets() });
+});
+
+// GET /api/feature-flags — 公开端点，前端用来控制 UI 行为（如强制填手机号）
+app.get('/api/feature-flags', (req, res) => {
+  return ok(res, loadFeatureFlags());
+});
+
+// GET /api/admin/feature-flags — 后台查看
+app.get('/api/admin/feature-flags', requireAdmin, (req, res) => {
+  return ok(res, loadFeatureFlags());
+});
+
+// PUT /api/admin/feature-flags — 后台修改
+app.put('/api/admin/feature-flags', requireAdmin, (req, res) => {
+  try {
+    const body = req.body || {};
+    const flags = {
+      tryonRequirePhone: body.tryonRequirePhone === true,
+      tryonRequirePhoneMessage: String(body.tryonRequirePhoneMessage || '').slice(0, 200),
+    };
+    writeJSON(FEATURE_FLAGS_FILE, flags);
+    return ok(res, flags);
+  } catch (err) {
+    return fail(res, 500, '保存开关失败');
+  }
 });
 
 // GET /api/admin/presets — 后台读取（与公开端点同一份数据）

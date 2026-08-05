@@ -329,7 +329,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
             <span>手机号</span>
             <span class="hint">便于复用历史照片</span>
           </label>
-          <input name="phone" type="tel" inputmode="numeric" pattern="1[3-9][0-9]{9}" maxlength="11" placeholder="11位手机号（选填）">
+          <input id="phoneInput" name="phone" type="tel" inputmode="numeric" pattern="1[3-9][0-9]{9}" maxlength="11" placeholder="11位手机号（选填）">
         </div>
 
         <!-- 提示词预设 + 自定义编辑 -->
@@ -591,6 +591,20 @@ document.getElementById('tryonForm').addEventListener('submit', async e => {
 
   const phone = document.querySelector('input[name="phone"]').value.trim();
 
+  // 功能开关：试摆是否要求手机号（data/feature-flags.json）
+  if (FEATURE_FLAGS.tryonRequirePhone && !phone) {
+    const msg = FEATURE_FLAGS.tryonRequirePhoneMessage || '请先填手机号再试摆';
+    const phoneInput = document.getElementById('phoneInput');
+    phoneInput.focus();
+    phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // 红框闪烁一下提示
+    phoneInput.style.borderColor = 'var(--red, #d94f3e)';
+    phoneInput.style.transition = 'border-color .2s';
+    setTimeout(() => { phoneInput.style.borderColor = ''; }, 1200);
+    alert(msg);
+    return;
+  }
+
   // 判断登录态：登录用原路径，未登录用匿名端点
   let loggedIn = false;
   try {
@@ -760,6 +774,19 @@ function showResult(d, sec, phone) {
 function regenerate() {
   document.getElementById('tryonForm').dispatchEvent(new Event('submit', {cancelable: true}));
 }
+
+// 功能开关（从 /api/feature-flags 拉取；fetch 失败时默认全部 false）
+let FEATURE_FLAGS = { tryonRequirePhone: false, tryonRequirePhoneMessage: '' };
+fetch('/api/feature-flags').then(r=>r.json()).then(d=>{
+  if (d.success && d.data) FEATURE_FLAGS = d.data;
+  // 如果要求手机号，更新 placeholder + label 提示
+  if (FEATURE_FLAGS.tryonRequirePhone) {
+    const input = document.getElementById('phoneInput');
+    if (input) { input.placeholder = '必填：11位手机号（联系您看效果）'; input.required = true; }
+    const hint = document.querySelector('input[name="phone"]')?.previousElementSibling?.querySelector('.hint');
+    if (hint) hint.textContent = '必填';
+  }
+}).catch(()=>{});
 
 // 初始化
 loadProducts();

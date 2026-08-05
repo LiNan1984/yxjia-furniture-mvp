@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>功能开关 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.nav a{color:#fff;font-size:1.2rem;text-decoration:none}
+.wrap{max-width:720px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:16px}
+.row{background:#fff;padding:20px;border-radius:14px;border:2px solid var(--paper);margin-bottom:14px}
+.row h2{font-size:1.1rem;color:var(--coffee);margin-bottom:8px}
+.row .desc{font-size:.9rem;color:#666;margin-bottom:12px}
+.row label{display:flex;align-items:center;gap:10px;font-size:1rem;font-weight:600;cursor:pointer;margin-bottom:8px}
+.row input[type=checkbox]{width:22px;height:22px;accent-color:var(--coffee)}
+.row input[type=text]{width:100%;padding:12px;font-size:1rem;border:2px solid #c8b89a;border-radius:10px;background:#fff}
+.msg{display:none;padding:14px;border-radius:10px;margin-bottom:18px;font-size:1.05rem;font-weight:700}
+.msg.ok{display:block;background:var(--green);color:#fff}
+.msg.err{display:block;background:var(--red);color:#fff}
+.save-btn{width:100%;padding:16px;background:var(--coffee);color:#fff;border:none;border-radius:12px;font-size:1.1rem;font-weight:800;cursor:pointer;margin-top:8px}
+.back{display:inline-block;margin-bottom:14px;color:var(--coffee);font-size:1.1rem;text-decoration:none}
+</style>
+</head>
+<body>
+<header class="nav">
+  <a href="/admin/index">← 返回</a>
+  <div style="font-size:1.3rem;font-weight:800">⚙️ 功能开关</div>
+</header>
+<main class="wrap">
+  <a class="back" href="/admin/index">← 返回后台首页</a>
+  <h1>⚙️ 功能开关</h1>
+  <p style="color:#444;margin-bottom:18px">改完点保存。配置存到 <code>data/feature-flags.json</code>，前台立即生效。</p>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="row">
+    <h2>📱 试摆必须填手机号</h2>
+    <p class="desc">开启后，顾客点"立即生成"前必须先填手机号（前端校验 + 提交前拦截）。</p>
+    <label>
+      <input type="checkbox" id="f-require-phone">
+      <span>开启</span>
+    </label>
+    <label style="display:block;margin-top:12px">
+      <span style="font-size:.85rem;color:#666">未填时弹窗提示文案</span>
+      <input type="text" id="f-msg" placeholder="请先填手机号再试摆，方便店员联系您看效果">
+    </label>
+  </div>
+
+  <button class="save-btn" id="save-btn">💾 保存</button>
+</main>
+
+<script>
+const msg = document.getElementById('msg');
+function showMsg(t, ok) { msg.textContent = t; msg.className = 'msg ' + (ok ? 'ok' : 'err'); setTimeout(() => { msg.className = 'msg'; }, 3000); }
+
+async function load() {
+  const r = await fetch('/api/admin/feature-flags').then(r=>r.json());
+  if (r.success && r.data) {
+    document.getElementById('f-require-phone').checked = !!r.data.tryonRequirePhone;
+    document.getElementById('f-msg').value = r.data.tryonRequirePhoneMessage || '';
+  }
+}
+
+document.getElementById('save-btn').onclick = async () => {
+  const body = {
+    tryonRequirePhone: document.getElementById('f-require-phone').checked,
+    tryonRequirePhoneMessage: document.getElementById('f-msg').value.trim(),
+  };
+  try {
+    const r = await fetch('/api/admin/feature-flags', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d.success) { showMsg(d.error || '保存失败', false); return; }
+    showMsg('✅ 已保存', true);
+  } catch (e) { showMsg('网络出错', false); }
+};
+
+async function check() {
+  const r = await fetch('/api/auth/me');
+  const d = await r.json();
+  if (!d.success || !d.data || !d.data.user || d.data.user.id !== 'admin') location.href = '/admin/login';
+}
+check();
+load();
+</script>
+</body>
+</html>
