@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>登录 · 银杏家具</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);padding:24px 20px;min-height:100vh}
+.wrap{max-width:520px;margin:0 auto}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;border-radius:14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.nav-logo{font-size:1.3rem;font-weight:800}
+.nav a{color:#fff;background:var(--red);padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:700}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:8px}
+p.lead{font-size:1.1rem;color:#444;margin-bottom:24px}
+label{display:block;font-size:1.2rem;margin:20px 0 8px;font-weight:700}
+input{width:100%;padding:18px;font-size:1.3rem;border:2px solid #c8b89a;border-radius:12px;background:#fff}
+button{width:100%;padding:22px;font-size:1.5rem;font-weight:800;background:var(--coffee);color:#fff;border:none;border-radius:12px;margin-top:28px;cursor:pointer}
+button:hover{background:#5a3e26}
+.code-row{display:flex;gap:10px}
+.code-row button{margin-top:0;width:auto;padding:18px 22px;background:var(--green);font-size:1.15rem}
+.msg{display:none;padding:16px;border-radius:12px;margin-top:16px;font-size:1.15rem;font-weight:700}
+.msg.ok{display:block;background:var(--green);color:#fff}
+.msg.err{display:block;background:var(--red);color:#fff}
+.hint{color:#888;font-size:1.05rem;text-align:center;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav">
+    <div class="nav-logo">🌳 银杏家具</div>
+    <a href="/">← 回首页</a>
+  </div>
+  <h1>👤 顾客登录</h1>
+  <p class="lead">手机号 + 验证码，登录后查看您的订单和试摆记录</p>
+
+  <label for="phone">手机号</label>
+  <input id="phone" inputmode="numeric" maxlength="11" placeholder="请输入 11 位手机号">
+
+  <label for="code">验证码</label>
+  <div class="code-row">
+    <input id="code" inputmode="numeric" maxlength="6" placeholder="123456" style="flex:1">
+    <button id="send" type="button">📩 发送验证码</button>
+  </div>
+  <div class="hint">MVP：固定 123456（正式上线会接真短信）</div>
+
+  <div id="msg" class="msg"></div>
+  <button id="login">✅ 登录</button>
+</div>
+
+<script>
+const phone=document.getElementById('phone');
+const code=document.getElementById('code');
+const msg=document.getElementById('msg');
+const sendBtn=document.getElementById('send');
+const loginBtn=document.getElementById('login');
+function showMsg(text,ok){msg.textContent=text;msg.className='msg '+(ok?'ok':'err')}
+
+async function checkMe(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(data.success&&data.data&&data.data.user&&data.data.user.id!=='admin'){
+    location.href='/my-orders';
+  }
+}
+checkMe();
+
+sendBtn.addEventListener('click',async()=>{
+  showMsg('发送中…',true);
+  const r=await fetch('/api/auth/send-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:phone.value.trim()})});
+  const data=await r.json();
+  if(data.success){showMsg('✅ 验证码已发（固定 123456）',true);sendBtn.disabled=true;sendBtn.textContent='已发送'}
+  else showMsg(data.error||'发送失败',false);
+});
+
+loginBtn.addEventListener('click',async()=>{
+  showMsg('登录中…',true);
+  const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:phone.value.trim(),code:code.value.trim()})});
+  const data=await r.json();
+  if(data.success){showMsg('✅ 登录成功',true);setTimeout(()=>location.href='/my-orders',600)}
+  else showMsg(data.error||'登录失败',false);
+});
+</script>
+</body>
+</html>

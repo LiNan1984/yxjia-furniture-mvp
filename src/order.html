@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>订单详情 — 银杏家具</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #faf6ef;
+    color: #1a1a1a;
+    line-height: 1.8;
+    font-size: 22px;
+  }
+  .container { max-width: 760px; margin: 0 auto; padding: 24px 20px; }
+  header {
+    background: #8b4513;
+    color: #fff;
+    padding: 24px 20px;
+    text-align: center;
+  }
+  header h1 { font-size: 30px; }
+  .nav-link {
+    display: inline-block;
+    color: #fff;
+    font-size: 20px;
+    margin-bottom: 12px;
+    text-decoration: underline;
+  }
+  .success-card {
+    background: #fff;
+    border: 3px solid #060;
+    border-radius: 12px;
+    padding: 28px 24px;
+    margin: 20px 0;
+    text-align: center;
+  }
+  .success-card h2 {
+    font-size: 32px;
+    color: #060;
+    margin-bottom: 16px;
+  }
+  .success-card p { font-size: 22px; margin: 8px 0; }
+  .order-detail {
+    background: #fff;
+    border: 2px solid #8b4513;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+  }
+  .order-detail h3 {
+    font-size: 26px;
+    color: #8b4513;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #d2691e;
+  }
+  .order-detail .row {
+    font-size: 22px;
+    padding: 8px 0;
+    border-bottom: 1px dashed #ddd;
+  }
+  .order-detail .row strong { color: #3a2818; display: inline-block; min-width: 100px; }
+  .big-btn {
+    display: block;
+    width: 100%;
+    background: #d2691e;
+    color: #fff;
+    font-size: 28px;
+    font-weight: bold;
+    padding: 22px;
+    border-radius: 12px;
+    text-decoration: none;
+    text-align: center;
+    margin: 16px 0;
+    border: 3px solid #8b4513;
+  }
+  .phone-bar {
+    position: sticky;
+    bottom: 0;
+    background: #d2691e;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    border-top: 4px solid #8b4513;
+  }
+  .phone-bar a { color: #fff; text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <a href="index.html" class="nav-link">← 返回首页</a>
+  <h1>订单详情</h1>
+</header>
+
+<div class="container">
+  <div class="success-card" id="success-card">
+    <h2>✅ 订单已收到</h2>
+    <p>我们会尽快电话联系您</p>
+  </div>
+
+  <div class="order-detail" id="order-detail">
+    <h3>订单信息</h3>
+    <p style="text-align:center;color:#888;">加载中...</p>
+  </div>
+
+  <a href="tel:13359140982" class="big-btn">📞 联系我们 13359140982</a>
+  <a href="index.html" class="big-btn" style="background:#8b4513;">🏠 回首页继续看</a>
+</div>
+
+<div class="phone-bar">
+  <a href="tel:13359140982">📞 银杏家具 13359140982</a>
+</div>
+
+<script>
+  function getQueryParam(name) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+  }
+
+  async function loadOrder() {
+    let id = getQueryParam('id');
+    if (!id) {
+      const pathId = location.pathname.split('/').filter(Boolean).pop();
+      id = (pathId && pathId !== 'order.html') ? pathId : null;
+    }
+    if (!id) {
+      document.getElementById('order-detail').innerHTML =
+        '<h3>订单信息</h3><p>未提供订单号</p>';
+      return;
+    }
+    try {
+      const res = await fetch('/api/orders/' + id);
+      if (!res.ok) throw new Error('未找到');
+      const api = await res.json();
+      const orders = (api.data && api.data.orders) || [];
+      const order = orders[0];
+      if (!order) throw new Error('未找到');
+      const productRes = await fetch('/api/products/' + order.productId);
+      const productApi = productRes.ok ? await productRes.json() : null;
+      const product = productApi && productApi.data ? productApi.data.product : null;
+      const el = document.getElementById('order-detail');
+      el.innerHTML =
+        '<h3>订单信息</h3>' +
+        '<div class="row"><strong>订单号：</strong>' + order.id + '</div>' +
+        '<div class="row"><strong>称呼：</strong>' + order.name + '</div>' +
+        '<div class="row"><strong>手机：</strong>' + order.phone + '</div>' +
+        '<div class="row"><strong>家具：</strong>' + (product ? product.name : order.productName || order.productId) + '</div>' +
+        '<div class="row"><strong>收货：</strong>' + (order.address || '来店自提') + '</div>' +
+        (order.spec ? '<div class="row"><strong>规格备注：</strong>' + order.spec + '</div>' : '') +
+        '<div class="row"><strong>数量：</strong>' + (order.quantity || 1) + '</div>' +
+        '<div class="row"><strong>价格：</strong>' + (order.productPrice || '面议') + '</div>' +
+        '<div class="row"><strong>状态：</strong>' + (order.status || '待联系') + '</div>' +
+        '<div class="row"><strong>下单时间：</strong>' + new Date(order.createdAt).toLocaleString('zh-CN') + '</div>';
+    } catch (err) {
+      document.getElementById('order-detail').innerHTML =
+        '<h3>订单信息</h3><p>未找到此订单，请电话联系我们：13359140982</p>';
+    }
+  }
+
+  loadOrder();
+</script>
+
+</body>
+</html>

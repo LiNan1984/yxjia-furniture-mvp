@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>银杏家具</title>
+<style>
+/* ============================================
+   银杏家具 v8 — 包豪斯几何 × 衬线副标
+   标题：Helvetica/Arial 几何无衬线（包豪斯）
+   副标/正文：Songti/Noto Serif SC（衬线）
+   主色：深咖 #3a2818
+   ============================================ */
+:root{
+  --ink:#1a1a1a;
+  --ink2:#3a3a3a;
+  --paper:#fafaf7;
+  --coffee:#3a2818;
+  --coffee-2:#5a3e26;
+  --coffee-3:#7a5a40;
+}
+/* 字体双栈 */
+body{
+  font-family:"Helvetica Neue",Helvetica,Arial,"Inter","PingFang SC",sans-serif;
+  font-weight:400;font-size:16px;line-height:1.55;
+  letter-spacing:-.005em;-webkit-font-smoothing:antialiased;
+  color:var(--ink);
+}
+/* 衬线栈（用于副标题/正文/数字说明） */
+.serif{
+  font-family:"Songti SC","STSong","Noto Serif SC","Source Han Serif SC","PingFang SC",serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--paper);color:var(--ink)}
+a{color:var(--ink);text-decoration:none}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:var(--ink)}
+
+.wrap{max-width:1320px;margin:0 auto;padding:0 32px}
+
+/* ===== 顶部 ===== */
+.nav{border-bottom:1px solid var(--ink);padding:20px 0;background:var(--paper)}
+.nav-inner{display:flex;align-items:center;gap:32px}
+.nav-logo{font-size:22px;font-weight:700;letter-spacing:-.03em}
+.nav-links{display:flex;gap:32px;margin-left:auto;font-size:13px;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+.nav-links a{padding:6px 0;border-bottom:1px solid transparent}
+.nav-links a:hover{border-bottom-color:var(--ink)}
+.nav-tel{font-size:14px;font-weight:600;padding:10px 18px;background:var(--coffee);color:#fff}
+
+/* ===== Hero ===== */
+.hero{padding:64px 0 80px}
+.hero h1{
+  font-size:clamp(96px,14vw,180px);font-weight:800;
+  line-height:1.15;letter-spacing:-.05em;color:var(--coffee);
+  margin-bottom:32px;
+}
+.hero .sub{
+  font-family:"Songti SC","STSong","Noto Serif SC",serif;
+  font-size:22px;font-weight:400;color:var(--ink);
+  max-width:560px;line-height:1.55;
+  margin-bottom:48px;letter-spacing:.01em;
+}
+.hero .sub .em{font-style:italic;color:var(--coffee)}
+
+/* 沙发主体 */
+.hero-sofa{
+  aspect-ratio:16/9;background:var(--coffee);border-radius:0;
+  position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.hero-sofa::before{
+  content:"";position:absolute;left:8%;right:8%;bottom:18%;height:55%;
+  background:var(--coffee-2);
+  border-radius:200px 200px 0 0/260px 260px 0 0;
+  box-shadow:0 40px 80px rgba(58,40,24,.35);
+}
+.hero-sofa::after{
+  content:"🛋️";position:relative;z-index:2;font-size:clamp(140px,20vw,280px);
+  filter:drop-shadow(0 16px 32px rgba(0,0,0,.35));
+}
+.hero-sofa .corner{
+  position:absolute;top:24px;left:24px;
+  background:#fff;color:var(--ink);
+  padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:.15em;
+  text-transform:uppercase;font-family:"Helvetica Neue",sans-serif;
+}
+.hero-sofa .tag{
+  position:absolute;bottom:24px;right:24px;
+  color:#fff;font-family:"Songti SC",serif;font-size:14px;
+  letter-spacing:.05em;
+}
+
+.hero-info{
+  display:grid;grid-template-columns:1fr auto;gap:32px;
+  margin-top:32px;align-items:end;
+}
+.hero-info p{font-size:16px;line-height:1.65;max-width:540px}
+.hero-info p .em{font-family:"Songti SC",serif;font-style:italic}
+.hero-info .cta{
+  padding:18px 36px;background:var(--coffee);color:#fff;
+  font-size:14px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;font-family:"Helvetica Neue",sans-serif;
+}
+
+/* ===== Section ===== */
+section{padding:80px 0;border-top:1px solid var(--ink)}
+.section-head{margin-bottom:48px}
+.section-head .label{
+  font-size:12px;font-weight:700;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--ink);margin-bottom:16px;
+  display:flex;align-items:center;gap:12px;
+  font-family:"Helvetica Neue",sans-serif;
+}
+.section-head .label .num{
+  width:30px;height:30px;background:var(--coffee);color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-weight:800;border-radius:0;font-size:12px;
+}
+.section-head h2{
+  font-size:72px;font-weight:800;line-height:.95;letter-spacing:-.04em;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  margin-bottom:16px;
+}
+.section-head .desc{
+  font-family:"Songti SC","STSong","Noto Serif SC",serif;
+  font-size:18px;color:var(--ink);max-width:640px;line-height:1.6;
+  font-weight:400;
+}
+
+/* ===== 三步流程 ===== */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--ink)}
+@media(max-width:880px){.steps{grid-template-columns:1fr}}
+.step{
+  padding:36px 32px;border-right:1px solid var(--ink);
+  font-family:"Helvetica Neue",sans-serif;
+}
+.step:last-child{border-right:none}
+.step .n{font-size:56px;font-weight:800;color:var(--coffee);letter-spacing:-.04em;line-height:1;margin-bottom:20px}
+.step h3{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px}
+.step .desc{font-family:"Songti SC","Noto Serif SC",serif;font-size:15px;color:var(--ink);line-height:1.6}
+
+/* ===== 主推沙发 ===== */
+.feature{display:grid;grid-template-columns:1.3fr 1fr;border:1px solid var(--ink);overflow:hidden}
+@media(max-width:880px){.feature{grid-template-columns:1fr}}
+.feature-img{
+  aspect-ratio:4/3;background:var(--coffee);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.feature-img::before{
+  content:"";position:absolute;left:10%;right:10%;bottom:18%;height:50%;
+  background:var(--coffee-2);
+  border-radius:140px 140px 0 0/200px 200px 0 0;
+  box-shadow:0 30px 60px rgba(58,40,24,.35);
+}
+.feature-img::after{
+  content:"🛋️";position:relative;z-index:2;font-size:160px;
+  filter:drop-shadow(0 16px 32px rgba(0,0,0,.35));
+}
+.feature-img .corner{
+  position:absolute;top:24px;left:24px;
+  background:#fff;color:var(--ink);
+  padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:.15em;
+  text-transform:uppercase;font-family:"Helvetica Neue",sans-serif;
+}
+.feature-meta{padding:48px 40px;display:flex;flex-direction:column;justify-content:center;gap:24px;background:var(--paper)}
+.feature-meta .tag{
+  display:inline-block;background:var(--coffee);color:#fff;
+  padding:6px 14px;font-size:11px;font-weight:700;letter-spacing:.15em;
+  text-transform:uppercase;font-family:"Helvetica Neue",sans-serif;
+  align-self:flex-start;
+}
+.feature-meta h2{
+  font-size:48px;font-weight:800;line-height:1;letter-spacing:-.03em;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  margin:8px 0 4px;
+}
+.feature-meta .desc{
+  font-family:"Songti SC","Noto Serif SC",serif;
+  font-size:16px;color:var(--ink);line-height:1.6;max-width:400px;
+}
+.feature-meta .price{
+  font-size:28px;font-weight:700;color:var(--coffee);letter-spacing:-.02em;
+  font-family:"Helvetica Neue",sans-serif;
+}
+.feature-meta .price small{
+  font-family:"Songti SC",serif;font-size:14px;color:var(--ink2);font-weight:400;margin-left:10px;font-style:italic;
+}
+.feature-meta ul{
+  list-style:none;border-top:1px solid var(--ink);padding-top:20px;
+  display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;font-size:14px;
+  font-family:"Helvetica Neue",sans-serif;
+}
+.feature-meta ul li::before{content:"·";color:var(--coffee);font-weight:700;margin-right:8px}
+.feature-meta .cta{
+  padding:16px 28px;background:var(--ink);color:#fff;
+  font-size:13px;font-weight:700;letter-spacing:.15em;
+  text-transform:uppercase;font-family:"Helvetica Neue",sans-serif;
+  align-self:flex-start;
+}
+
+/* ===== 家具目录 ===== */
+.catalog{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:880px){.catalog{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.catalog{grid-template-columns:1fr}}
+.cat{border:1px solid var(--ink);overflow:hidden;cursor:pointer;transition:transform .2s;background:var(--paper)}
+.cat:hover{transform:translateY(-4px)}
+.cat-cover{aspect-ratio:1/1;background:var(--coffee);display:flex;align-items:center;justify-content:center;font-size:120px;position:relative;overflow:hidden}
+.cat-cover::after{content:"";position:absolute;left:15%;right:15%;bottom:20%;height:45%;background:var(--coffee-2);border-radius:120px 120px 0 0/180px 180px 0 0;box-shadow:0 20px 40px rgba(58,40,24,.35)}
+.cat-cover > *{position:relative;z-index:2;filter:drop-shadow(0 8px 16px rgba(0,0,0,.35))}
+.cat:nth-child(1) .cat-cover{background:#5a4030}
+.cat:nth-child(2) .cat-cover{background:#4a3528}
+.cat:nth-child(3) .cat-cover{background:#6a5040}
+.cat:nth-child(4) .cat-cover{background:#3a2818}
+.cat:nth-child(5) .cat-cover{background:#5a4030}
+.cat:nth-child(6) .cat-cover{background:#4a3528}
+.cat-cover .badge{position:absolute;top:14px;left:14px;background:#fff;color:var(--ink);padding:6px 12px;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;font-family:"Helvetica Neue",sans-serif;z-index:3}
+.cat-cover .arrow{position:absolute;bottom:14px;right:14px;width:32px;height:32px;background:#fff;color:var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;z-index:3}
+.cat-info{padding:20px 22px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.cat-info h4{font-size:17px;font-weight:700;line-height:1.15;letter-spacing:-.01em;font-family:"Helvetica Neue",sans-serif}
+.cat-info .sub{font-family:"Songti SC","Noto Serif SC",serif;font-size:13px;color:var(--ink2);font-weight:400;margin-top:4px;font-style:italic}
+.cat-info .price{font-size:20px;font-weight:800;color:var(--coffee);white-space:nowrap;font-family:"Helvetica Neue",sans-serif}
+
+/* ===== 在线试摆 ===== */
+.tryon-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+@media(max-width:880px){.tryon-grid{grid-template-columns:1fr}}
+.form{display:flex;flex-direction:column;gap:20px;padding:32px;border:1px solid var(--ink)}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--ink);font-family:"Helvetica Neue",sans-serif}
+.field input,.field select{padding:14px 16px;font-size:16px;font-family:"Helvetica Neue",sans-serif;background:transparent;border:1px solid var(--ink);color:var(--ink);outline:none}
+.field input:focus,.field select:focus{border-color:var(--coffee)}
+.file-field{border:1px dashed var(--ink);padding:20px;text-align:center;font-weight:600;font-family:"Songti SC",serif;font-style:italic;cursor:pointer}
+.submit-btn{padding:18px;font-size:13px;font-weight:700;background:var(--ink);color:#fff;letter-spacing:.15em;text-transform:uppercase;font-family:"Helvetica Neue",sans-serif}
+
+.preview{aspect-ratio:1/1;background:var(--coffee);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.preview::before{content:"";position:absolute;left:12%;right:12%;bottom:18%;height:50%;background:var(--coffee-2);border-radius:140px 140px 0 0/200px 200px 0 0;box-shadow:0 30px 60px rgba(58,40,24,.35)}
+.preview .stage{position:relative;z-index:2;font-size:200px;filter:drop-shadow(0 16px 32px rgba(0,0,0,.35));animation:pop .3s}
+.preview .label{position:absolute;top:20px;left:20px;background:#fff;color:var(--ink);padding:6px 12px;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;font-family:"Helvetica Neue",sans-serif}
+.preview .corner{position:absolute;top:20px;right:20px;width:40px;height:40px;background:#fff;color:var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-family:"Songti SC",serif}
+
+/* ===== 案例 ===== */
+.cases{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:880px){.cases{grid-template-columns:1fr}}
+.case{border:1px solid var(--ink);overflow:hidden;background:var(--paper)}
+.case-cover{aspect-ratio:4/3;background:var(--coffee);display:flex;align-items:center;justify-content:center;font-size:120px;position:relative;overflow:hidden}
+.case-cover::after{content:"";position:absolute;left:15%;right:15%;bottom:20%;height:45%;background:var(--coffee-2);border-radius:120px 120px 0 0/180px 180px 0 0;box-shadow:0 20px 40px rgba(58,40,24,.35)}
+.case-cover > *{position:relative;z-index:2;filter:drop-shadow(0 8px 16px rgba(0,0,0,.35))}
+.case:nth-child(1) .case-cover{background:#5a4030}
+.case:nth-child(2) .case-cover{background:#6a5040}
+.case:nth-child(3) .case-cover{background:#4a3528}
+.case-info{padding:22px 24px}
+.case-info h4{font-size:19px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em;font-family:"Helvetica Neue",sans-serif}
+.case-info p{font-family:"Songti SC","Noto Serif SC",serif;font-size:15px;color:var(--ink);line-height:1.6;font-style:italic}
+
+/* ===== 联系 ===== */
+.contact-grid{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--ink);overflow:hidden}
+@media(max-width:880px){.contact-grid{grid-template-columns:1fr 1fr}}
+.contact-cell{padding:32px 24px;border-right:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.contact-cell:last-child{border-right:none}
+@media(max-width:880px){.contact-cell{border-right:none}}
+.contact-cell .k{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:10px;color:var(--ink);font-family:"Helvetica Neue",sans-serif}
+.contact-cell .v{font-size:22px;font-weight:800;line-height:1.15;letter-spacing:-.02em;font-family:"Helvetica Neue",sans-serif}
+.contact-cell .v a{color:inherit;border-bottom:2px solid var(--coffee)}
+.contact-cell .v .desc{font-family:"Songti SC",serif;font-size:15px;font-weight:400;font-style:italic;color:var(--ink2)}
+
+footer{padding:48px 0;display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--ink2);font-family:"Helvetica Neue",sans-serif}
+footer .poem{font-family:"Songti SC",serif;font-weight:400;font-style:italic;text-transform:none;letter-spacing:.05em;font-size:13px}
+@media(max-width:880px){footer{flex-direction:column;gap:12px;align-items:flex-start}}
+
+.modal-bg{position:fixed;inset:0;background:rgba(26,26,26,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:24px}
+.modal-bg.open{display:flex;animation:fade .2s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{background:var(--paper);padding:40px;max-width:480px;width:100%;border:1px solid var(--ink);position:relative;animation:pop .25s}
+@keyframes pop{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+.modal .check{width:64px;height:64px;background:var(--coffee);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;margin-bottom:20px;font-family:"Helvetica Neue",sans-serif}
+.modal h3{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:12px;font-family:"Helvetica Neue",sans-serif}
+.modal .desc{font-family:"Songti SC","Noto Serif SC",serif;font-size:15px;color:var(--ink);margin-bottom:24px;line-height:1.6}
+.modal a{display:inline-block;background:var(--ink);color:#fff;padding:14px 28px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;font-family:"Helvetica Neue",sans-serif}
+.modal .close{position:absolute;top:16px;right:16px;width:36px;height:36px;background:var(--paper);border:1px solid var(--ink);font-weight:700}
+
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-inner">
+    <a href="#home" class="nav-logo">银杏家具</a>
+    <div class="nav-links">
+      <a href="#catalog">家具</a>
+      <a href="#tryon">试摆</a>
+      <a href="#cases">案例</a>
+      <a href="#contact">联系</a>
+    </div>
+    <a class="nav-tel" href="tel:13359140982">13359140982</a>
+  </div>
+</nav>
+
+<section id="home" class="hero">
+  <div class="wrap">
+    <h1>沙发<br>搬进你家<br>再决定</h1>
+    <p class="sub">拍一张你家客厅照片发我——AI 把<span class="em">店里沙发</span>"摆"进你家客厅。看到真实效果，再来店里<span class="em">试坐</span>。</p>
+    <div class="hero-sofa">
+      <div class="corner">主推 · 3.4m</div>
+      <div class="tag">新中式三人沙发</div>
+    </div>
+    <div class="hero-info">
+      <p>把您家客厅照片发我。我们用 AI 把店里这款沙发"摆"进您家客厅。<span class="em">看到真实效果，再来店里坐坐。</span></p>
+      <a href="#tryon" class="cta">免费试摆 →</a>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="label"><span class="num">01</span>三步流程</div>
+      <h2>把沙发搬进你家</h2>
+      <p class="desc">五分钟内，把"想象"变成"看见"。所见即所得，所见即可得。</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="n">壹</div>
+        <h3>发客厅照</h3>
+        <p class="desc">把你家客厅正面拍一张，光线亮一点，微信发我</p>
+      </div>
+      <div class="step">
+        <div class="n">贰</div>
+        <h3>AI 合成</h3>
+        <p class="desc">5 分钟内给你 3-5 款沙发摆进你家的对比图</p>
+      </div>
+      <div class="step">
+        <div class="n">叁</div>
+        <h3>满意下单</h3>
+        <p class="desc">选中的款来店里试坐，现买现送</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="feature">
+      <div class="feature-img">
+        <div class="corner">主推</div>
+      </div>
+      <div class="feature-meta">
+        <span class="tag">主推 · 主推</span>
+        <h2>新中式三人沙发<br>3.4 米</h2>
+        <p class="desc">雾霾蓝亚麻与藏蓝真皮，金色竹节装饰。3.4 米大尺寸气场。时光不负此行——把东方意境搬进你家。</p>
+        <div class="price">¥3xxx 起 <small>现货 · 时光不负此行</small></div>
+        <ul>
+          <li>雾霾蓝亚麻布料</li>
+          <li>藏蓝真皮拼接</li>
+          <li>金色竹节装饰</li>
+          <li>3.4 米大尺寸气场</li>
+        </ul>
+        <button class="cta" onclick="tryOn('新中式三人沙发')">免费试摆 →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="catalog">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="label"><span class="num">02</span>家具目录</div>
+      <h2>六款沙发 · 家具配套</h2>
+      <p class="desc">从新中式三人位，到轻奢转角、米白提花。每款都经得起细看。</p>
+    </div>
+    <div class="catalog">
+      <div class="cat" onclick="tryOn('新中式三人沙发')">
+        <div class="cat-cover">
+          <span class="badge">主推</span>
+          <span class="arrow">→</span>🛋️
+        </div>
+        <div class="cat-info">
+          <h4>新中式三人沙发<div class="sub">雾霾蓝亚麻+真皮 · 竹节</div></h4>
+          <div class="price">¥3xxx</div>
+        </div>
+      </div>
+      <div class="cat" onclick="tryOn('轻奢L形转角沙发')">
+        <div class="cat-cover">
+          <span class="arrow">→</span>🛋️
+        </div>
+        <div class="cat-info">
+          <h4>轻奢L形转角沙发<div class="sub">雾霾蓝天鹅绒 · 贵妃位</div></h4>
+          <div class="price">¥5xxx</div>
+        </div>
+      </div>
+      <div class="cat" onclick="tryOn('米白提花三人沙发')">
+        <div class="cat-cover">
+          <span class="arrow">→</span>🛋️
+        </div>
+        <div class="cat-info">
+          <h4>米白提花三人沙发<div class="sub">雪尼尔 · 植物抱枕</div></h4>
+          <div class="price">¥4xxx</div>
+        </div>
+      </div>
+      <div class="cat" onclick="tryOn('实木电视柜')">
+        <div class="cat-cover">
+          <span class="arrow">→</span>📺
+        </div>
+        <div class="cat-info">
+          <h4>实木电视柜<div class="sub">原木 · 暖色灯带</div></h4>
+          <div class="price">¥1xxx</div>
+        </div>
+      </div>
+      <div class="cat" onclick="tryOn('原木双人床')">
+        <div class="cat-cover">
+          <span class="arrow">→</span>🛏️
+        </div>
+        <div class="cat-info">
+          <h4>原木双人床<div class="sub">米白床品 · 新中式</div></h4>
+          <div class="price">¥3xxx</div>
+        </div>
+      </div>
+      <div class="cat" onclick="tryOn('实木餐桌椅')">
+        <div class="cat-cover">
+          <span class="arrow">→</span>🍽️
+        </div>
+        <div class="cat-info">
+          <h4>实木餐桌椅<div class="sub">客餐厅一体化</div></h4>
+          <div class="price">¥2xxx</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tryon">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="label"><span class="num">03</span>在线试摆</div>
+      <h2>五分钟 · 看效果</h2>
+      <p class="desc">上传照片，选家具。AI 把沙发"搬"进你家。满意再来店里坐坐。</p>
+    </div>
+    <div class="tryon-grid">
+      <form class="form" id="tryon-form">
+        <div class="field"><label>称呼</label><input name="name" required placeholder="如：李姐"></div>
+        <div class="field"><label>手机</label><input name="phone" required pattern="1[3-9][0-9]{9}" placeholder="11 位手机号"></div>
+        <div class="field">
+          <label>家具</label>
+          <select name="furniture" id="furn-select">
+            <option>新中式三人沙发</option>
+            <option>轻奢L形转角沙发</option>
+            <option>米白提花三人沙发</option>
+            <option>实木电视柜</option>
+            <option>原木双人床</option>
+            <option>实木餐桌椅</option>
+            <option>请客服推荐</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>客厅照片</label>
+          <label class="file-field">
+            <input name="photo" type="file" accept="image/*" required style="display:none" onchange="this.parentNode.querySelector('.fn').textContent=this.files[0]?.name||'点击选择'">
+            <div class="fn">点击选择手机照片</div>
+          </label>
+        </div>
+        <button type="submit" class="submit-btn">提交免费试摆</button>
+      </form>
+      <div class="preview">
+        <div class="label">实时预览</div>
+        <div class="corner">家</div>
+        <div class="stage" id="preview-stage">🛋️</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="cases">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="label"><span class="num">04</span>客户案例</div>
+      <h2>三个 · 真实选择</h2>
+      <p class="desc">小区住户的真心话——看见之后，决策就快了。</p>
+    </div>
+    <div class="cases">
+      <div class="case">
+        <div class="case-cover">🛋️</div>
+        <div class="case-info">
+          <h4>小区张姐 · 新中式沙发</h4>
+          <p>"摆进去后跟老公商量 5 分钟就下单了，省得跑三趟。"</p>
+        </div>
+      </div>
+      <div class="case">
+        <div class="case-cover">🛋️</div>
+        <div class="case-info">
+          <h4>阳光小区 · 轻奢转角</h4>
+          <p>"对比了 3 款，最后选雾霾蓝这款，进店直接付款。"</p>
+        </div>
+      </div>
+      <div class="case">
+        <div class="case-cover">🛏️</div>
+        <div class="case-info">
+          <h4>乾佑街王阿姨 · 主卧床</h4>
+          <p>"原本担心床太大放不下，AI 一摆心里有底了。"</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="contact" style="border-top:none">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="label"><span class="num">05</span>来店</div>
+      <h2>坐坐</h2>
+      <p class="desc">来银杏家具，坐下来看看实物。柞水县城，13 年老店。</p>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-cell">
+        <div class="k">地址</div>
+        <div class="v">柞水县乾佑街道<br>农机路河西</div>
+      </div>
+      <div class="contact-cell">
+        <div class="k">电话</div>
+        <div class="v"><a href="tel:13359140982">13359140982</a></div>
+      </div>
+      <div class="contact-cell">
+        <div class="k">营业</div>
+        <div class="v">9:00 – 20:00<div class="desc">全年无休</div></div>
+      </div>
+      <div class="contact-cell">
+        <div class="k">微信</div>
+        <div class="v">同号<div class="desc">加微信发图</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <span>© 2026 银杏家具 · 柞水</span>
+  <span class="poem">时光不负此行</span>
+</footer>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('modal').classList.remove('open')">×</button>
+    <div class="check">✓</div>
+    <h3>收到</h3>
+    <p class="desc">已记下您的需求，1 小时内电话/微信联系您看 AI 试摆效果。</p>
+    <a href="tel:13359140982">📞 拨 13359140982</a>
+  </div>
+</div>
+
+<script>
+const FURN_EMOJI={
+  '新中式三人沙发':'🛋️','轻奢L形转角沙发':'🛋️','米白提花三人沙发':'🛋️',
+  '实木电视柜':'📺','原木双人床':'🛏️','实木餐桌椅':'🍽️','请客服推荐':'✨'
+};
+function tryOn(name){
+  const sel=document.getElementById('furn-select');
+  for(let i=0;i<sel.options.length;i++){if(sel.options[i].value===name){sel.selectedIndex=i;break;}}
+  document.getElementById('preview-stage').textContent=FURN_EMOJI[name]||'✨';
+  document.getElementById('tryon').scrollIntoView({behavior:'smooth'});
+  document.getElementById('preview-stage').style.animation='none';
+  setTimeout(()=>document.getElementById('preview-stage').style.animation='pop .3s',10);
+}
+document.getElementById('tryon-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const data={...Object.fromEntries(fd),photo:fd.get('photo')?.name,ts:Date.now()};
+  const orders=JSON.parse(localStorage.getItem('yxjia_v8')||'[]');
+  orders.push(data);localStorage.setItem('yxjia_v8',JSON.stringify(orders));
+  document.getElementById('modal').classList.add('open');
+});
+document.getElementById('modal').addEventListener('click',e=>{
+  if(e.target.id==='modal'){e.target.classList.remove('open');document.getElementById('tryon-form').reset();document.querySelector('.fn').textContent='点击选择手机照片';}
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>提示词管理 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.nav a{color:#fff;font-size:1.2rem;text-decoration:none}
+.wrap{max-width:880px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:8px}
+p.lead{color:#444;margin-bottom:18px}
+.list{display:flex;flex-direction:column;gap:16px}
+.row{background:#fff;border-radius:14px;padding:20px;border:2px solid var(--paper)}
+.row:hover{border-color:var(--coffee)}
+.row-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.row-top .id{font-size:.7rem;color:#888;font-family:monospace;background:var(--paper);padding:3px 8px;border-radius:6px}
+.row-top .name-input{flex:1;padding:10px 14px;font-size:1.2rem;font-weight:800;color:var(--coffee);border:2px solid #c8b89a;border-radius:8px;background:#fff}
+.row textarea{width:100%;padding:14px;font-size:1rem;border:2px solid #c8b89a;border-radius:10px;background:var(--paper);font-family:inherit;min-height:90px;resize:vertical}
+.row textarea:focus{outline:none;border-color:var(--coffee);background:#fff}
+.row .hint{font-size:.8rem;color:#888;margin-top:6px}
+.toolbar{position:sticky;bottom:0;background:var(--coffee);padding:14px 16px;display:flex;gap:10px;justify-content:flex-end;border-radius:14px;margin-top:24px}
+.toolbar button{padding:14px 24px;border:none;border-radius:10px;font-size:1.1rem;font-weight:800;cursor:pointer}
+.btn-save{background:var(--paper);color:var(--coffee)}
+.btn-reload{background:transparent;color:var(--paper);border:1px solid var(--paper)}
+.msg{display:none;padding:14px;border-radius:10px;margin-bottom:18px;font-size:1.05rem;font-weight:700}
+.msg.ok{display:block;background:var(--green);color:#fff}
+.msg.err{display:block;background:var(--red);color:#fff}
+.empty{padding:60px 20px;text-align:center;color:#888}
+</style>
+</head>
+<body>
+<header class="nav">
+  <a href="/admin/index">← 返回</a>
+  <div style="font-size:1.3rem;font-weight:800">✨ 提示词管理</div>
+</header>
+<main class="wrap">
+  <a href="/admin/index" style="display:inline-block;margin-bottom:14px;color:var(--coffee);font-size:1.1rem;text-decoration:none">← 返回后台首页</a>
+  <h1>✨ 提示词管理</h1>
+  <p class="lead">5 个预设提示词会出现在顾客试摆页的下拉菜单里。改完点"保存所有"生效。</p>
+
+  <div id="msg" class="msg"></div>
+  <div id="list" class="list"></div>
+  <div id="empty" class="empty" style="display:none">没有提示词</div>
+
+  <div class="toolbar">
+    <button class="btn-reload" id="btn-reload">↻ 重新加载</button>
+    <button class="btn-save" id="btn-save">✅ 保存所有</button>
+  </div>
+</main>
+
+<script>
+let presets=[];
+const list=document.getElementById('list');
+const empty=document.getElementById('empty');
+const msg=document.getElementById('msg');
+function showMsg(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');setTimeout(()=>{msg.className='msg'},3000)}
+
+async function load(){
+  const r=await fetch('/api/admin/presets').then(r=>r.json());
+  presets=(r.data&&r.data.presets)||[];
+  render();
+}
+function render(){
+  if(presets.length===0){empty.style.display='block';list.innerHTML='';return}
+  empty.style.display='none';
+  list.innerHTML=presets.map((p,i)=>`
+    <div class="row" data-idx="${i}">
+      <div class="row-top">
+        <span class="id">${p.id}</span>
+        <input class="name-input" data-field="name" value="${(p.name||'').replace(/"/g,'&quot;')}">
+      </div>
+      <textarea data-field="prompt" placeholder="AI 合成时会附加这段提示词...">${p.prompt||''}</textarea>
+      <div class="hint">顾客选择"${p.name||p.id}"风格时，这段 prompt 会被附加到 AI 合成指令之后</div>
+    </div>`).join('');
+}
+
+document.getElementById('btn-reload').onclick=async()=>{
+  if(!confirm('放弃当前修改并重新加载？'))return;
+  await load();
+  showMsg('已重新加载',true);
+};
+
+document.getElementById('btn-save').onclick=async()=>{
+  const rows=document.querySelectorAll('.row');
+  const out=[];
+  rows.forEach(r=>{
+    const idx=parseInt(r.dataset.idx,10);
+    const orig=presets[idx]||{};
+    const name=r.querySelector('[data-field=name]').value.trim();
+    const prompt=r.querySelector('[data-field=prompt]').value;
+    if(!orig.id)return;
+    out.push({id:orig.id,name:orig.id==='custom'?name:(name||orig.name),prompt});
+  });
+  try{
+    const r=await fetch('/api/admin/presets',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({presets:out})});
+    const d=await r.json();
+    if(!d.success){showMsg(d.error||'保存失败',false);return}
+    showMsg('✅ 已保存',true);
+    await load();
+  }catch(e){showMsg('网络出错',false)}
+};
+
+async function check(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(!data.success||!data.data||!data.data.user||data.data.user.id!=='admin'){
+    location.href='/admin/login';
+  }
+}
+check();
+load();
+</script>
+</body>
+</html>

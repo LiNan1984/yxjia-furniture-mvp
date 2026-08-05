@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>后台登录 · 银杏家具</title>
+<style>
+:root{--ink:#1a1a1a;--ink2:#3a3a3a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);font-size:1rem;line-height:1.6;padding:32px 20px;min-height:100vh}
+.wrap{max-width:480px;margin:0 auto}
+h1{font-size:2.2rem;color:var(--coffee);margin-bottom:24px;text-align:center}
+label{display:block;font-size:1.25rem;margin:24px 0 8px;font-weight:700}
+input{width:100%;padding:18px;font-size:1.4rem;border:2px solid #c8b89a;border-radius:12px;background:#fff}
+input:focus{outline:none;border-color:var(--coffee)}
+button{width:100%;padding:22px;font-size:1.5rem;font-weight:800;background:var(--coffee);color:#fff;border:none;border-radius:12px;margin-top:32px;cursor:pointer}
+button:hover{background:#5a3e26}
+.err{display:none;background:#d94f3e;color:#fff;font-size:1.25rem;padding:16px;border-radius:12px;margin-top:20px;font-weight:700}
+.err.show{display:block}
+.hint{color:#666;font-size:1.1rem;text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔐 后台登录</h1>
+  <label for="u">用户名</label>
+  <input id="u" autocomplete="username" placeholder="admin" value="admin">
+  <label for="p">密码</label>
+  <input id="p" type="password" autocomplete="current-password" placeholder="123456">
+  <div id="err" class="err"></div>
+  <button id="btn">登 录</button>
+  <p class="hint">MVP 默认：<b>admin / 123456</b></p>
+</div>
+<script>
+const btn = document.getElementById('btn');
+const errEl = document.getElementById('err');
+function showErr(m){errEl.textContent=m;errEl.classList.add('show')}
+function clearErr(){errEl.classList.remove('show')}
+async function login(){
+  clearErr();
+  btn.disabled=true;btn.textContent='登录中…';
+  try{
+    const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('u').value.trim(),password:document.getElementById('p').value})});
+    const data=await r.json();
+    if(!data.success){showErr(data.error||'登录失败');return}
+    location.href='/admin/index';
+  }catch(e){showErr('网络出错，请重试')}
+  finally{btn.disabled=false;btn.textContent='登 录'}
+}
+btn.addEventListener('click',login);
+document.getElementById('p').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+</script>
+</body>
+</html>

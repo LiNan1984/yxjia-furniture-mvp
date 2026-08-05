@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>银杏家具</title>
+<style>
+/* ============================================
+   v4 设计原则：两个色 + 试摆集成主页
+   只用：--coffee（深咖 #3a2818）+ --paper（奶白 #faf6ef）
+   ============================================ */
+:root{
+  --ink:#1a1a1a;
+  --coffee:#3a2818;
+  --paper:#faf6ef;
+  --line:rgba(58,40,24,.15);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{
+  font-family:"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--paper);color:var(--ink);
+  font-size:1rem;line-height:1.5;
+  padding-bottom:80px;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit}
+
+/* 顶部窄条导航（v2：紧凑 + 等大按钮） */
+.nav{
+  background:var(--coffee);color:var(--paper);
+  padding:10px 16px;
+  display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;z-index:50;
+}
+.nav-logo{font-size:1.05rem;font-weight:700;letter-spacing:-.02em;flex-shrink:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-logo small{font-size:.6rem;font-weight:400;opacity:.55;margin-left:4px;letter-spacing:.05em}
+@media(max-width:420px){.nav-logo small{display:none}}
+.nav-actions{display:flex;gap:4px;align-items:center;flex-shrink:0}
+.nav-actions a{
+  color:var(--paper);
+  text-align:center;
+  padding:5px 8px;font-size:.78rem;font-weight:600;
+  border:1px solid var(--paper);
+  min-width:0;
+  white-space:nowrap;
+}
+
+/* Hero */
+.hero{padding:32px 24px 12px}
+.hero h1{
+  font-size:clamp(40px,7.5vw,72px);font-weight:800;line-height:1.1;letter-spacing:-.04em;color:var(--coffee);
+  margin-bottom:14px;
+}
+.hero p{font-size:1rem;color:var(--ink);font-weight:500;max-width:520px;line-height:1.55;margin-bottom:14px}
+
+/* 主推沙发图（用真实商品图） */
+.hero-image{
+  margin:16px 24px;aspect-ratio:16/9;background:var(--coffee);
+  position:relative;overflow:hidden;
+}
+.hero-image img{width:100%;height:100%;object-fit:cover}
+.hero-image .label{
+  position:absolute;bottom:14px;left:14px;
+  background:var(--coffee);color:var(--paper);
+  padding:8px 14px;font-size:.8rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+}
+
+/* 通用 section */
+.section-tag{font-size:.75rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--coffee);margin-bottom:16px}
+.section-title{font-size:clamp(36px,6vw,56px);font-weight:800;line-height:1.1;letter-spacing:-.03em;color:var(--ink);margin-bottom:32px;max-width:680px}
+
+/* 大读秒计时器 */
+.big-timer{
+  margin-top:18px;padding:20px;background:var(--paper);
+  border:2px solid var(--coffee);border-radius:14px;
+  text-align:center;display:none;
+}
+.big-timer.active{display:block;animation:tick .3s infinite}
+@keyframes tick{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+.big-timer-num{font-size:3rem;font-weight:800;color:var(--coffee);font-family:"Helvetica Neue",sans-serif;letter-spacing:-.02em;line-height:1}
+.big-timer-lbl{font-size:.85rem;color:var(--ink);opacity:.6;margin-top:6px;letter-spacing:.1em}
+
+/* 多结果对比 */
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+@media(max-width:480px){.result-grid{grid-template-columns:1fr}}
+.result-cell{border:1.5px solid var(--line);background:var(--paper);overflow:hidden}
+.result-cell img{width:100%;display:block;aspect-ratio:1/1;object-fit:cover}
+.result-cell .lbl{padding:6px 10px;font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--coffee)}
+.result-cell.primary{border-color:var(--coffee);border-width:2.5px}
+.result-cell.primary .lbl::after{content:" · 主推"}
+
+/* ===== AI 试摆（主页集成）===== */
+.tryon{padding:64px 24px;border-top:1px solid var(--line);background:var(--paper)}
+/* 结果区永远在表单下面（不论宽窄屏）：用 flex 列布局，表单在上，结果在下 */
+.tryon-grid{display:flex;flex-direction:column;gap:24px;align-items:stretch;max-width:680px;margin:0 auto}
+.tryon-form{
+  background:#fff;padding:32px;border:1px solid var(--line);
+}
+.tryon-form h3{font-size:1.5rem;font-weight:800;color:var(--coffee);margin-bottom:8px}
+.tryon-form .lead{font-size:.9rem;color:var(--ink);opacity:.65;margin-bottom:24px}
+.field{margin-bottom:18px}
+.field label{
+  display:flex;align-items:baseline;gap:8px;
+  font-size:.85rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--coffee);
+  margin-bottom:8px;
+}
+.field label .req{color:var(--coffee);font-weight:800}
+.field label .hint{font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink);opacity:.55;font-size:.75rem}
+.field input,.field select{
+  width:100%;padding:16px;font-size:1.1rem;
+  background:var(--paper);border:1px solid var(--coffee);
+  color:var(--ink);font-family:inherit;border-radius:0;
+}
+.field input:focus,.field select:focus{outline:none;background:#fff;border-width:2px;padding:15px}
+
+.file-field{
+  border:1.5px dashed var(--coffee);background:var(--paper);
+  padding:32px 20px;text-align:center;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+.file-field:hover{background:#f5ebd9}
+.file-field .icon{font-size:36px}
+.file-field .label{font-size:.95rem;font-weight:600}
+.file-field .hint{font-size:.75rem;opacity:.55}
+.file-field img.preview{width:100%;max-height:160px;object-fit:cover;display:none}
+
+/* 历史照片墙 */
+.history{margin-top:16px;display:none}
+.history.show{display:block}
+.history-title{font-size:.75rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--coffee);margin-bottom:10px}
+.history-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.history-item{
+  aspect-ratio:1/1;background:var(--paper);cursor:pointer;overflow:hidden;
+  border:1.5px solid transparent;position:relative;
+}
+.history-item img{width:100%;height:100%;object-fit:cover;display:block}
+.history-item:hover{border-color:var(--coffee)}
+.history-item.selected{border-color:var(--coffee);border-width:2.5px}
+.history-item.selected::after{
+  content:"✓";position:absolute;top:4px;right:6px;
+  color:var(--paper);background:var(--coffee);
+  width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;
+}
+
+/* 产品网格（图片作卡片） */
+.furn-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+@media(max-width:720px){.furn-grid{grid-template-columns:1fr 1fr}}
+.furn-card{background:#fff;border:1px solid var(--line);cursor:pointer;transition:transform .15s}
+.furn-card:hover{transform:translateY(-2px)}
+.furn-card.active{outline:2.5px solid var(--coffee)}
+.furn-img{aspect-ratio:1/1;background:var(--coffee);overflow:hidden}
+.furn-img img{width:100%;height:100%;object-fit:cover}
+.furn-meta{padding:12px}
+.furn-meta h4{font-size:.95rem;font-weight:700;line-height:1.15}
+.furn-meta .cat{font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--coffee);margin-top:4px}
+
+/* 生成按钮 */
+.submit-btn{
+  width:100%;padding:20px;font-size:1.1rem;font-weight:800;
+  background:var(--coffee);color:var(--paper);
+  letter-spacing:.08em;text-transform:uppercase;
+  margin-top:8px;cursor:pointer;
+}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed}
+.submit-btn .eta{font-weight:400;font-size:.85rem;text-transform:none;letter-spacing:0;opacity:.7;margin-left:8px}
+
+/* 结果区（现在永远在表单下方，限制 max-height 避免页面过长） */
+.tryon-result{
+  background:var(--coffee);color:var(--paper);
+  padding:24px;min-height:240px;
+  display:flex;flex-direction:column;gap:16px;
+}
+.tryon-result .state{text-align:center;padding:32px 20px}
+.tryon-result .spinner{
+  display:inline-block;width:48px;height:48px;border:3px solid var(--paper);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:16px
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tryon-result .state-title{font-size:1.15rem;font-weight:700}
+.tryon-result .state-time{font-size:.85rem;opacity:.6;margin-top:6px}
+.tryon-result .preview-img{width:100%;display:block;background:var(--paper)}
+.tryon-result .meta{padding-top:8px;border-top:1px solid rgba(255,255,255,.15);font-size:.85rem;line-height:1.5}
+.tryon-result .meta strong{display:block;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;opacity:.6;margin-bottom:6px}
+.tryon-result .actions{display:flex;gap:8px;flex-wrap:wrap}
+.tryon-result .actions button,.tryon-result .actions a{
+  flex:1;padding:12px;background:var(--paper);color:var(--coffee);
+  font-size:.85rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;text-align:center;
+}
+.tryon-result .actions a{text-decoration:none;display:flex;align-items:center;justify-content:center}
+.tryon-result .actions .ghost{background:transparent;color:var(--paper);border:1px solid var(--paper)}
+
+/* 三步流程 */
+.steps{padding:48px 24px;border-top:1px solid var(--line)}
+.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--coffee)}
+@media(max-width:720px){.steps-grid{grid-template-columns:1fr}}
+.step{padding:28px 20px 24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.step:last-child{border-right:none}
+.step .n{font-size:2.5rem;font-weight:800;color:var(--coffee);margin-bottom:16px;line-height:1;letter-spacing:-.03em}
+.step h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
+.step p{font-size:.9rem;color:var(--ink);line-height:1.5;opacity:.75}
+
+/* 商品目录 */
+.catalog{padding:64px 24px;border-top:1px solid var(--line)}
+.products{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+@media(max-width:880px){.products{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.products{grid-template-columns:1fr}}
+.product-image{aspect-ratio:1/1;overflow:hidden;background:var(--coffee)}
+.product-image img{width:100%;height:100%;object-fit:cover}
+.product-meta{padding:20px 0 0;display:flex;justify-content:space-between;align-items:baseline}
+.product-meta h4{font-size:1rem;font-weight:700;letter-spacing:-.01em}
+.product-meta .price{font-size:.95rem;font-weight:600;color:var(--coffee)}
+.product-cat{font-size:.7rem;font-weight:700;letter-spacing:.2em;color:var(--coffee);text-transform:uppercase;margin-top:4px}
+
+/* 联系 */
+.contact{padding:64px 24px;border-top:1px solid var(--line)}
+.contact-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+@media(max-width:720px){.contact-grid{grid-template-columns:1fr 1fr}}
+.contact-item{padding:0 0 20px;border-bottom:1px solid var(--line)}
+.contact-item .label{font-size:.7rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:var(--coffee);margin-bottom:8px}
+.contact-item .value{font-size:1.05rem;font-weight:600;line-height:1.45}
+.contact-item a{border-bottom:1px solid var(--coffee)}
+
+/* 底部 5 项图标导航（仿平台型 UI） */
+.tabbar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:#fff;border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(5,1fr);
+  z-index:100;padding:6px 4px env(safe-area-inset-bottom,6px);
+}
+.tabbar a{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;padding:8px 0;color:var(--ink);opacity:.7;font-size:.7rem;font-weight:600;
+}
+.tabbar a.active{color:var(--coffee);opacity:1}
+.tabbar a .ico{font-size:1.3rem;line-height:1}
+.tabbar a.cta{background:var(--coffee);color:var(--paper);margin:4px 6px;border-radius:12px;padding:8px 0;opacity:1}
+.tabbar a.cta .ico{font-size:1.2rem}
+
+/* 默认图体验按钮（放在 file-field 下方）*/
+.default-room-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;margin-top:10px;padding:14px;
+  background:transparent;color:var(--coffee);
+  border:1.5px dashed var(--coffee);
+  font-size:.95rem;font-weight:600;cursor:pointer;
+  letter-spacing:.03em;
+  transition:all .15s;
+}
+.default-room-btn:hover{background:var(--paper);border-style:solid}
+.default-room-btn.active{background:var(--paper);border-style:solid;border-width:2px;padding:13px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo">
+    银杏家具
+    <small>柞水 · 13359140982</small>
+  </div>
+  <div class="nav-actions">
+    <a href="tel:13359140982">联系我们</a>
+    <a href="/login" id="nav-me">登录</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <h1>沙发<br>搬进你家<br>再决定</h1>
+  <p>拍一张你家客厅照片发我。AI 把店里沙发"摆"进你家客厅。看到真实效果，再来店里坐坐。</p>
+</section>
+
+<div class="hero-image">
+  <img id="heroImg" src="/images/sofa-zhongshi.jpg" alt="主推沙发" onerror="this.style.background='#3a2818';this.style.display='block'">
+  <div class="label">主推 · 3.4 米</div>
+</div>
+
+<!-- ★★★ AI 试摆（核心功能 · 主页集成）★★★ -->
+<section class="tryon" id="tryon">
+  <div class="section-tag">— AI 试摆</div>
+  <h2 class="section-title">照片传上去<br>沙发马上搬进你家</h2>
+
+  <div class="tryon-grid">
+    <!-- 左：表单 -->
+    <div>
+      <form class="tryon-form" id="tryonForm">
+        <h3>📷 三步出图</h3>
+        <p class="lead">客厅照 + 选家具 → 15 秒出真实合成图 → 不满意换款</p>
+
+        <!-- 客厅照 -->
+        <div class="field">
+          <label>
+            <span><span class="req">*</span> 客厅照片</span>
+            <span class="hint">手机拍照直接选</span>
+          </label>
+          <label class="file-field" id="roomField">
+            <input name="room" type="file" accept="image/*" required style="display:none">
+            <div class="icon">📷</div>
+            <div class="label">点击拍照 / 选择客厅照片</div>
+            <div class="hint">支持 JPG / PNG，≤ 15MB</div>
+            <img class="preview" id="roomPreview">
+          </label>
+
+          <!-- 历史照片墙 -->
+          <div class="history" id="historyBox">
+            <div class="history-title">用之前传过的照片</div>
+            <div class="history-grid" id="historyGrid"></div>
+          </div>
+
+          <!-- 没传图？用默认体验 -->
+          <button type="button" class="default-room-btn" id="useDefaultBtn">
+            <span>🪄 没有照片？用默认客厅图体验一下</span>
+          </button>
+        </div>
+
+        <!-- 家具选择 -->
+        <div class="field">
+          <label>
+            <span><span class="req">*</span> 想摆的家具</span>
+            <span class="hint">点图片选中</span>
+          </label>
+          <select name="productId" id="prodSelect" style="display:none"></select>
+          <div class="furn-grid" id="furnGrid"></div>
+        </div>
+
+        <!-- 手机号 -->
+        <div class="field">
+          <label>
+            <span>手机号</span>
+            <span class="hint">便于复用历史照片</span>
+          </label>
+          <input name="phone" type="tel" inputmode="numeric" pattern="1[3-9][0-9]{9}" maxlength="11" placeholder="11位手机号（选填）">
+        </div>
+
+        <!-- 提示词预设 + 自定义编辑 -->
+        <div class="field">
+          <label>
+            <span>提示词风格</span>
+            <span class="hint">可选预设 / 自定义</span>
+          </label>
+          <select id="presetSelect" style="margin-bottom:10px">
+            <option value="default">自然摆放（默认）</option>
+            <option value="sunlight">暖光氛围 · 午后阳光</option>
+            <option value="night">夜晚温馨 · 暖色台灯</option>
+            <option value="minimal">极简留白</option>
+            <option value="family">家庭生活感</option>
+            <option value="custom">自定义（下方输入）</option>
+          </select>
+          <textarea id="customPrompt" placeholder="例如：沙发放在落地窗前，阳光从左边洒进来，茶几上有茶杯" rows="2" style="font-family:inherit;font-size:0.95rem;padding:12px;border:1.5px solid var(--coffee);background:var(--paper);resize:vertical;display:none"></textarea>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          立即生成 <span class="eta">· 约 15 秒</span>
+        </button>
+
+        <!-- 大读秒计时器（按钮下方） -->
+        <div class="big-timer" id="bigTimer">
+          <div class="big-timer-num" id="bigTimerNum">0.0</div>
+          <div class="big-timer-lbl">秒 · AI 合成中</div>
+        </div>
+      </form>
+    </div>
+
+    <!-- 右：结果 -->
+    <div class="tryon-result" id="tryonResult">
+      <div class="state" id="stateIdle">
+        <div style="font-size:48px;margin-bottom:12px">🛋️</div>
+        <div class="state-title">这里会显示合成图</div>
+        <div class="state-time">传客厅照 + 选家具 → 点"立即生成"</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 三步流程 -->
+<section class="steps">
+  <div class="section-tag">— 如何使用</div>
+  <h2 class="section-title">三步把沙发<br>搬进您家</h2>
+  <div class="steps-grid">
+    <div class="step">
+      <div class="n">01</div>
+      <h3>传客厅照</h3>
+      <p>把客厅拍一张，点上面"立即生成"</p>
+    </div>
+    <div class="step">
+      <div class="n">02</div>
+      <h3>选家具</h3>
+      <p>点下方图片选沙发 / 柜 / 床</p>
+    </div>
+    <div class="step">
+      <div class="n">03</div>
+      <h3>看效果</h3>
+      <p>15 秒出图，不满意换款</p>
+    </div>
+  </div>
+</section>
+
+<!-- 商品目录（动态从 API 加载，避免用错图） -->
+<section class="catalog">
+  <div class="section-tag">— 家具 · 现货</div>
+  <h2 class="section-title">六款沙发<br>家具配套</h2>
+  <div class="products" id="catalogGrid"></div>
+</section>
+
+<!-- 联系 -->
+<section class="contact">
+  <div class="section-tag">— 来店</div>
+  <h2 class="section-title">坐坐</h2>
+  <div class="contact-grid">
+    <div class="contact-item">
+      <div class="label">地址</div>
+      <div class="value">柞水县乾佑街道<br>农机路河西</div>
+    </div>
+    <div class="contact-item">
+      <div class="label">电话</div>
+      <div class="value"><a href="tel:13359140982">13359140982</a></div>
+    </div>
+    <div class="contact-item">
+      <div class="label">营业</div>
+      <div class="value">9:00 – 20:00<br>全年无休</div>
+    </div>
+    <div class="contact-item">
+      <div class="label">微信</div>
+      <div class="value">同号</div>
+    </div>
+  </div>
+</section>
+
+<footer style="padding:48px 24px 32px;border-top:1px solid var(--line);font-size:.8rem;display:flex;justify-content:space-between;align-items:baseline;color:var(--ink);opacity:.6">
+  <span>© 银杏家具 · 时光不负此行</span>
+  <span style="font-family:monospace;letter-spacing:.1em">ZHA‐SHUI 1973</span>
+</footer>
+
+<div class="tabbar">
+  <a href="/" class="active"><span class="ico">🏠</span><span>首页</span></a>
+  <a href="#catalog"><span class="ico">🪑</span><span>分类</span></a>
+  <a href="#tryon" class="cta"><span class="ico">📷</span><span>试摆</span></a>
+  <a href="tel:13359140982"><span class="ico">📞</span><span>拨号</span></a>
+  <a href="/login" id="nav-me-tab"><span class="ico">👤</span><span>我的</span></a>
+</div>
+
+<script>
+// ===== 数据加载 =====
+let PRODUCTS = [];
+let SELECTED_ROOM_FILE = null;
+let SELECTED_ROOM_URL = null;
+let SELECTED_PRODUCT = null;
+const ETA_SECONDS = 15;
+
+async function loadProducts() {
+  const r = await fetch('/api/products').then(r=>r.json());
+  PRODUCTS = (r.data && r.data.products) || r.products || [];
+  renderFurnGrid();
+  renderCatalog();
+  setHeroImage();
+}
+
+function setHeroImage() {
+  // 用 sofa-1 的真实上传图作为主推（之前那张是错的草图）
+  const hero = document.getElementById('heroImg');
+  const featured = PRODUCTS.find(p => p.id === 'sofa-1') || PRODUCTS[0];
+  if (hero && featured && featured.image) hero.src = featured.image;
+}
+
+function renderCatalog() {
+  const grid = document.getElementById('catalogGrid');
+  if (!grid) return;
+  // 按 status + 分类顺序：先 在售 的 sofa / cabinet / bed / table
+  const order = ['sofa', 'cabinet', 'bed', 'table', 'other'];
+  const sorted = [...PRODUCTS].sort((a, b) => {
+    if ((a.status === '下架') !== (b.status === '下架')) return a.status === '下架' ? 1 : -1;
+    const ai = order.indexOf(a.category), bi = order.indexOf(b.category);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+  grid.innerHTML = sorted.slice(0, 6).map(p => `
+    <a href="/product/${p.id}" class="product">
+      <div class="product-image">
+        <img src="${p.image}" alt="${p.name}" onerror="this.style.display='none';this.parentNode.style.background='#3a2818'">
+      </div>
+      <div class="product-cat">${p.badge ? p.badge + ' · ' : ''}${p.category || '家具'}</div>
+      <div class="product-meta"><h4>${p.name}</h4><span class="price">${p.price || ''}</span></div>
+    </a>
+  `).join('');
+}
+
+function renderFurnGrid() {
+  const grid = document.getElementById('furnGrid');
+  const sel = document.getElementById('prodSelect');
+  sel.innerHTML = PRODUCTS.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  grid.innerHTML = PRODUCTS.map(p => `
+    <div class="furn-card" data-id="${p.id}" onclick="selectProduct('${p.id}')">
+      <div class="furn-img"><img src="${p.image}" alt="${p.name}" onerror="this.style.display='none'"></div>
+      <div class="furn-meta">
+        <div class="cat">${p.category || '家具'}</div>
+        <h4>${p.name}</h4>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectProduct(id) {
+  SELECTED_PRODUCT = id;
+  document.getElementById('prodSelect').value = id;
+  document.querySelectorAll('.furn-card').forEach(c=>{
+    c.classList.toggle('active', c.dataset.id === id);
+  });
+}
+
+// ===== 客厅照片（文件 + 历史复用）=====
+document.querySelector('input[name="room"]').addEventListener('change', async e=>{
+  const f = e.target.files[0];
+  if (!f) return;
+  SELECTED_ROOM_FILE = f;
+  SELECTED_ROOM_URL = null;
+  // 本地预览
+  const reader = new FileReader();
+  reader.onload = ev => document.getElementById('roomPreview').src = ev.target.result;
+  reader.readAsDataURL(f);
+  document.getElementById('roomPreview').style.display = 'block';
+  document.getElementById('roomField').querySelector('.label').textContent = f.name;
+  // 历史照片墙取消选择
+  document.querySelectorAll('.history-item').forEach(h=>h.classList.remove('selected'));
+});
+
+async function loadHistory(phone) {
+  if (!phone || phone.length !== 11) {
+    document.getElementById('historyBox').classList.remove('show');
+    return;
+  }
+  const r = await fetch(`/api/tryon/history?phone=${phone}`).then(r=>r.json());
+  const rooms = (r.data && r.data.rooms) || [];
+  if (rooms.length === 0) {
+    document.getElementById('historyBox').classList.remove('show');
+    return;
+  }
+  const grid = document.getElementById('historyGrid');
+  grid.innerHTML = rooms.map(r=>`
+    <div class="history-item" data-url="${r.url}" onclick="pickHistory('${r.url}', this)">
+      <img src="${r.url}" alt="之前上传的客厅照">
+    </div>
+  `).join('');
+  document.getElementById('historyBox').classList.add('show');
+}
+
+function pickHistory(url, el) {
+  SELECTED_ROOM_FILE = null;
+  SELECTED_ROOM_URL = url;
+  document.getElementById('roomPreview').src = url;
+  document.getElementById('roomPreview').style.display = 'block';
+  document.getElementById('roomField').querySelector('.label').textContent = '已选历史照片';
+  document.querySelectorAll('.history-item').forEach(h=>h.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+document.querySelector('input[name="phone"]').addEventListener('input', e=>{
+  const phone = e.target.value.replace(/\D/g, '').slice(0, 11);
+  e.target.value = phone;
+  if (phone.length === 11) loadHistory(phone);
+});
+
+// 提示词模式切换
+document.getElementById('presetSelect').addEventListener('change', e=>{
+  const ta = document.getElementById('customPrompt');
+  ta.style.display = e.target.value === 'custom' ? 'block' : 'none';
+});
+// 加载默认客厅图（无上传也能体验）
+const DEFAULT_ROOM_URL = '/images/default-room.jpg';
+document.getElementById('useDefaultBtn').addEventListener('click', () => {
+  SELECTED_ROOM_FILE = null;
+  SELECTED_ROOM_URL = DEFAULT_ROOM_URL;
+  document.getElementById('roomPreview').src = DEFAULT_ROOM_URL;
+  document.getElementById('roomPreview').style.display = 'block';
+  document.getElementById('roomField').querySelector('.label').textContent = '✓ 已选默认客厅图';
+  document.getElementById('useDefaultBtn').classList.add('active');
+  document.querySelectorAll('.history-item').forEach(h=>h.classList.remove('selected'));
+});
+
+// 文件选择时清掉默认状态
+document.querySelector('input[name="room"]').addEventListener('change', () => {
+  document.getElementById('useDefaultBtn').classList.remove('active');
+});
+
+// ===== 提交生成 =====
+document.getElementById('tryonForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!SELECTED_PRODUCT) { alert('请先选一款家具'); return; }
+  // 没选图也支持用默认图
+  if (!SELECTED_ROOM_FILE && !SELECTED_ROOM_URL) {
+    SELECTED_ROOM_URL = DEFAULT_ROOM_URL;
+  }
+
+  const phone = document.querySelector('input[name="phone"]').value.trim();
+
+  // 判断登录态：登录用原路径，未登录用匿名端点
+  let loggedIn = false;
+  try {
+    const meR = await fetch('/api/auth/me');
+    const meD = await meR.json();
+    loggedIn = !!(meD.success && meD.data && meD.data.user && meD.data.user.id !== 'admin');
+  } catch (_) { /* ignore */ }
+
+  const fd = new FormData();
+  fd.append('productId', SELECTED_PRODUCT);
+  const presetVal = document.getElementById('presetSelect').value;
+  if (presetVal === 'custom') {
+    const cp = document.getElementById('customPrompt').value.trim();
+    if (cp) fd.append('prompt', cp);
+  } else {
+    fd.append('preset', presetVal);
+  }
+
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '生成中… <span class="eta">已用 0.0 秒</span>';
+
+  const resultBox = document.getElementById('tryonResult');
+  resultBox.innerHTML = `
+    <div class="state">
+      <div class="spinner"></div>
+      <div class="state-title">正在合成...</div>
+      <div class="state-time">AI 把沙发"摆"进你客厅 · 约 ${ETA_SECONDS} 秒</div>
+    </div>`;
+
+  const bigTimer = document.getElementById('bigTimer');
+  const bigTimerNum = document.getElementById('bigTimerNum');
+  bigTimer.classList.add('active');
+  bigTimerNum.textContent = '0.0';
+
+  const t0 = Date.now();
+  const timer = setInterval(()=>{
+    const sec = (Date.now()-t0)/1000;
+    submitBtn.querySelector('.eta').textContent = `已用 ${sec.toFixed(1)} 秒`;
+    bigTimerNum.textContent = sec.toFixed(1);
+  }, 100);
+
+  try {
+    let resp;
+    if (loggedIn) {
+      // 登录用户走原路径
+      if (SELECTED_ROOM_FILE) {
+        fd.append('room', SELECTED_ROOM_FILE);
+        resp = await fetch('/api/tryon/ai-custom', { method: 'POST', body: fd });
+      } else {
+        resp = await fetch('/api/tryon/ai-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: SELECTED_PRODUCT,
+            roomUrl: SELECTED_ROOM_URL,
+            phone,
+            preset: presetVal,
+            customPrompt: presetVal === 'custom' ? document.getElementById('customPrompt').value.trim() : '',
+          }),
+        });
+      }
+    } else {
+      // 匿名用户 → ai-anon（multipart，room 直接传 file；默认图/历史图则先 fetch 转 blob）
+      let roomFile = SELECTED_ROOM_FILE;
+      if (!roomFile && SELECTED_ROOM_URL) {
+        try {
+          const r = await fetch(SELECTED_ROOM_URL);
+          const blob = await r.blob();
+          roomFile = new File([blob], 'room.jpg', { type: blob.type || 'image/jpeg' });
+        } catch (err) {
+          throw new Error('拉取默认/历史客厅图失败');
+        }
+      }
+      if (!roomFile) throw new Error('请上传客厅照片');
+      fd.append('room', roomFile);
+      resp = await fetch('/api/tryon/ai-anon', { method: 'POST', body: fd });
+    }
+    clearInterval(timer);
+    bigTimer.classList.remove('active');
+    const sec = (Date.now()-t0)/1000;
+    const data = await resp.json();
+    if (!data.success) {
+      const err = new Error(data.error || '生成失败');
+      err.status = resp.status;
+      throw err;
+    }
+    // 登录用户才记录历史（匿名不写 uploads.json）
+    if (loggedIn) {
+      showResult(data.data, sec, phone);
+    } else {
+      showAnonResult(data.data, sec);
+    }
+  } catch (err) {
+    clearInterval(timer);
+    bigTimer.classList.remove('active');
+    const resultBox = document.getElementById('tryonResult');
+    if (err.status === 429 || /登录/.test(err.message)) {
+      resultBox.innerHTML = `
+        <div class="state" style="padding:40px 20px">
+          <div style="font-size:48px;margin-bottom:12px">🔐</div>
+          <div class="state-title">${err.message}</div>
+          <div class="state-time">登录后可无限次试摆</div>
+          <div style="margin-top:24px;display:flex;gap:10px;flex-direction:column">
+            <a href="/login" style="padding:18px;background:var(--paper);color:var(--coffee);font-weight:800;text-decoration:none;letter-spacing:.05em">📲 顾客登录（手机号 + 验证码）</a>
+            <a href="/admin/login" style="padding:14px;background:transparent;color:var(--paper);border:1px solid var(--paper);font-weight:700;text-decoration:none">🛠️ 店员后台登录</a>
+          </div>
+        </div>`;
+    } else {
+      resultBox.innerHTML = `<div class="state"><div style="font-size:48px">⚠️</div><div class="state-title">${err.message}</div><div class="state-time">换个照片再试？</div></div>`;
+    }
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '立即生成 <span class="eta">· 约 15 秒</span>';
+  }
+});
+
+function showAnonResult(d, sec) {
+  const url = d.compositionUrl || (d.compositionBase64 ? d.compositionBase64 : null);
+  const resultBox = document.getElementById('tryonResult');
+  if (!url) {
+    resultBox.innerHTML = `<div class="state"><div class="state-title">合成失败</div><div class="state-time">${d.aiError || '换个照片试试'}</div></div>`;
+    return;
+  }
+  const product = d.product || {};
+  resultBox.innerHTML = `
+    <img src="${url}" class="preview-img" alt="合成结果">
+    <div class="meta">
+      <strong>匿名体验 · 用时 ${sec.toFixed(1)} 秒</strong>
+      ${product.name || ''} · ${product.subtitle || ''}
+      <div style="margin-top:10px;font-size:.8rem;opacity:.7">登录后可保存历史 + 无限次数</div>
+    </div>
+    <div class="actions">
+      <button onclick="regenerate()">↻ 重新生成</button>
+      <a href="/login">📲 登录</a>
+    </div>`;
+}
+
+function showResult(d, sec, phone) {
+  const url = d.compositionUrl;
+  const resultBox = document.getElementById('tryonResult');
+  if (!url) {
+    resultBox.innerHTML = `<div class="state"><div class="state-title">合成失败</div><div class="state-time">${d.aiError || '换个照片试试'}</div></div>`;
+    return;
+  }
+  fetch('/api/upload/room', { method:'POST', body: (()=>{
+    const f = new FormData();
+    if (SELECTED_ROOM_FILE) f.append('file', SELECTED_ROOM_FILE);
+    else f.append('url', SELECTED_ROOM_URL);
+    f.append('phone', phone||'');
+    f.append('productId', SELECTED_PRODUCT||'');
+    return f;
+  })()}).catch(()=>{});
+  const product = d.product || PRODUCTS.find(p=>p.id===SELECTED_PRODUCT) || {};
+  resultBox.innerHTML = `
+    <img src="${url}" class="preview-img" alt="合成结果">
+    <div class="meta">
+      <strong>已生成 · 用时 ${sec.toFixed(1)} 秒</strong>
+      ${product.name || ''} · ${product.subtitle || ''}
+    </div>
+    <div class="actions">
+      <button onclick="regenerate()">↻ 重新生成</button>
+      <a href="tel:13359140982">📞 到店咨询</a>
+    </div>`;
+}
+
+function regenerate() {
+  document.getElementById('tryonForm').dispatchEvent(new Event('submit', {cancelable: true}));
+}
+
+// 初始化
+loadProducts();
+
+// 已登录 → "我的"；未登录 → "登录"
+fetch('/api/auth/me').then(r=>r.json()).then(d=>{
+  const tab=document.getElementById('nav-me-tab');
+  if(tab && d.success && d.data && d.data.user && d.data.user.id !== 'admin'){
+    tab.href='/my-orders';
+    tab.querySelector('span:last-child').textContent='我的';
+  }
+}).catch(()=>{});
+</script>
+</body>
+</html>

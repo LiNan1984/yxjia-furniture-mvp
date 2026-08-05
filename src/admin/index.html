@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>银杏家具 · 后台管理</title>
+<style>
+:root{--ink:#1a1a1a;--ink2:#3a3a3a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center}
+.nav-logo{font-size:1.4rem;font-weight:800}
+.nav-out{background:var(--red);color:#fff;padding:12px 20px;border-radius:8px;font-size:1.1rem;font-weight:700;border:none;cursor:pointer}
+.wrap{max-width:880px;margin:0 auto;padding:24px 20px}
+h2{font-size:1.8rem;color:var(--coffee);margin:16px 0 8px}
+.cards{display:grid;grid-template-columns:1fr;gap:18px;margin-top:24px}
+@media(min-width:720px){.cards{grid-template-columns:1fr 1fr}}
+.card{background:#fff;border:2px solid var(--coffee);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;text-decoration:none;color:var(--ink)}
+.card:hover{background:#fff8ec}
+.card-icon{font-size:3rem}
+.card-title{font-size:1.6rem;font-weight:800;color:var(--coffee)}
+.card-desc{font-size:1.1rem;color:#555}
+.card-cta{margin-top:auto;display:inline-block;background:var(--coffee);color:#fff;text-align:center;padding:14px;border-radius:10px;font-size:1.2rem;font-weight:700}
+.err{background:#d94f3e;color:#fff;padding:14px;border-radius:10px;margin-top:12px;font-weight:700;display:none}
+.err.show{display:block}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="nav-logo">🛠️ 后台管理</div>
+  <button id="out" class="nav-out">退出登录</button>
+</header>
+<main class="wrap">
+  <h2>银杏家具 · 后台</h2>
+  <p style="font-size:1.15rem;color:#444">四件事，按从上到下顺序做完就行</p>
+  <div id="err" class="err"></div>
+
+  <div class="cards">
+    <a class="card" href="/admin/product">
+      <div class="card-icon">📦</div>
+      <div class="card-title">A · 上传商品图</div>
+      <div class="card-desc">添加新家具：填名字、价格、尺寸、分类，再选图</div>
+      <div class="card-cta">➕ 添加商品</div>
+    </a>
+
+    <a class="card" href="/admin/room">
+      <div class="card-icon">🛋️</div>
+      <div class="card-title">B · 上传顾客客厅图</div>
+      <div class="card-desc">顾客发来的客厅照片，先存起来再用 AI 试摆</div>
+      <div class="card-cta">📷 上传客厅图</div>
+    </a>
+
+    <a class="card" href="/admin/tryon">
+      <div class="card-icon">✨</div>
+      <div class="card-title">C · 拍 AI 试摆图</div>
+      <div class="card-desc">选客厅图 + 沙发商品 → AI 合成 → 直接看效果</div>
+      <div class="card-cta">🤖 开始试摆</div>
+    </a>
+
+    <a class="card" href="/admin/orders">
+      <div class="card-icon">📋</div>
+      <div class="card-title">D · 查看订单</div>
+      <div class="card-desc">所有订单，按时间倒序，最新的在最上面</div>
+      <div class="card-cta">📞 看订单</div>
+    </a>
+
+    <a class="card" href="/admin/products">
+      <div class="card-icon">📦</div>
+      <div class="card-title">E · 商品管理</div>
+      <div class="card-desc">查看 / 编辑名字价格 / 上下架 / 删除商品</div>
+      <div class="card-cta">📝 商品管理</div>
+    </a>
+
+    <a class="card" href="/admin/rooms">
+      <div class="card-icon">🖼️</div>
+      <div class="card-title">F · 顾客客厅图库</div>
+      <div class="card-desc">查看所有顾客上传的客厅照，可批量删除</div>
+      <div class="card-cta">🗂️ 图库</div>
+    </a>
+
+    <a class="card" href="/admin/presets">
+      <div class="card-icon">✨</div>
+      <div class="card-title">G · 提示词管理</div>
+      <div class="card-desc">编辑 AI 合成用的 5 个预设提示词（暖光/夜晚/极简等）</div>
+      <div class="card-cta">📝 提示词</div>
+    </a>
+
+    <a class="card" href="/admin/tryon-results">
+      <div class="card-icon">🖼️</div>
+      <div class="card-title">H · 试摆历史</div>
+      <div class="card-desc">所有 AI 合成过的效果图，点开可看大图</div>
+      <div class="card-cta">🔍 历史</div>
+    </a>
+  </div>
+</main>
+<script>
+const errEl=document.getElementById('err');
+function showErr(m){errEl.textContent=m;errEl.classList.add('show')}
+async function check(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(!data.success||!data.data||!data.data.user||data.data.user.id!=='admin'){
+    location.href='/admin/login';
+  }
+}
+check();
+document.getElementById('out').addEventListener('click',async()=>{
+  await fetch('/api/auth/logout',{method:'POST'});
+  location.href='/admin/login';
+});
+</script>
+</body>
+</html>

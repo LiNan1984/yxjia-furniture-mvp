@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>顾客客厅图库 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.nav a{color:#fff;font-size:1.2rem;text-decoration:none}
+.wrap{max-width:1200px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:8px}
+p.lead{color:#444;margin-bottom:18px}
+.toolbar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+.toolbar a{padding:12px 18px;background:var(--coffee);color:#fff;border-radius:10px;text-decoration:none;font-weight:700}
+.toolbar input{padding:10px 14px;font-size:1rem;border:2px solid #c8b89a;border-radius:10px;background:#fff;flex:1;min-width:200px}
+.toolbar .count{font-size:.95rem;color:#888;margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.tile{background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;position:relative;border:2px solid var(--paper)}
+.tile:hover{border-color:var(--coffee)}
+.img{aspect-ratio:1/1;background:var(--coffee);overflow:hidden;cursor:pointer}
+.img img{width:100%;height:100%;object-fit:cover}
+.meta{padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.meta .phone{font-size:.85rem;font-weight:700;color:var(--coffee)}
+.meta .ts{font-size:.7rem;color:#888}
+.meta .id{font-size:.65rem;color:#aaa;font-family:monospace}
+.del{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;opacity:0;transition:opacity .15s}
+.tile:hover .del{opacity:1}
+.empty{padding:60px 20px;text-align:center;color:#888;font-size:1.1rem}
+.msg{display:none;padding:14px;border-radius:10px;margin-bottom:18px;font-size:1.05rem;font-weight:700}
+.msg.ok{display:block;background:var(--green);color:#fff}
+.msg.err{display:block;background:var(--red);color:#fff}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:300;cursor:zoom-out}
+.lightbox.show{display:flex}
+.lightbox img{max-width:92vw;max-height:92vh;object-fit:contain}
+</style>
+</head>
+<body>
+<header class="nav">
+  <a href="/admin/index">← 返回</a>
+  <div style="font-size:1.3rem;font-weight:800">🖼️ 顾客客厅图库</div>
+</header>
+<main class="wrap">
+  <a href="/admin/index" style="display:inline-block;margin-bottom:14px;color:var(--coffee);font-size:1.1rem;text-decoration:none">← 返回后台首页</a>
+  <h1>🖼️ 顾客客厅图库</h1>
+  <p class="lead">所有顾客上传过的客厅照片。点缩略图看大图，红按钮删除。</p>
+
+  <div class="toolbar">
+    <a href="/admin/room">📷 上传新客厅图</a>
+    <input type="text" id="filter" placeholder="按手机号或 ID 筛选">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div id="msg" class="msg"></div>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" style="display:none">还没有顾客上传过客厅图</div>
+</main>
+
+<div id="lightbox" class="lightbox" onclick="this.classList.remove('show')">
+  <img id="lb-img" alt="">
+</div>
+
+<script>
+let rooms=[];
+const grid=document.getElementById('grid');
+const empty=document.getElementById('empty');
+const count=document.getElementById('count');
+const msg=document.getElementById('msg');
+function showMsg(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');setTimeout(()=>{msg.className='msg'},3000)}
+
+async function load(){
+  const r=await fetch('/api/admin/rooms').then(r=>r.json());
+  rooms=(r.data&&r.data.rooms)||[];
+  render();
+}
+function render(filter=''){
+  const f=filter.trim().toLowerCase();
+  const list=rooms.filter(u=>!f||(u.userPhone||'').includes(f)||u.id.toLowerCase().includes(f));
+  count.textContent=`共 ${list.length} 张`;
+  if(list.length===0){empty.style.display='block';grid.innerHTML='';return}
+  empty.style.display='none';
+  grid.innerHTML=list.map(u=>`
+    <div class="tile" data-id="${u.id}">
+      <button class="del" onclick="del('${u.id}')">×</button>
+      <div class="img" onclick="zoom('${u.url}')"><img src="${u.url}" alt="客厅照" onerror="this.style.display='none'"></div>
+      <div class="meta">
+        <div class="phone">${u.userPhone?u.userPhone:'匿名'}</div>
+        <div class="ts">${new Date(u.createdAt).toLocaleString('zh-CN')}</div>
+        <div class="id">${u.id}</div>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('filter').addEventListener('input',e=>render(e.target.value));
+
+function zoom(url){
+  document.getElementById('lb-img').src=url;
+  document.getElementById('lightbox').classList.add('show');
+}
+async function del(id){
+  if(!confirm('确认删除这条上传记录？'))return;
+  try{
+    const r=await fetch(`/api/admin/rooms/${id}`,{method:'DELETE'});
+    const d=await r.json();
+    if(!d.success){showMsg(d.error||'删除失败',false);return}
+    showMsg('✅ 已删除',true);
+    await load();
+  }catch(e){showMsg('网络出错',false)}
+}
+
+async function check(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(!data.success||!data.data||!data.data.user||data.data.user.id!=='admin'){
+    location.href='/admin/login';
+  }
+}
+check();
+load();
+</script>
+</body>
+</html>

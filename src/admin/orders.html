@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>订单列表 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.wrap{max-width:880px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:16px}
+.back{display:inline-block;margin-bottom:16px;font-size:1.2rem;color:var(--coffee);text-decoration:none}
+.order{background:#fff;border:2px solid var(--coffee);border-radius:14px;padding:18px;margin-bottom:14px}
+.order-id{font-size:1.1rem;color:#666;font-weight:700}
+.order-name{font-size:1.5rem;font-weight:800;color:var(--coffee);margin-top:4px}
+.order-row{font-size:1.15rem;margin-top:6px}
+.status{display:inline-block;background:var(--green);color:#fff;padding:6px 14px;border-radius:999px;font-size:1.05rem;font-weight:700;margin-top:8px}
+.status.pending{background:#d39e00}
+.empty{text-align:center;color:#666;font-size:1.2rem;padding:40px}
+.call-btn{display:inline-block;margin-top:10px;background:var(--red);color:#fff;padding:14px 22px;border-radius:10px;font-size:1.2rem;font-weight:800;text-decoration:none}
+</style>
+</head>
+<body>
+<header class="nav"><a href="/admin/index">← 返回</a><div style="font-size:1.3rem;font-weight:800">📋 订单列表</div></header>
+<main class="wrap">
+  <a class="back" href="/admin/index">← 返回后台首页</a>
+  <h1>📋 订单（按时间倒序）</h1>
+  <div id="list"></div>
+</main>
+
+<script>
+function fmt(iso){
+  try{return new Date(iso).toLocaleString('zh-CN',{hour12:false})}catch(e){return iso}
+}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+
+async function load(){
+  const r=await fetch('/api/orders');
+  const data=await r.json();
+  const list=document.getElementById('list');
+  if(!data.success){list.innerHTML='<div class="empty">读取失败</div>';return}
+  const orders=data.data.orders||[];
+  if(orders.length===0){list.innerHTML='<div class="empty">暂无订单</div>';return}
+  list.innerHTML=orders.map(o=>{
+    const cls=o.status==='待联系'?'pending':'';
+    return `<div class="order">
+      <div class="order-id">单号 ${esc(o.id)} · ${fmt(o.createdAt)}</div>
+      <div class="order-name">${esc(o.name)} · ${esc(o.phone)}</div>
+      <div class="order-row">商品：${esc(o.productName)} ${esc(o.productPrice||'')}</div>
+      <div class="order-row">收货：${esc(o.address)}</div>
+      ${o.spec?`<div class="order-row">规格：${esc(o.spec)}</div>`:''}
+      <div class="status ${cls}">${esc(o.status)}</div>
+      <div><a class="call-btn" href="tel:${esc(o.phone)}">📞 联系 ${esc(o.phone)}</a></div>
+    </div>`;
+  }).join('');
+}
+
+async function check(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(!data.success||!data.data||!data.data.user||data.data.user.id!=='admin'){
+    location.href='/admin/login';
+  }
+}
+check();
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>商品详情 - 银杏家具</title>
+<style>
+:root{--ink:#1a1a1a;--ink2:#3a3a3a;--paper:#fafaf7;--coffee:#3a2818;--coffee-2:#5a3e26;--line:rgba(58,40,24,.15)}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);font-size:1rem;line-height:1.6;padding-bottom:96px}
+a{color:var(--ink);text-decoration:none}
+button{font-family:inherit;border:none;background:none;cursor:pointer}
+
+.nav{background:var(--coffee);color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50}
+.nav-logo{font-size:1.15rem;font-weight:700}
+.back{color:#fff;font-size:.95rem;font-weight:600;padding:6px 12px;border:1px solid #fff;min-width:64px;text-align:center}
+
+.product-img{aspect-ratio:1/1;background:var(--coffee);position:relative;overflow:hidden}
+.product-img img{width:100%;height:100%;object-fit:cover}
+.product-img .badge{position:absolute;top:16px;left:16px;background:var(--coffee);color:#fff;padding:6px 14px;border-radius:999px;font-size:.8rem;font-weight:700;letter-spacing:.05em}
+.product-img .size{position:absolute;bottom:16px;right:16px;color:#fff;font-size:.85rem;font-weight:600;background:rgba(58,40,24,.85);padding:6px 12px;border-radius:999px}
+
+.info{padding:24px 20px;background:#fff;border-bottom:1px solid var(--line)}
+.info h1{font-size:1.6rem;font-weight:800;line-height:1.2;color:var(--ink);margin-bottom:6px}
+.info .sub{font-size:1rem;color:var(--ink2);margin-bottom:14px;opacity:.75}
+.info .price{font-size:1.6rem;font-weight:800;color:var(--coffee);margin-bottom:10px}
+.info .stock{font-size:.9rem;color:var(--ink2);display:flex;align-items:center;gap:8px}
+.info .stock::before{content:"";width:10px;height:10px;background:#34C759;border-radius:50%}
+
+.section{padding:24px 20px;background:#fff;border-top:8px solid var(--paper)}
+.section h2{font-size:1.2rem;font-weight:800;margin-bottom:14px;color:var(--coffee)}
+.section .desc{font-size:1rem;color:var(--ink);line-height:1.65;margin-bottom:14px}
+.highlights{display:flex;flex-direction:column;gap:10px}
+.highlight{display:flex;align-items:center;gap:12px;font-size:1rem;padding:12px;background:var(--paper);border-radius:10px}
+.highlight::before{content:"✓";width:28px;height:28px;background:var(--coffee);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;flex-shrink:0}
+
+.tryon-card{margin:24px 20px;padding:24px;background:var(--coffee);color:#fff;border-radius:16px;text-align:center}
+.tryon-card h3{font-size:1.2rem;font-weight:800;margin-bottom:6px}
+.tryon-card p{font-size:.95rem;opacity:.85;margin-bottom:14px}
+.tryon-cta{display:block;padding:16px;background:#fff;color:var(--coffee);border-radius:12px;font-size:1.1rem;font-weight:800}
+
+/* 底部 CTA：白色框 + 棕色文字，跟顶部按钮同款 */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;padding:12px 16px;display:flex;gap:10px;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.08)}
+.bottom-bar a{flex:1;text-align:center;padding:18px;border-radius:14px;font-size:1.1rem;font-weight:800;background:var(--paper);color:var(--coffee);border:1.5px solid var(--coffee)}
+.bottom-bar .buy{background:var(--coffee);color:var(--paper);border-color:var(--coffee)}
+
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="back">← 首页</a>
+  <div class="nav-logo">商品详情</div>
+  <a href="tel:13359140982" class="back">📞 联系</a>
+</nav>
+
+<div id="content">加载中...</div>
+
+<div class="bottom-bar">
+  <a href="tel:13359140982">📞 咨询</a>
+  <a id="buyBtn" class="buy">我要这个</a>
+</div>
+
+<script>
+const id = location.pathname.split('/').pop();
+let product = null;
+fetch('/api/products/'+id).then(r=>r.json()).then(api=>{
+  if (!api.success) throw new Error(api.error || '未找到');
+  product = api.data.product;
+  document.title = product.name + ' - 银杏家具';
+  document.getElementById('content').innerHTML = `
+    <div class="product-img" style="background:${product.color || '#3a2818'}">
+      ${product.badge ? `<div class="badge">${product.badge}</div>` : ''}
+      <img src="${product.image}" alt="${product.name}" onerror="this.style.display='none'">
+      ${product.size ? `<div class="size">${product.size}</div>` : ''}
+    </div>
+    <div class="info">
+      <h1>${product.name}</h1>
+      <div class="sub">${product.subtitle || ''}</div>
+      <div class="price">${product.price || '面议'}</div>
+      <div class="stock">${product.stock || ''}</div>
+    </div>
+    <div class="section">
+      <h2>详细介绍</h2>
+      <div class="desc">${product.description || ''}</div>
+    </div>
+    <div class="section">
+      <h2>商品亮点</h2>
+      <div class="highlights">
+        ${(product.highlights || []).map(h=>`<div class="highlight">${h}</div>`).join('')}
+      </div>
+    </div>
+    <div class="tryon-card">
+      <h3>📷 先看摆进家效果</h3>
+      <p>发张您家客厅照，免费 AI 试摆</p>
+      <a href="/tryon?product=${product.id}" class="tryon-cta">立即试摆</a>
+    </div>
+  `;
+  document.getElementById('buyBtn').href = '/checkout/' + product.id;
+}).catch(e=>{
+  document.getElementById('content').innerHTML = '<div style="padding:40px;text-align:center">商品不存在 <a href="/">返回首页</a></div>';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>我的订单 · 银杏家具</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
+.nav-logo{font-size:1.3rem;font-weight:800}
+.nav a{color:#fff;font-size:1.1rem;text-decoration:none}
+.btn-out{background:var(--red);color:#fff;padding:10px 16px;border-radius:8px;font-weight:700}
+.wrap{max-width:720px;margin:0 auto;padding:24px 20px}
+h1{font-size:1.8rem;color:var(--coffee);margin-bottom:16px}
+.hello{font-size:1.15rem;color:#444;margin-bottom:24px}
+.order{background:#fff;border:2px solid var(--coffee);border-radius:14px;padding:18px;margin-bottom:14px}
+.order-id{font-size:1rem;color:#666;font-weight:700}
+.order-name{font-size:1.4rem;font-weight:800;color:var(--coffee);margin-top:4px}
+.order-row{font-size:1.1rem;margin-top:6px}
+.status{display:inline-block;background:var(--green);color:#fff;padding:6px 14px;border-radius:999px;font-size:1rem;font-weight:700;margin-top:8px}
+.empty{text-align:center;color:#666;font-size:1.2rem;padding:40px}
+.call-btn{display:inline-block;margin-top:10px;background:var(--red);color:#fff;padding:14px 22px;border-radius:10px;font-size:1.2rem;font-weight:800;text-decoration:none}
+.not-login{background:#fff;border:2px solid var(--coffee);border-radius:14px;padding:24px;text-align:center}
+.not-login .btn{display:inline-block;background:var(--coffee);color:#fff;padding:16px 28px;border-radius:10px;font-size:1.3rem;font-weight:800;text-decoration:none;margin-top:14px}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="nav-logo">📋 我的订单</div>
+  <a href="/" class="btn-out">← 回首页</a>
+</header>
+<main class="wrap">
+  <h1>📋 我的订单</h1>
+  <div id="content"></div>
+</main>
+
+<script>
+function fmt(iso){try{return new Date(iso).toLocaleString('zh-CN',{hour12:false})}catch(e){return iso}}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+
+async function init(){
+  const content=document.getElementById('content');
+  const me=await fetch('/api/auth/me');
+  const meData=await me.json();
+  if(!meData.success||!meData.data||!meData.data.user){
+    content.innerHTML='<div class="not-login"><p style="font-size:1.2rem">请先登录</p><a class="btn" href="/login">👤 去登录</a></div>';
+    return;
+  }
+  const u=meData.data.user;
+  content.innerHTML='<div class="hello">👋 '+esc(u.name||u.phone)+'（'+esc(u.phone)+'）<button id="logout" style="background:var(--red);color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:1rem;margin-left:10px;cursor:pointer;font-weight:700">退出</button></div><div id="orders"></div>';
+  document.getElementById('logout').addEventListener('click',async()=>{
+    await fetch('/api/auth/logout',{method:'POST'});
+    location.href='/login';
+  });
+  const r=await fetch('/api/orders/by-phone/'+u.phone);
+  const data=await r.json();
+  const orders=data.data&&data.data.orders||[];
+  const box=document.getElementById('orders');
+  if(orders.length===0){box.innerHTML='<div class="empty">暂无订单</div>';return}
+  box.innerHTML=orders.map(o=>{
+    return `<div class="order">
+      <div class="order-id">单号 ${esc(o.id)} · ${fmt(o.createdAt)}</div>
+      <div class="order-name">${esc(o.productName)}</div>
+      <div class="order-row">${esc(o.productPrice||'')} · ${esc(o.address)}</div>
+      ${o.spec?`<div class="order-row">规格：${esc(o.spec)}</div>`:''}
+      <div class="status">${esc(o.status)}</div>
+      <div><a class="call-btn" href="tel:13359140982">📞 联系我们</a></div>
+    </div>`;
+  }).join('');
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>AI 试摆 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.wrap{max-width:880px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:16px}
+label{display:block;font-size:1.25rem;margin:20px 0 8px;font-weight:700}
+select,input[type=file]{width:100%;padding:16px;font-size:1.2rem;border:2px solid #c8b89a;border-radius:12px;background:#fff}
+button{min-height:64px;width:100%;padding:18px;font-size:1.5rem;font-weight:800;background:var(--red);color:#fff;border:none;border-radius:12px;margin-top:28px;cursor:pointer}
+button:disabled{background:#999;cursor:not-allowed}
+.back{display:inline-block;margin-bottom:16px;font-size:1.2rem;color:var(--coffee);text-decoration:none}
+.row{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}
+@media(min-width:720px){.row{grid-template-columns:1fr 1fr}}
+.box{background:#fff;border:2px solid #c8b89a;border-radius:14px;padding:18px}
+.box h3{font-size:1.2rem;color:var(--coffee);margin-bottom:10px}
+.thumb{width:100%;aspect-ratio:16/9;background:#f0e8d8;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#999;font-size:1rem;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.msg{display:none;padding:18px;border-radius:12px;margin-top:20px;font-size:1.2rem;font-weight:700}
+.msg.ok{display:block;background:var(--green);color:#fff}
+.msg.err{display:block;background:var(--red);color:#fff}
+.result{background:#fff;padding:18px;border-radius:14px;margin-top:24px;display:none}
+.result.show{display:block}
+.result img{width:100%;border-radius:10px;margin-top:12px}
+</style>
+</head>
+<body>
+<header class="nav"><a href="/admin/index">← 返回</a><div style="font-size:1.3rem;font-weight:800">✨ AI 试摆</div></header>
+<main class="wrap">
+  <a class="back" href="/admin/index">← 返回后台首页</a>
+  <h1>✨ 拍 AI 试摆图</h1>
+  <p style="font-size:1.15rem;color:#444">选客厅图 + 选沙发商品 → AI 合成 → 直接看效果</p>
+
+  <label for="product">1. 选沙发商品</label>
+  <select id="product"><option value="">— 加载中… —</option></select>
+
+  <div class="row">
+    <div class="box">
+      <h3>2. 顾客客厅图</h3>
+      <input id="room" type="file" accept="image/*">
+      <div class="thumb" id="room-thumb">未上传</div>
+    </div>
+    <div class="box">
+      <h3>3. 沙发商品图（自动取）</h3>
+      <div class="thumb" id="sofa-thumb">选完商品后会显示</div>
+    </div>
+  </div>
+
+  <button id="go">🤖 开始 AI 试摆</button>
+  <div id="msg" class="msg"></div>
+
+  <div id="result" class="result">
+    <h2 style="color:var(--coffee);font-size:1.5rem">合成结果</h2>
+    <div id="result-text"></div>
+    <img id="result-img" alt="合成结果">
+  </div>
+</main>
+
+<script>
+const sel=document.getElementById('product');
+const roomInput=document.getElementById('room');
+const roomThumb=document.getElementById('room-thumb');
+const sofaThumb=document.getElementById('sofa-thumb');
+const btn=document.getElementById('go');
+const msg=document.getElementById('msg');
+const resultBox=document.getElementById('result');
+const resultImg=document.getElementById('result-img');
+const resultText=document.getElementById('result-text');
+
+let products=[];
+
+async function loadProducts(){
+  const r=await fetch('/api/products');
+  const data=await r.json();
+  if(!data.success){showMsg('商品加载失败',false);return}
+  products=data.data.products;
+  sel.innerHTML='<option value="">— 请选择要试摆的商品 —</option>'+
+    products.map(p=>`<option value="${p.id}">${p.name}（${p.price}）</option>`).join('');
+}
+loadProducts();
+
+sel.addEventListener('change',()=>{
+  const p=products.find(x=>x.id===sel.value);
+  if(!p){sofaThumb.innerHTML='选完商品后会显示';sofaThumb.style.background='#f0e8d8';return}
+  sofaThumb.innerHTML=`<img src="${p.image}" alt="${p.name}">`;
+});
+
+roomInput.addEventListener('change',()=>{
+  const f=roomInput.files[0];
+  if(!f){roomThumb.innerHTML='未上传';return}
+  const reader=new FileReader();
+  reader.onload=e=>{roomThumb.innerHTML=`<img src="${e.target.result}">`};
+  reader.readAsDataURL(f);
+});
+
+function showMsg(text,ok){
+  msg.textContent=text;
+  msg.className='msg '+(ok?'ok':'err');
+}
+
+function showResult(text,imgUrl){
+  resultText.textContent=text;
+  resultImg.src=imgUrl;
+  resultBox.classList.add('show');
+}
+
+btn.addEventListener('click',async ()=>{
+  const productId=sel.value;
+  const roomFile=roomInput.files[0];
+  if(!productId){showMsg('请先选择沙发商品',false);return}
+  if(!roomFile){showMsg('请上传顾客客厅图',false);return}
+  // 取商品图：尝试 fetch 当前页相对路径下的图片，转成 Blob
+  const product=products.find(p=>p.id===productId);
+  btn.disabled=true;btn.textContent='试摆中（约 10~30 秒）…';
+  showMsg('正在调用 AI 试摆，请稍候…',true);
+  try{
+    const sofaResp=await fetch(product.image);
+    const sofaBlob=await sofaResp.blob();
+    const fd=new FormData();
+    fd.append('productId',productId);
+    fd.append('room',roomFile);
+    fd.append('sofa',new File([sofaBlob],'sofa.jpg',{type:sofaBlob.type||'image/jpeg'}));
+    const r=await fetch('/api/tryon/ai',{method:'POST',body:fd});
+    const data=await r.json();
+    if(!data.success){showMsg('试摆失败：'+(data.error||'未知错误'),false);return}
+    if(data.data.compositionUrl){
+      const fullUrl=location.origin+data.data.compositionUrl;
+      showResult('✅ AI 试摆成功',fullUrl);
+      showMsg('✅ 试摆成功，已保存到 '+data.data.compositionUrl,true);
+    }else{
+      showResult('⚠️ AI 试摆失败，已保存顾客原图，请手动处理',location.origin+'/images/compositions/sofa-1-demo.jpg');
+      showMsg('⚠️ 失败：'+(data.data.aiError||'AI 出图失败'),false);
+    }
+  }catch(err){
+    showMsg('网络出错：'+err.message,false);
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 开始 AI 试摆';
+  }
+});
+
+async function check(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(!data.success||!data.data||!data.data.user||data.data.user.id!=='admin'){
+    location.href='/admin/login';
+  }
+}
+check();
+</script>
+</body>
+</html>

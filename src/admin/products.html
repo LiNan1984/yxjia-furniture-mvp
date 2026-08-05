@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>商品管理 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--ink2:#3a3a3a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.nav a{color:#fff;font-size:1.2rem;text-decoration:none}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:8px}
+p.lead{color:#444;margin-bottom:18px}
+.toolbar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+.toolbar a,.toolbar button{padding:12px 18px;background:var(--coffee);color:#fff;border:none;border-radius:10px;font-size:1.05rem;font-weight:700;text-decoration:none;cursor:pointer}
+.toolbar a.alt{background:#fff;color:var(--coffee);border:1.5px solid var(--coffee)}
+.toolbar input[type=text]{padding:10px 14px;font-size:1rem;border:2px solid #c8b89a;border-radius:10px;background:#fff;flex:1;min-width:200px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+.card{background:#fff;border:2px solid var(--paper);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s}
+.card.off-shelf{border-color:var(--red)}
+.card:hover{border-color:var(--coffee)}
+.img{aspect-ratio:1/1;background:var(--coffee);overflow:hidden}
+.img img{width:100%;height:100%;object-fit:cover}
+.meta{padding:14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.meta h3{font-size:1.05rem;font-weight:800;color:var(--ink);line-height:1.25}
+.meta .price{color:var(--coffee);font-weight:700;font-size:.95rem}
+.meta .badge{font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--coffee)}
+.meta .badge.off{color:var(--red)}
+.meta .id{font-size:.7rem;color:#888;font-family:monospace}
+.actions{padding:10px 14px;display:flex;gap:8px;border-top:1px solid var(--paper)}
+.actions button{flex:1;padding:10px;border:none;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer}
+.btn-edit{background:var(--paper);color:var(--coffee)}
+.btn-toggle{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn-del{background:var(--red);color:#fff}
+.empty{padding:60px 20px;text-align:center;color:#888;font-size:1.1rem}
+.msg{display:none;padding:14px;border-radius:10px;margin-bottom:18px;font-size:1.05rem;font-weight:700}
+.msg.ok{display:block;background:var(--green);color:#fff}
+.msg.err{display:block;background:var(--red);color:#fff}
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:#fff;max-width:560px;width:100%;border-radius:14px;padding:28px;max-height:90vh;overflow:auto}
+.modal h2{color:var(--coffee);margin-bottom:16px;font-size:1.5rem}
+.modal label{display:block;font-size:.95rem;font-weight:700;margin:14px 0 6px;color:var(--ink)}
+.modal input,.modal textarea,.modal select{width:100%;padding:12px;font-size:1rem;border:2px solid #c8b89a;border-radius:10px;background:#fff;font-family:inherit}
+.modal textarea{min-height:80px;resize:vertical}
+.modal .row{display:flex;gap:10px;margin-top:24px}
+.modal .row button{flex:1;padding:14px;border:none;border-radius:10px;font-size:1.05rem;font-weight:800;cursor:pointer}
+.btn-save{background:var(--coffee);color:#fff}
+.btn-cancel{background:#fff;color:var(--coffee);border:2px solid var(--coffee)}
+</style>
+</head>
+<body>
+<header class="nav">
+  <a href="/admin/index">← 返回</a>
+  <div style="font-size:1.3rem;font-weight:800">📦 商品管理</div>
+</header>
+<main class="wrap">
+  <a class="back" href="/admin/index" style="display:inline-block;margin-bottom:14px;color:var(--coffee);font-size:1.1rem;text-decoration:none">← 返回后台首页</a>
+  <h1>📦 商品管理</h1>
+  <p class="lead">编辑名称 / 价格 / 尺寸 / 上下架 / 删除。改了立即生效。</p>
+
+  <div class="toolbar">
+    <a href="/admin/product" class="alt">➕ 添加新商品</a>
+    <input type="text" id="filter" placeholder="搜索商品名 / ID / 分类">
+    <button id="toggleAll">批量上下架</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" style="display:none">还没有商品</div>
+</main>
+
+<div id="modal" class="modal-bg">
+  <div class="modal">
+    <h2 id="modal-title">编辑商品</h2>
+    <label>商品名</label>
+    <input id="m-name">
+    <label>价格（显示用）</label>
+    <input id="m-price">
+    <label>副标题 / 材质简述</label>
+    <input id="m-subtitle">
+    <label>尺寸</label>
+    <input id="m-size">
+    <div class="row">
+      <button class="btn-cancel" id="m-cancel">取消</button>
+      <button class="btn-save" id="m-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let products=[];
+let editingId=null;
+const grid=document.getElementById('grid');
+const empty=document.getElementById('empty');
+const msg=document.getElementById('msg');
+const modal=document.getElementById('modal');
+
+function showMsg(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');setTimeout(()=>{msg.className='msg'},3000)}
+
+async function load(){
+  const r=await fetch('/api/products?all=1').then(r=>r.json());
+  products=(r.data&&r.data.products)||r.products||[];
+  render();
+}
+function render(filter=''){
+  const f=filter.trim().toLowerCase();
+  const list=products.filter(p=>!f||p.name.toLowerCase().includes(f)||p.id.toLowerCase().includes(f)||(p.subtitle||'').toLowerCase().includes(f));
+  if(list.length===0){empty.style.display='block';grid.innerHTML='';return}
+  empty.style.display='none';
+  grid.innerHTML=list.map(p=>`
+    <div class="card ${p.status==='下架'?'off-shelf':''}" data-id="${p.id}">
+      <div class="img"><img src="${p.image||'/images/sofa-zhongshi.jpg'}" alt="${p.name}" onerror="this.style.display='none'"></div>
+      <div class="meta">
+        <div class="badge ${p.status==='下架'?'off':''}">${p.status||'在售'} · ${p.category||'家具'}</div>
+        <h3>${p.name||'(无名)'}</h3>
+        <div class="price">${p.price||''}</div>
+        <div class="id">${p.id}</div>
+      </div>
+      <div class="actions">
+        <button class="btn-edit" onclick="openEdit('${p.id}')">编辑</button>
+        <button class="btn-toggle" onclick="toggle('${p.id}')">${p.status==='下架'?'上架':'下架'}</button>
+        <button class="btn-del" onclick="del('${p.id}')">删除</button>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('filter').addEventListener('input',e=>render(e.target.value));
+
+function openEdit(id){
+  editingId=id;
+  const p=products.find(x=>x.id===id);
+  if(!p)return;
+  document.getElementById('m-name').value=p.name||'';
+  document.getElementById('m-price').value=p.price||'';
+  document.getElementById('m-subtitle').value=p.subtitle||'';
+  document.getElementById('m-size').value=p.size||'';
+  modal.classList.add('show');
+}
+document.getElementById('m-cancel').onclick=()=>{modal.classList.remove('show');editingId=null};
+document.getElementById('m-save').onclick=async()=>{
+  if(!editingId)return;
+  const body={
+    name:document.getElementById('m-name').value.trim(),
+    price:document.getElementById('m-price').value.trim(),
+    subtitle:document.getElementById('m-subtitle').value.trim(),
+    size:document.getElementById('m-size').value.trim(),
+  };
+  try{
+    const r=await fetch(`/api/admin/products/${editingId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!d.success){showMsg(d.error||'保存失败',false);return}
+    showMsg('✅ 已保存',true);
+    modal.classList.remove('show');editingId=null;
+    await load();
+  }catch(e){showMsg('网络出错',false)}
+};
+
+async function toggle(id){
+  try{
+    const r=await fetch(`/api/admin/products/${id}/toggle`,{method:'POST'});
+    const d=await r.json();
+    if(!d.success){showMsg(d.error||'切换失败',false);return}
+    showMsg('✅ 已切换',true);
+    await load();
+  }catch(e){showMsg('网络出错',false)}
+}
+async function del(id){
+  if(!confirm('确定要删除该商品？图片也会一并删除。'))return;
+  try{
+    const r=await fetch(`/api/admin/products/${id}`,{method:'DELETE'});
+    const d=await r.json();
+    if(!d.success){showMsg(d.error||'删除失败',false);return}
+    showMsg('✅ 已删除',true);
+    await load();
+  }catch(e){showMsg('网络出错',false)}
+}
+
+document.getElementById('toggleAll').onclick=async()=>{
+  if(!confirm('把所有当前显示的商品都上下架切换？（取决于当前显示列表）'))return;
+  const ids=Array.from(document.querySelectorAll('.card')).map(c=>c.dataset.id);
+  if(ids.length===0){showMsg('没有可切换的商品',false);return}
+  try{
+    const r=await fetch('/api/admin/products/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,action:'toggle'})});
+    const d=await r.json();
+    if(!d.success){showMsg(d.error||'批量切换失败',false);return}
+    showMsg(`✅ 已批量切换 ${d.data.count} 个`,true);
+    await load();
+  }catch(e){showMsg('网络出错',false)}
+};
+
+async function check(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(!data.success||!data.data||!data.data.user||data.data.user.id!=='admin'){
+    location.href='/admin/login';
+  }
+}
+check();
+load();
+</script>
+</body>
+</html>

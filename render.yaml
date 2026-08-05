@@ -1,0 +1,26 @@
+# Render.com 部署配置（备用方案）
+# 单 Web Service 即可，整库是 JSON 文件 + 本地 uploads 目录
+
+services:
+  - type: web
+    name: yxjia-mvp
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: TWO_FISH_API_KEY
+        sync: false   # 在 Render 控制台手动填入 codex key
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false   # 在 Render 控制台设置强密码
+    disk:
+      name: yxjia-data
+      mountPath: /app/data
+      sizeGB: 1

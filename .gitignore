@@ -1,0 +1,72 @@
+# ==========================================
+# 银杏家具 MVP · .gitignore
+# 隐私/易变数据不入库；构建产物不跟踪
+# ==========================================
+
+# ---- Node 依赖 ----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ---- Python 虚拟环境 + 缓存 ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Playwright 测试产物 ----
+test-results/
+playwright-report/
+playwright/.cache/
+playwright/.local-browsers/
+
+# ---- 用户上传的隐私图（保留 .gitkeep 让目录结构在）----
+uploads/products/*
+uploads/rooms/*
+uploads/compositions/*
+!uploads/products/.gitkeep
+!uploads/rooms/.gitkeep
+!uploads/compositions/.gitkeep
+
+# ---- 易变 / 隐私数据（运行时由 server.js 自动生成）----
+data/orders.json
+data/uploads.json
+data/users.json
+# 注：data/products.json 保留入仓（这是预填的 6+3 款商品种子数据）
+
+# ---- 环境变量 / 密钥（绝不入仓）----
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ---- 日志 ----
+*.log
+logs/
+
+# ---- 操作系统垃圾 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ---- IDE / 编辑器 ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- 临时文件 ----
+tmp/
+temp/
+*.tmp
+*.bak

@@ -1,0 +1,13 @@
+# Cloudflare Pages + Workers 部署配置（银杏家具 MVP）
+# 用 Workers 转发 /api 与 /admin 路径到 Node 后端，或直接在 Pages Functions 中跑。
+# 静态 HTML 走 Pages 静态托管。
+
+name = "yxjia-mvp"
+compatibility_date = "2025-08-02"
+pages_build_output_dir = "src"
+
+[vars]
+NODE_VERSION = "22"
+PUBLIC_PHONE = "13359140982"
+# 商户正式上线后把 TWO_FISH_API_KEY 换成自己的，并把 ADMIN_PASSWORD 改成强密码
+# TWO_FISH_API_KEY = "sk-..."

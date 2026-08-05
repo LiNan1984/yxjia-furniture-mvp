@@ -1,0 +1,21 @@
+{
+  "name": "yxjia-mvp",
+  "version": "1.0.0",
+  "description": "银杏家具 MVP - 爸妈能用的家具电商",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.21.0",
+    "form-data": "^4.0.6",
+    "minio": "^8.0.7",
+    "multer": "^2.2.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0"
+  }
+}
