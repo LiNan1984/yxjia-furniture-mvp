@@ -493,11 +493,15 @@ app.use('/uploads', (req, res, next) => {
   uploadsHandler(req, res, async (err) => {
     if (res.headersSent) return;
     try {
-      const objectName = decodeURIComponent(req.path.replace(/^\/+/, ''));
+      // /uploads/{type}/{file} → MinIO object key = {bucket}/{type}/{file}
+      const relative = decodeURIComponent(req.path.replace(/^\/+/, ''));
+      const objectName = `${BUCKET}/${relative}`;
       const stream = await minioClient.getObject(BUCKET, objectName);
       res.setHeader('Cache-Control', 'public, max-age=86400');
-      const ct = objectName.endsWith('.png') ? 'image/png'
-        : objectName.endsWith('.webp') ? 'image/webp'
+      const ext = relative.split('.').pop().toLowerCase();
+      const ct = ext === 'png' ? 'image/png'
+        : ext === 'webp' ? 'image/webp'
+        : ext === 'gif' ? 'image/gif'
         : 'image/jpeg';
       res.setHeader('Content-Type', ct);
       stream.pipe(res);
@@ -1180,13 +1184,23 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
     const product = findProduct(productId);
     if (!product) return fail(res, 404, '商品不存在');
 
-    // 拉取商品参考图
-    const productUrl = product.image
-      ? new URL(product.image, 'http://127.0.0.1:3000')
-      : new URL('/images/sofa-zhongshi.jpg', 'http://127.0.0.1:3000');
-    const productResp = await fetch(productUrl);
-    if (!productResp.ok) return fail(res, 502, '拉取商品图失败');
-    const sofaBuffer = Buffer.from(await productResp.arrayBuffer());
+    // 拉取商品参考图（优先当前 host 的相对 URL；失败兜底到 /images/sofa-zhongshi.jpg）
+    let sofaBuffer = null;
+    let productFetchError = null;
+    if (product.image) {
+      try {
+        const productUrl = new URL(product.image, 'http://127.0.0.1:3000');
+        const r = await fetch(productUrl);
+        if (r.ok) sofaBuffer = Buffer.from(await r.arrayBuffer());
+        else productFetchError = `${productUrl} → HTTP ${r.status}`;
+      } catch (e) { productFetchError = e.message; }
+    }
+    if (!sofaBuffer) {
+      // 兜底：用内置的沙发图
+      const fallback = await fetch('http://127.0.0.1:3000/images/sofa-zhongshi.jpg');
+      if (!fallback.ok) return fail(res, 502, `拉取商品图失败（${productFetchError}）且无内置兜底图`);
+      sofaBuffer = Buffer.from(await fallback.arrayBuffer());
+    }
 
     const defaultPrompt = `把第二张图里的「${product.name}」自然摆放到第一张图的客厅场景，保持客厅光线、墙面、地板、家具风格不变。沙发按透视与光影融入，整体看起来像实拍照片，高清、温馨。`;
     const finalPrompt = customPrompt ? `${defaultPrompt} 用户额外要求：${customPrompt}` : defaultPrompt;
