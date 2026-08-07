@@ -26,7 +26,7 @@
         "3.4 米大尺寸气场",
         "现货 · 当天发货"
       ],
-      "image": "http://127.0.0.1:9000/yxjia-uploads/products/sofa-1-msdc33ob.png",
+      "image": "/images/sofa-zhongshi.jpg",
       "status": "在售",
       "images": [
         "http://127.0.0.1:9000/yxjia-uploads/products/sofa-1-msdc33ob.png"
@@ -206,7 +206,7 @@
         "实木雕花软包座面",
         "AI 识别于 2026/8/2 23:23:44"
       ],
-      "image": "http://127.0.0.1:9000/yxjia-uploads/products/a953a1376352765d.jpg"
+      "image": "/images/sofa-zhongshi.jpg"
     },
     {
       "id": "p-msbyfeue-2ec",
@@ -223,7 +223,7 @@
         "实木雕花绒面软包",
         "AI 识别于 2026/8/2 23:27:49"
       ],
-      "image": "http://127.0.0.1:9000/yxjia-uploads/products/2f633f8ee18fc2cd.jpg"
+      "image": "/images/sofa-zhongshi.jpg"
     }
   ]
 }
