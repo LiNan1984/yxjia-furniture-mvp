@@ -477,7 +477,7 @@ function renderCatalog() {
       <div class="product-image">
         <img src="${p.image}" alt="${p.name}" onerror="this.style.display='none';this.parentNode.style.background='#3a2818'">
       </div>
-      <div class="product-cat">${p.badge ? p.badge + ' · ' : ''}${p.category || '家具'}</div>
+      <div class="product-cat">${[p.badge, p.category].filter(Boolean).join(' · ')}</div>
       <div class="product-meta"><h4>${p.name}</h4><span class="price">${p.price || ''}</span></div>
     </a>
   `).join('');
@@ -491,7 +491,7 @@ function renderFurnGrid() {
     <div class="furn-card" data-id="${p.id}" onclick="selectProduct('${p.id}')">
       <div class="furn-img"><img src="${p.image}" alt="${p.name}" onerror="this.style.display='none'"></div>
       <div class="furn-meta">
-        <div class="cat">${p.category || '家具'}</div>
+        <div class="cat">${p.category || ''}</div>
         <h4>${p.name}</h4>
       </div>
     </div>
@@ -730,7 +730,9 @@ function showAnonResult(d, sec) {
     return;
   }
   const product = d.product || {};
+  const banner = renderDemoBanner(d.demoType);
   resultBox.innerHTML = `
+    ${banner}
     <img src="${url}" class="preview-img" alt="合成结果">
     <div class="meta">
       <strong>匿名体验 · 用时 ${sec.toFixed(1)} 秒</strong>
@@ -759,7 +761,9 @@ function showResult(d, sec, phone) {
     return f;
   })()}).catch(()=>{});
   const product = d.product || PRODUCTS.find(p=>p.id===SELECTED_PRODUCT) || {};
+  const banner = renderDemoBanner(d.demoType);
   resultBox.innerHTML = `
+    ${banner}
     <img src="${url}" class="preview-img" alt="合成结果">
     <div class="meta">
       <strong>已生成 · 用时 ${sec.toFixed(1)} 秒</strong>
@@ -769,6 +773,22 @@ function showResult(d, sec, phone) {
       <button onclick="regenerate()">↻ 重新生成</button>
       <a href="tel:13359140982">📞 到店咨询</a>
     </div>`;
+}
+
+// demoType 不是 ai-composition 时显示提示横幅
+function renderDemoBanner(demoType) {
+  if (!demoType || demoType === 'ai-composition') return '';
+  const map = {
+    'pollinations':       { text: '✨ Pollinations.ai 生成的合成预览（非 gpt-image-2，但确实是 AI 合成）', tone: 'good' },
+    'cached-composition': { text: '⚠️ AI 暂不可用，这是历史合成图（用过的真实效果）', tone: 'warn' },
+    'side-by-side':       { text: '⚠️ AI 暂不可用，左边是您的客厅原图，右边是新沙发预览（不是合成图）', tone: 'warn' },
+    'product-image':      { text: '⚠️ AI 暂不可用，仅展示商品原图', tone: 'warn' },
+  };
+  const b = map[demoType] || { text: '⚠️ AI 暂不可用', tone: 'warn' };
+  const bg = b.tone === 'good' ? '#e8f5e9' : '#fff4e0';
+  const color = b.tone === 'good' ? '#1f7a3a' : '#7a3a18';
+  const border = b.tone === 'good' ? '#1f7a3a' : '#d94f3e';
+  return `<div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:10px 14px;margin-bottom:12px;color:${color};font-size:.95rem;font-weight:600">${b.text}</div>`;
 }
 
 function regenerate() {

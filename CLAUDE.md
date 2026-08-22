@@ -18,14 +18,14 @@
 
 | 层 | 选型 | 说明 |
 |---|---|---|
-| 后端 | Node 22 + Express 5 | 单进程，0 数据库 |
+| 后端 | Node 22 + Express 4 | 单进程，0 数据库 |
 | 对象存储 | MinIO (9000/9001) | 用户上传图、合成图、试摆结果 |
 | 元数据 | 本地 JSON | `data/products.json` `orders.json` `users.json` `uploads.json` |
 | 视觉合成 | `twofishai.com /v1/images/edits` (gpt-image-2) | 写真合成核心 |
 | 视觉识别 | 火山引擎 `doubao-seed-2-1-pro-260628` | 上传图自动命名 |
 | 前端 | 单 HTML + 原生 CSS | 不引任何前端框架 |
 | 设计 | Apple HIG + 极简两色调 | 深咖 #3a2818 + 奶白 #faf6ef |
-| 测试 | Playwright (Node 36 + Python 5) | 共 41 测试 |
+| 测试 | Playwright (Node 36 + Python 6) | 共 42 测试 |
 
 ---
 
@@ -82,9 +82,27 @@ node src/server.js
 |------|------|------|------|
 | POST | `/api/admin/login` | 否 | 后台登录（admin/123456） |
 | POST | `/api/admin/upload-and-identify` | admin | 上传图 + doubao AI 命名 |
+| GET | `/api/admin/products/:id` | admin | 取单个商品（含下架） |
 | PATCH | `/api/admin/products/:id` | admin | 改商品字段 |
 | POST | `/api/admin/products/:id/toggle` | admin | 上下架（在售/下架） |
+| POST | `/api/admin/products/:id/retake-image` | admin | 重新拍照换主图（multer 单文件） |
+| POST | `/api/admin/products/batch` | admin | 批量改商品（multi-select） |
 | DELETE | `/api/admin/products/:id` | admin | 删商品 |
+| GET | `/api/admin/rooms` | admin | 列出已上传顾客客厅图 |
+| DELETE | `/api/admin/rooms/:id` | admin | 删除顾客客厅图 |
+| GET | `/api/admin/tryon-results` | admin | 列出试摆合成结果 |
+| GET | `/api/admin/presets` | admin | 读 5 个试摆预设 prompt |
+| PUT | `/api/admin/presets` | admin | 写预设 prompt |
+| GET | `/api/admin/feature-flags` | admin | 读运行时开关 |
+| PUT | `/api/admin/feature-flags` | admin | 写运行时开关 |
+| GET | `/api/admin/backup` | admin | 导出 data/*.json 备份 |
+
+### 公开配置
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|------|------|------|------|
+| GET | `/api/feature-flags` | 否 | 读运行时开关（前端用） |
+| GET | `/api/tryon/presets` | 否 | 5 个预设 prompt（公开） |
 
 ---
 
@@ -98,33 +116,42 @@ yxjia-mvp/
 │   ├── product.html           # 商品详情
 │   ├── checkout.html          # 下单页
 │   ├── order.html             # 订单确认
-│   ├── tryon.html             # 试摆表单
+│   ├── tryon.html             # 试摆表单（公开入口）
 │   ├── my-orders.html         # 我的订单（登录后）
 │   ├── login.html             # 顾客登录
 │   ├── admin/                 # 后台管理
-│   │   ├── login.html
+│   │   ├── login.html         # /admin 登录页
 │   │   ├── index.html         # 4 块功能入口
-│   │   ├── product.html      # 上传商品图
-│   │   ├── room.html         # 上传顾客客厅
-│   │   ├── tryon.html        # AI 试摆（手动选）
-│   │   └── orders.html       # 订单列表
+│   │   ├── product.html       # A. 上传商品图（单条）
+│   │   ├── products.html      # 商品管理列表（编辑/上下架/删除/批量）
+│   │   ├── room.html          # B. 上传顾客客厅（单条）
+│   │   ├── rooms.html         # 客厅图管理列表
+│   │   ├── presets.html       # 试摆预设 prompt 编辑
+│   │   ├── tryon.html         # C. AI 试摆（手动选）
+│   │   ├── tryon-results.html # 试摆历史结果浏览
+│   │   ├── orders.html        # D. 订单列表
+│   │   └── feature-flags.html # 运行时开关编辑
 │   └── images/                # 静态图（构建时就有，不上传）
 ├── data/
 │   ├── products.json          # 商品（含 status 字段：在售/下架）
 │   ├── orders.json            # 订单（gitignore 排除）
 │   ├── users.json             # 用户（gitignore 排除）
-│   └── uploads.json           # 上传历史（gitignore 排除）
+│   ├── uploads.json           # 上传历史（gitignore 排除）
+│   ├── presets.json           # 5 个试摆预设 prompt
+│   └── feature-flags.json     # 运行时开关（如 tryonRequirePhone）
 ├── uploads/                   # MinIO 同步目录（gitignore 排除）
 │   ├── products/
 │   ├── rooms/
 │   └── compositions/
-├── tests/                     # 41 个 E2E 测试
+├── tests/                     # 42 个 E2E 测试
 │   ├── api.test.js            # Node Playwright 36
 │   ├── conftest.py
-│   ├── test_01_browse.py ~ test_05_api.py  # Python 5
+│   ├── test_01_browse.py ~ test_05_api.py  # Python 5（老人视角）
+│   └── test_06_admin_user_system.py        # Python 1（后台 + 用户 + 上传 + 试摆）
 ├── docs/方案.md               # 营销方案
 ├── prompts/                   # GPT-Image2-Skill prompt 库
 ├── integrations/              # 4 个克隆的 OSS 项目（参考用）
+├── ROADMAP.md                 # v1.1→v3.x 升级路线
 ├── Dockerfile                 # 容器化
 ├── docker-compose.yml         # MinIO + server
 ├── render.yaml                # Render.com
@@ -162,6 +189,17 @@ URL 直接返: http://127.0.0.1:9000/yxjia-uploads/compositions/comp-{ts}.jpg
 5. **写真合成**强制**用户登录**（防 Token 滥用）
 6. **后台上传**走 multer 内存存储 + 异步写 MinIO（不写本地磁盘）
 7. **HTTP 优先 HTTPS**：生产部署必须配 TLS
+
+---
+
+## 7.5 运行时配置
+
+| 文件 | 作用 | 谁改 |
+|------|------|------|
+| `data/feature-flags.json` | 运行时开关（如 `tryonRequirePhone`：试摆前是否强制手机号门控） | 后台 `/admin/feature-flags` |
+| `data/presets.json` | 5 个试摆预设 prompt（自然/暖光/夜晚/极简/家庭） | 后台 `/admin/presets` |
+
+修改 → 写回 JSON → server.js 立即生效，无需重启。两文件前端通过 `/api/feature-flags` 与 `/api/tryon/presets` 公开读。
 
 ---
 
@@ -216,11 +254,12 @@ docker run -d --name yxjia \
 cd yxjia-mvp
 ./node_modules/.bin/playwright test tests/api.test.js
 
-# Python 老人视角（5 个流程测试）
-python3 -m pytest tests/test_01_browse.py tests/test_02_call_button.py tests/test_03_browse_products.py tests/test_04_order_flow.py tests/test_05_api.py -v
+# Python 老人视角（6 个流程测试）
+source .venv/bin/activate
+python3 -m pytest tests/test_01_browse.py tests/test_02_call_button.py tests/test_03_browse_products.py tests/test_04_order_flow.py tests/test_05_api.py tests/test_06_admin_user_system.py -v
 ```
 
-测试覆盖率：API 100%，UI 关键流程（浏览/拨号/下单/查询订单）100%。
+测试覆盖率：API 100%，UI 关键流程（浏览/拨号/下单/查询订单/后台+用户系统）100%。
 
 ---
 
@@ -317,11 +356,11 @@ curl -X POST http://127.0.0.1:3000/api/auth/login \
 - [ ] TWO_FISH_API_KEY / ARK_API_KEY 环境变量设好
 - [ ] `npm install` 成功
 - [ ] `node src/server.js` 启动无错
-- [ ] 41 个测试全绿
+- [ ] 42 个测试全绿
 - [ ] DNS 域名解析到服务器
 - [ ] HTTPS 证书（Let's Encrypt）
 - [ ] 防火墙开放 3000/9000/9001 端口
 
 ---
 
-*最后更新：2026-08-02 · 项目 commit 4d0bb5f · 完整可用 MVP*
+*最后更新：2026-08-22 · 项目 commit 4abf54b · 完整可用 MVP*

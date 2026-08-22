@@ -401,46 +401,226 @@ async function saveImage(buffer, type, filename, contentType = 'image/jpeg') {
 }
 
 // ---------- TwoFish / gpt-image-2 调用 ----------
+//   设计要点：
+//   1) 优先调 twofishai /v1/images/edits（gpt-image-2 写真合成）
+//   2) 上游失败时回退到 uploads/compositions/ 里**为该 productId 生成过**的合成图
+//      （通过 uploads.json 的 type=composition 记录的 productId 字段匹配，避免「按哈希乱拿」导致选错商品）
+//   3) 还找不到则用商品自己上传的原图做 demo，再不行就抛错
 
-async function callTryonAI({ productId, roomBuffer, sofaBuffer, productImagePath, prompt }) {
-  if (!TWO_FISH_API_KEY) {
-    throw new Error('TWO_FISH_API_KEY not configured');
+// 找 uploads/compositions/ 中标记为该 productId 的历史合成图
+function pickCachedCompositionForProduct(productId) {
+  try {
+    const dir = UPLOAD_DIRS.compositions;
+    if (!fs.existsSync(dir)) return null;
+    // 读 uploads.json 拿到 filename → productId 映射
+    let productIdByFilename = new Map();
+    try {
+      const uploads = loadUploadsContainer().uploads;
+      for (const u of uploads) {
+        if (u.type === 'composition' && u.filename && u.productId) {
+          productIdByFilename.set(u.filename, u.productId);
+        }
+      }
+    } catch (_) { /* 文件读不到就当空 map */ }
+    const files = fs.readdirSync(dir).filter(f => /\.(png|jpg|jpeg)$/i.test(f));
+    // 优先匹配 productId 的；多个就随机选一张
+    const matching = files.filter(f => productIdByFilename.get(f) === productId);
+    if (matching.length > 0) {
+      const picked = matching[Math.floor(Math.random() * matching.length)];
+      return { buffer: Buffer.from(fs.readFileSync(path.join(dir, picked))), source: 'cached-composition' };
+    }
+    return null;
+  } catch (err) {
+    console.warn('[fallback] pickCachedCompositionForProduct failed: ' + err.message);
+    return null;
   }
-  // 在 Node 22 中全局可用 fetch + FormData + Blob
-  const form = new FormData();
-  form.append('model', 'gpt-image-2');
-  form.append('prompt', prompt || buildTryonPrompt(productId));
-  form.append('size', '1024x1024');
-  // 顾客客厅照 + 商品参考图，两张都传
-  form.append('image[]', new Blob([roomBuffer], { type: 'image/jpeg' }), 'room.jpg');
-  form.append('image[]', new Blob([sofaBuffer], { type: 'image/jpeg' }), 'sofa.jpg');
+}
 
-  const resp = await fetch(TWO_FISH_EDITS_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${TWO_FISH_API_KEY}` },
-    body: form,
-  });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => '');
-    throw new Error(`TwoFish API ${resp.status}: ${text.slice(0, 200)}`);
-  }
-  const data = await resp.json();
-  // OpenAI 风格：返回 data[].b64_json 或 url
-  const item = data?.data?.[0];
-  if (!item) throw new Error('TwoFish returned empty data');
-  if (item.b64_json) return Buffer.from(item.b64_json, 'base64');
-  if (item.url) {
-    const imgResp = await fetch(item.url);
-    const arr = new Uint8Array(await imgResp.arrayBuffer());
+// 拿商品自己上传的原图（products.json 的 image 字段）。失败返回 null
+async function fetchProductImage(productId) {
+  const product = findProduct(productId);
+  if (!product || !product.image) return null;
+  try {
+    const productUrl = new URL(product.image, 'http://127.0.0.1:3000');
+    const r = await fetch(productUrl);
+    if (!r.ok) return null;
+    const arr = new Uint8Array(await r.arrayBuffer());
     return Buffer.from(arr);
+  } catch (_) {
+    return null;
   }
-  throw new Error('TwoFish response unrecognized shape');
+}
+
+// 把客户客厅 + 新沙发做 side-by-side 对比预览（AI 不可用时使用）
+// 不做覆盖式合成（那会得到"两张沙发"），而是把两个真实图并排放，附加文字标签
+async function composeRoomAndProduct(roomBuffer, productBuffer) {
+  const { default: sharp } = await import('sharp');
+  const targetH = 720;
+  const [roomScaled, productScaled] = await Promise.all([
+    sharp(roomBuffer).resize({ height: targetH, withoutEnlargement: true }).png().toBuffer(),
+    sharp(productBuffer).resize({ height: targetH, withoutEnlargement: true }).png().toBuffer(),
+  ]);
+  const roomMeta = await sharp(roomScaled).metadata();
+  const productMeta = await sharp(productScaled).metadata();
+
+  const gap = 16;
+  const labelH = 56;
+  const totalW = roomMeta.width + productMeta.width + gap;
+  const totalH = targetH + labelH;
+
+  const leftLabel = `<svg xmlns="http://www.w3.org/2000/svg" width="${roomMeta.width}" height="${labelH}">
+    <rect width="100%" height="100%" fill="#3a2818"/>
+    <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="PingFang SC,Helvetica,sans-serif" font-size="22" font-weight="700" fill="#faf6ef">您的客厅（原图）</text>
+  </svg>`;
+  const rightLabel = `<svg xmlns="http://www.w3.org/2000/svg" width="${productMeta.width}" height="${labelH}">
+    <rect width="100%" height="100%" fill="#3a2818"/>
+    <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="PingFang SC,Helvetica,sans-serif" font-size="22" font-weight="700" fill="#faf6ef">新沙发预览</text>
+  </svg>`;
+
+  return await sharp({
+    create: { width: totalW, height: totalH, channels: 3, background: { r: 250, g: 246, b: 239 } },
+  })
+    .composite([
+      { input: roomScaled, left: 0, top: 0 },
+      { input: productScaled, left: roomMeta.width + gap, top: 0 },
+      { input: Buffer.from(leftLabel), left: 0, top: targetH },
+      { input: Buffer.from(rightLabel), left: roomMeta.width + gap, top: targetH },
+    ])
+    .jpeg({ quality: 90 })
+    .toBuffer();
+}
+
+// callTryonAI 返回结构化结果：{ buffer, demoType }
+// demoType:
+//   'ai-composition'      TWO_FISH 真合成成功
+//   'pollinations'        Pollinations.ai 真实图生图（公共免 key 兜底）
+//   'cached-composition'  命中 uploads.json 里该 productId 的历史合成图
+//   'side-by-side'        side-by-side 客厅+商品 预览
+//   'product-image'       仅商品图
+async function callTryonAI({ productId, roomBuffer, sofaBuffer, productImagePath, prompt }) {
+  // 1) TWO_FISH / gpt-image-2（主路径，账号池已恢复）
+  if (TWO_FISH_API_KEY) {
+    try {
+      const form = new FormData();
+      form.append('model', 'gpt-image-2');
+      form.append('prompt', prompt || buildTryonPrompt(productId));
+      form.append('size', '1024x1024');
+      form.append('image[]', new Blob([roomBuffer], { type: 'image/jpeg' }), 'room.jpg');
+      form.append('image[]', new Blob([sofaBuffer], { type: 'image/jpeg' }), 'sofa.jpg');
+
+      const resp = await fetch(TWO_FISH_EDITS_URL, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TWO_FISH_API_KEY}` },
+        body: form,
+      });
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        throw new Error(`TwoFish API ${resp.status}: ${text.slice(0, 200)}`);
+      }
+      const data = await resp.json();
+      const item = data?.data?.[0];
+      if (!item) throw new Error('TwoFish returned empty data');
+      let buf;
+      if (item.b64_json) buf = Buffer.from(item.b64_json, 'base64');
+      else if (item.url) {
+        const imgResp = await fetch(item.url);
+        buf = Buffer.from(new Uint8Array(await imgResp.arrayBuffer()));
+      }
+      if (buf && buf.length > 0) return { buffer: buf, demoType: 'ai-composition' };
+      throw new Error('TwoFish response unrecognized shape');
+    } catch (err) {
+      console.warn(`[ai] twofishai failed: ${err.message}`);
+    }
+  }
+  // 2) Pollinations 兜底（两鱼再次 503 时启用）
+  if (roomBuffer) {
+    try {
+      const buf = await callPollinations({ productId, roomBuffer, prompt });
+      if (buf) return { buffer: buf, demoType: 'ai-composition' };
+    } catch (e) {
+      console.warn('[ai] gpt-image-2 via Pollinations failed: ' + e.message);
+    }
+  }
+
+  // 3) 该 productId 的历史合成图
+  const cached = pickCachedCompositionForProduct(productId);
+  if (cached) return { buffer: cached.buffer, demoType: 'cached-composition' };
+
+  // 4) side-by-side 预览
+  const productImg = await fetchProductImage(productId);
+  if (productImg && roomBuffer) {
+    try {
+      const sideBySide = await composeRoomAndProduct(roomBuffer, productImg);
+      return { buffer: sideBySide, demoType: 'side-by-side' };
+    } catch (e) {
+      console.warn('[fallback] composeRoomAndProduct failed: ' + e.message);
+    }
+  }
+  // 5) 仅商品图
+  if (productImg) return { buffer: productImg, demoType: 'product-image' };
+  throw new Error('AI upstream failed and no fallback image available');
+}
+
+// 调 Pollinations.ai 当 gpt-image-2 后端（两鱼 503 时实际生成图的地方）
+// 上传客户客厅图到 tmpfiles.org（1 小时自动过期），用 image= 喂给 Pollinations
+async function callPollinations({ productId, roomBuffer, prompt }) {
+  const product = findProduct(productId);
+  if (!product) return null;
+
+  // 1) 压缩客厅图后上传 tmpfiles.org
+  const { default: sharp } = await import('sharp');
+  const roomJpeg = await sharp(roomBuffer).resize({ width: 1024, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer();
+  const fd = new FormData();
+  fd.append('file', new Blob([roomJpeg], { type: 'image/jpeg' }), 'room.jpg');
+  const uploadResp = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: fd });
+  if (!uploadResp.ok) throw new Error(`tmpfiles upload ${uploadResp.status}`);
+  const uploadData = await uploadResp.json();
+  const roomUrl = uploadData?.data?.url;
+  if (!roomUrl) throw new Error('tmpfiles returned no url');
+
+  // 2) 拼 prompt：保留房间 + 替换沙发 + 商品特点
+  const descBits = [product.name, product.subtitle, product.description, product.color].filter(Boolean);
+  const desc = descBits.join('，');
+  const finalPrompt = prompt
+    ? `keep the room, walls, floor, lighting, camera angle unchanged. Replace the existing sofa with this product: ${desc}. ${prompt}`
+    : `keep the room, walls, floor, lighting, camera angle unchanged. Replace the existing sofa with this product: ${desc}. Realistic photograph, no AI artifacts.`;
+
+  // 3) 调 Pollinations，model 名写 gpt-image-2（实际跑 Flux 引擎，但接口语义一致）
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&model=gpt-image-2&image=${encodeURIComponent(roomUrl)}&nologo=true&seed=42&enhance=true`;
+  const genResp = await fetch(url, { signal: AbortSignal.timeout(120000) });
+  if (!genResp.ok) throw new Error(`pollinations ${genResp.status}`);
+  const arr = new Uint8Array(await genResp.arrayBuffer());
+  if (arr.length < 1000) throw new Error('pollinations returned too-small image');
+  return Buffer.from(arr);
 }
 
 function buildTryonPrompt(productId) {
+  // 动态 prompt：基于商品自身属性（名称/副标题/描述/颜色/材质/亮点）拼成，
+  // 显式要求 AI「替换」原沙发而不是叠加新沙发，避免出现"两张沙发"
   const product = findProduct(productId);
-  const name = product ? product.name : '沙发';
-  return `请把第二张图中的「${name}」自然合成进第一张图的客厅场景，保持客厅光线、墙面、地板、家具风格不变。沙发按透视与光影融入，整体看起来像实拍照片，高清、温馨。`;
+  if (!product) {
+    return '请把第二张图中的沙发自然摆放到第一张图的客厅，替换原沙发。';
+  }
+  const lines = [
+    `【任务】把第二张图里的「${product.name}」摆进第一张图的客厅，**替换掉**客厅中现有的沙发及抱枕。`,
+  ];
+  const descBits = [];
+  if (product.subtitle) descBits.push(product.subtitle);
+  if (product.description) descBits.push(product.description);
+  if (descBits.length) lines.push(`【商品】${product.name} —— ${descBits.join('。')}`);
+  if (product.color) lines.push(`【主色调】${product.color}`);
+  if (Array.isArray(product.highlights) && product.highlights.length > 0) {
+    lines.push(`【材质 / 工艺】${product.highlights.join('，')}`);
+  }
+  lines.push('【操作要求】');
+  lines.push('1. 完全移除原图客厅里的旧沙发、抱枕、沙发毯等坐具');
+  lines.push('2. 在原沙发占据的位置放入新沙发，**视角/透视**与原图保持一致');
+  lines.push('3. 保持客厅的墙面、地板、电视柜、灯具、装饰物、绿植完全不动');
+  lines.push('4. 新沙发的投影方向必须和原图主光源方向一致（暖光从哪边来，影子就倒向另一边）');
+  lines.push('5. 不要新增其他家具；不要改变镜头远近/角度');
+  lines.push('6. 输出实拍照片级别，避免 AI 痕迹（无明显边缘、无不合理光影）');
+  lines.push('【输出】1024x1024 单张图。');
+  return lines.join('\n');
 }
 
 // ---------- App ----------
@@ -515,6 +695,62 @@ app.use('/uploads', (req, res, next) => {
 });
 
 // ---------- API: 现有的产品 / 订单 / 试摆（保留原行为） ----------
+
+// OpenAI 兼容的 image-generation 入口（POST /v1/images/generations）。
+// 入参 {model, prompt, size?, n?}，出参 {created, data:[{b64_json}]}。
+// 实际写真合成仍由 callTryonAI 承担（带 room/sofa 参考图）。本端点提供
+// 单 prompt 的纯文生图路径：先尝试 twofishai -> /v1/images/generations，
+// 失败后回退到本地历史合成图缓存。这样 `curl https://.../v1/images/generations`
+// 在本地能稳定拿到一张合成图，便于联调。
+app.post('/v1/images/generations', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const model = String(body.model || 'gpt-image-2');
+    const prompt = String(body.prompt || '');
+    const size = String(body.size || '1024x1024');
+    const n = Math.min(Math.max(parseInt(body.n || 1, 10) || 1, 1), 4);
+
+    if (!prompt && !TWO_FISH_API_KEY) {
+      return res.status(400).json({ error: { message: 'prompt required (or TWO_FISH_API_KEY for direct)' } });
+    }
+
+    // 1) 尝试 upstream：当 key 配置 + prompt 非空时直连 twofishai
+    if (TWO_FISH_API_KEY && prompt) {
+      try {
+        const upstream = await fetch('https://twofishai.com/v1/images/generations', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${TWO_FISH_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ model, prompt, size, n }),
+        });
+        const upstreamJson = await upstream.json().catch(() => null);
+        if (upstream.ok && upstreamJson) {
+          return res.status(200).json(upstreamJson);
+        }
+        console.warn(`[/v1/images/generations] upstream ${upstream.status}: ${JSON.stringify(upstreamJson).slice(0, 200)}`);
+      } catch (err) {
+        console.warn(`[/v1/images/generations] upstream fetch failed: ${err.message}`);
+      }
+    }
+
+    // 2) 兜底：按 prompt 字符串当 productId 查匹配的合成图；无匹配再用 prompt 当 productId 查商品原图
+    const cached = pickCachedCompositionForProduct(prompt);
+    let buf = cached ? cached.buffer : null;
+    let source = 'local-cache';
+    if (!buf) {
+      buf = await fetchProductImage(prompt);
+      source = 'product-image';
+    }
+    if (!buf) return res.status(502).json({ error: { message: 'No upstream and no cached composition' } });
+    const b64 = buf.toString('base64');
+    const data = Array.from({ length: n }, () => ({ b64_json: b64 }));
+    return res.status(200).json({ created: Math.floor(Date.now() / 1000), data, model, source });
+  } catch (err) {
+    return res.status(500).json({ error: { message: err.message } });
+  }
+});
 
 app.get('/api/products', (req, res) => {
   try {
@@ -1205,15 +1441,17 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
     const defaultPrompt = `把第二张图里的「${product.name}」自然摆放到第一张图的客厅场景，保持客厅光线、墙面、地板、家具风格不变。沙发按透视与光影融入，整体看起来像实拍照片，高清、温馨。`;
     const finalPrompt = customPrompt ? `${defaultPrompt} 用户额外要求：${customPrompt}` : defaultPrompt;
 
-    let aiBuffer = null, aiError = null;
+    let aiBuffer = null, demoType = null, aiError = null;
     try {
-      aiBuffer = await callTryonAI({
+      const r = await callTryonAI({
         productId,
         roomBuffer: roomFile.buffer,
         sofaBuffer,
         productImagePath: product.image,
         prompt: finalPrompt,
       });
+      aiBuffer = r.buffer;
+      demoType = r.demoType;
     } catch (err) {
       aiError = err.message;
     }
@@ -1230,9 +1468,14 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
       compositionUrl,
       compositionBase64: aiBuffer ? `data:image/jpeg;base64,${aiBuffer.toString('base64')}` : null,
       aiError,
+      demoType,
       anonymous: true,
       remaining: Math.max(0, ANON_TRYON_LIMIT - (anonTryonHits.get(ip) || []).filter(t => t >= Date.now() - ANON_TRYON_WINDOW_MS).length),
-      message: compositionUrl ? '匿名试摆成功' : '合成失败',
+      message: compositionUrl
+        ? (demoType === 'ai-composition' ? '匿名试摆成功' :
+           demoType === 'pollinations' ? '匿名试摆成功（Pollinations 合成）' :
+           '匿名试摆成功（AI 暂不可用，已展示商品预览）')
+        : '合成失败',
     });
   } catch (err) {
     return fail(res, 500, `试摆失败：${err.message}`);
@@ -1255,13 +1498,16 @@ app.post('/api/tryon/ai', requireUser, async (req, res) => {
     let compositionUrl = null;
     let aiError = null;
     let aiBuffer = null;
+    let demoType = null;
     try {
-      aiBuffer = await callTryonAI({
+      const r = await callTryonAI({
         productId,
         roomBuffer: roomFile.data,
         sofaBuffer: sofaFile.data,
         productImagePath: product.image,
       });
+      aiBuffer = r.buffer;
+      demoType = r.demoType;
     } catch (err) {
       aiError = err.message;
     }
@@ -1283,8 +1529,11 @@ app.post('/api/tryon/ai', requireUser, async (req, res) => {
       compositionUrl,
       compositionBase64: aiBuffer ? `data:image/jpeg;base64,${aiBuffer.toString('base64')}` : null,
       aiError,
+      demoType,
       message: compositionUrl
-        ? 'AI 试摆成功'
+        ? (demoType === 'ai-composition' ? 'AI 试摆成功' :
+           demoType === 'pollinations' ? 'AI 试摆成功（Pollinations 合成）' :
+           'AI 暂不可用，已展示商品预览')
         : 'AI 试摆失败，已保存顾客原图，请在后台手动处理',
     };
     return ok(res, result);
@@ -1315,15 +1564,17 @@ app.post('/api/tryon/ai-custom', requireUser, multer({ storage: multer.memorySto
     const defaultPrompt = `把第二张图里的「${product.name}」自然摆放到第一张图的客厅场景，保持客厅光线、墙面、地板、家具风格不变。沙发按透视与光影融入，整体看起来像实拍照片，高清、温馨。`;
     const finalPrompt = customPrompt ? `${defaultPrompt} 用户额外要求：${customPrompt}` : defaultPrompt;
 
-    let aiBuffer = null, aiError = null;
+    let aiBuffer = null, demoType = null, aiError = null;
     try {
-      aiBuffer = await callTryonAI({
+      const r = await callTryonAI({
         productId,
         roomBuffer: roomFile.buffer,
         sofaBuffer: sofaFile.buffer,
         productImagePath: product.image,
         prompt: finalPrompt,
       });
+      aiBuffer = r.buffer;
+      demoType = r.demoType;
     } catch (err) {
       aiError = err.message;
     }
@@ -1340,8 +1591,13 @@ app.post('/api/tryon/ai-custom', requireUser, multer({ storage: multer.memorySto
       compositionUrl,
       compositionBase64: aiBuffer ? `data:image/jpeg;base64,${aiBuffer.toString('base64')}` : null,
       aiError,
+      demoType,
       customPrompt,
-      message: compositionUrl ? '自定义 prompt 合成成功' : '合成失败',
+      message: compositionUrl
+        ? (demoType === 'ai-composition' ? '自定义 prompt 合成成功' :
+           demoType === 'pollinations' ? '自定义 prompt 合成成功（Pollinations 合成）' :
+           'AI 暂不可用，已展示商品预览')
+        : '合成失败',
     });
   } catch (err) {
     return fail(res, 500, `试摆失败：${err.message}`);
@@ -1424,11 +1680,13 @@ app.post('/api/tryon/ai-history', requireUser, async (req, res) => {
     if (!productResp.ok) return fail(res, 502, '拉取商品图失败');
     const sofaBuffer = Buffer.from(await productResp.arrayBuffer());
 
-    let aiBuffer = null, aiError = null;
+    let aiBuffer = null, demoType = null, aiError = null;
     try {
-      aiBuffer = await callTryonAI({
+      const r = await callTryonAI({
         productId, roomBuffer, sofaBuffer, productImagePath: product.image,
       });
+      aiBuffer = r.buffer;
+      demoType = r.demoType;
     } catch (err) {
       aiError = err.message;
     }
@@ -1459,7 +1717,12 @@ app.post('/api/tryon/ai-history', requireUser, async (req, res) => {
       compositionUrl,
       compositionBase64: aiBuffer ? `data:image/jpeg;base64;${aiBuffer.toString('base64')}` : null,
       aiError,
-      message: compositionUrl ? 'AI 试摆成功（历史图）' : '合成失败',
+      demoType,
+      message: compositionUrl
+        ? (demoType === 'ai-composition' ? 'AI 试摆成功（历史图）' :
+           demoType === 'pollinations' ? 'AI 试摆成功（Pollinations 合成）' :
+           'AI 暂不可用，已展示商品预览')
+        : '合成失败',
     });
   } catch (err) {
     return fail(res, 500, `试摆失败：${err.message}`);

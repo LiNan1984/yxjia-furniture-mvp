@@ -70,3 +70,6 @@ tmp/
 temp/
 *.tmp
 *.bak
+
+# 本地调试脚本（不入仓）
+click_*.mjs
