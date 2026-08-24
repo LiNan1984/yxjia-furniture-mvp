@@ -18,6 +18,7 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const UPLOADS_FILE = path.join(DATA_DIR, 'uploads.json');
 const PRESETS_FILE = path.join(DATA_DIR, 'presets.json');
 const FEATURE_FLAGS_FILE = path.join(DATA_DIR, 'feature-flags.json');
+const WHOLE_HOME_STYLES_FILE = path.join(DATA_DIR, 'whole-home-styles.json');
 const PUBLIC_DIR = __dirname;
 const IMAGES_DIR = path.join(ROOT, 'public', 'images');
 const UPLOADS_DIR = path.join(ROOT, 'uploads');
@@ -214,6 +215,24 @@ function loadFeatureFlags() {
   } catch (err) {
     return { tryonRequirePhone: false };
   }
+}
+
+// 读取全屋定制风格卡（商洛本地化 6 款，按 priority 升序）
+function loadWholeHomeStyles() {
+  try {
+    const data = readJSON(WHOLE_HOME_STYLES_FILE);
+    const list = Array.isArray(data) ? data : (data.styles || []);
+    return list
+      .slice()
+      .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  } catch (err) {
+    console.warn('[whole-home] loadWholeHomeStyles failed: ' + err.message);
+    return [];
+  }
+}
+
+function findWholeHomeStyle(id) {
+  return loadWholeHomeStyles().find(s => s.id === id);
 }
 
 function ok(res, data, status = 200) {
@@ -640,6 +659,7 @@ app.get('/product/:id', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'produc
 app.get('/checkout/:productId', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'checkout.html')));
 app.get('/order/:orderId', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'order.html')));
 app.get('/tryon', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'tryon.html')));
+app.get('/whole-home', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'whole-home.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'login.html')));
 app.get('/my-orders', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'my-orders.html')));
 
@@ -1614,6 +1634,149 @@ app.get('/api/feature-flags', (req, res) => {
   return ok(res, loadFeatureFlags());
 });
 
+// ---------- API: 全屋定制（Phase 1） ----------
+//
+// GET  /api/whole-home/styles      → 6 张风格卡（公开）
+// POST /api/whole-home/recommend   → 基于 analyze 记录 + style 卡生成推荐方案（公开）
+//
+// Phase 1 只读 data/whole-home-styles.json，不调 AI，estPrice 暂填"面议"
+// 未来柜/床/桌上线后，往 style 卡的 skuBinding 追加即可，路由签名不变
+
+// GET /api/whole-home/styles — 返回所有风格卡（按 priority 升序）
+app.get('/api/whole-home/styles', (req, res) => {
+  try {
+    const styles = loadWholeHomeStyles();
+    return ok(res, { styles, total: styles.length });
+  } catch (err) {
+    return fail(res, 500, '读取风格卡失败');
+  }
+});
+
+// POST /api/whole-home/recommend
+// 入参：{ analyzeId, styleId, budget? }
+//   - analyzeId：来自 /api/upload/room 返回的上传记录 id（在 data/uploads.json 里）
+//   - styleId：上面 GET 接口返回的某个 style.id
+//   - budget：可选，客户预算区间（字符串，e.g. "10-12万"），原样回显
+app.post('/api/whole-home/recommend', (req, res) => {
+  try {
+    const body = req.body || {};
+    const { analyzeId, styleId } = body;
+    const budget = typeof body.budget === 'string' ? body.budget.trim() : '';
+
+    if (!analyzeId || typeof analyzeId !== 'string') return fail(res, 400, 'analyzeId 必填');
+    if (!styleId || typeof styleId !== 'string') return fail(res, 400, 'styleId 必填');
+
+    // 1) 读 analyze 记录（来自 /api/upload/room 写入的 data/uploads.json）
+    const uploadsContainer = loadUploadsContainer();
+    const analyzeRecord = uploadsContainer.uploads.find(u => u.id === analyzeId && u.type === 'room');
+    if (!analyzeRecord) return fail(res, 404, '找不到该 analyze 记录（请先调 /api/upload/room 上传客厅照）');
+
+    // 2) 读风格卡
+    const style = findWholeHomeStyle(styleId);
+    if (!style) return fail(res, 404, `找不到风格卡: ${styleId}`);
+
+    // 3) 把 style.rooms 拆开，每个房间挂上对应的 skuBinding item
+    //    skuBinding.role 里含"沙发"关键字的，归"客厅"；含"主卧"/"次卧"/"老人"/"儿童"等关键字的，按房间名匹配
+    const styleRooms = Array.isArray(style.rooms) && style.rooms.length > 0
+      ? style.rooms
+      : ['客厅'];
+    const binding = Array.isArray(style.skuBinding) ? style.skuBinding : [];
+
+    const roomRoleHints = {
+      '客厅': ['客厅', '会客'],
+      '主卧': ['主卧', '主位'],
+      '次卧': ['次卧'],
+      '老人房': ['老人', '老人房'],
+      '儿童房': ['儿童', '儿童房', '小孩', '游戏区'],
+      '书房': ['书房', '阅读'],
+      '茶室': ['茶室', '禅修'],
+      '餐厅': ['餐厅'],
+    };
+
+    const itemsByRoom = {};
+    for (const r of styleRooms) itemsByRoom[r] = [];
+
+    for (const item of binding) {
+      const roleText = item.role || '';
+      let matched = false;
+      for (const [room, hints] of Object.entries(roomRoleHints)) {
+        if (styleRooms.includes(room) && hints.some(h => roleText.includes(h))) {
+          itemsByRoom[room].push({
+            productId: item.productId,
+            role: item.role,
+            note: item.note || '',
+            estPrice: '面议', // Phase 1：products.json 没 price 字段
+          });
+          matched = true;
+          break;
+        }
+      }
+      // 兜底：如果 role 匹配不到房间，且 binding 只有 1 件，就丢给"客厅"（最常见）
+      if (!matched) {
+        const fallbackRoom = styleRooms.includes('客厅') ? '客厅' : styleRooms[0];
+        itemsByRoom[fallbackRoom].push({
+          productId: item.productId,
+          role: item.role,
+          note: item.note || '',
+          estPrice: '面议',
+        });
+      }
+    }
+
+    // 4) 组装 rooms 数组
+    const rooms = styleRooms.map(roomType => ({
+      roomType,
+      items: itemsByRoom[roomType] || [],
+    }));
+
+    // 5) deliveryPlan — Phase 1 规则：含"沙发"的 SKU 先发（2 周），其余后发（4 周）
+    const sofaItems = binding.filter(b => (b.role || '').includes('沙发'));
+    const otherItems = binding.filter(b => !(b.role || '').includes('沙发'));
+    const deliveryPlan = {
+      batch1: {
+        label: '沙发先发（先行到家）',
+        eta: '下单后 14 天到货',
+        items: sofaItems.map(b => ({ productId: b.productId, role: b.role })),
+      },
+      batch2: {
+        label: '柜、床、桌后补（后续到位）',
+        eta: '下单后 28-35 天到货',
+        items: otherItems.map(b => ({ productId: b.productId, role: b.role })),
+        note: 'Phase 1 暂只有沙发；柜/床/桌上线后会自动补齐此批次',
+      },
+    };
+
+    // 6) 拼 plan 主体
+    const plan = {
+      analyzeId,
+      analyze: {
+        id: analyzeRecord.id,
+        url: fixImageUrl(analyzeRecord.url),
+        uploadedAt: analyzeRecord.createdAt,
+        userPhone: analyzeRecord.userPhone || '',
+      },
+      style: {
+        id: style.id,
+        name: style.name,
+        tagline: style.tagline,
+        description: style.description,
+        targetAudience: style.targetAudience || [],
+        aiPromptHint: style.aiPromptHint,
+      },
+      budget: budget || '面议',
+      rooms,
+      deliveryPlan,
+      note: 'Phase 1 体验版：仅绑定现有 3 款沙发，柜/床/桌上线后会自动扩展；estPrice 暂为「面议」，到店看货报价',
+      generatedAt: new Date().toISOString(),
+    };
+
+    return ok(res, { plan });
+  } catch (err) {
+    console.error('[whole-home/recommend] error:', err);
+    return fail(res, 500, '生成推荐方案失败: ' + err.message);
+  }
+});
+
 // GET /api/admin/feature-flags — 后台查看
 app.get('/api/admin/feature-flags', requireAdmin, (req, res) => {
   return ok(res, loadFeatureFlags());
@@ -1742,6 +1905,337 @@ app.post('/api/admin/login', (req, res) => {
   } catch (err) {
     return fail(res, 500, '登录失败');
   }
+});
+
+// ---------- API: 全屋定制 Phase 1 analyze ----------
+//
+// POST /api/whole-home/analyze
+//   multipart: rooms[0..n] (3-6 张图), phone? (string), style? (id 或中文名)
+//
+// 流程：sharp 缩图到 1024 宽 → 每张调豆包 doubao-seed-2-1-pro-260628 出结构化 JSON
+//      → 累加成 rooms[] + overallStyle + budgetSuggestion → 写到 uploads.json 的
+//      wholeHomeAnalyzes[] 数组里。
+// 限额：单 IP 每 24h 最多 5 次（参考 /api/tryon/ai-anon 的 anon 限额模式）
+
+// 风格别名：用户传"商洛暖居"/"陕南暖居风"/"shangluo-nuanju" 都认
+// 统一映射成"陕南暖居风"（与 data/whole-home-styles.json 的 name 字段对齐）
+const WHOLE_HOME_STYLE_ALIASES = new Map([
+  ['shangluo-nuanju', '陕南暖居风'],
+  ['陕南暖居风', '陕南暖居风'],
+  ['陕南暖居', '陕南暖居风'],
+  ['商洛暖居', '陕南暖居风'],
+  ['商洛暖居风', '陕南暖居风'],
+  ['sandai-tongtang', '三代同堂'],
+  ['三代同堂', '三代同堂'],
+  ['hunfang-naiyou', '婚房奶油风'],
+  ['hunfang-nuoni', '婚房奶油风'],
+  ['婚房奶油风', '婚房奶油风'],
+  ['婚房奶油', '婚房奶油风'],
+  ['jianyue-beiou', '简约北欧'],
+  ['简约北欧', '简约北欧'],
+  ['xinzhongshi', '新中式'],
+  ['xin-zhongshi', '新中式'],
+  ['新中式', '新中式'],
+  ['jijian-chaji', '极简侘寂'],
+  ['极简侘寂', '极简侘寂'],
+]);
+const WHOLE_HOME_STYLE_OFFICIAL = [...new Set(WHOLE_HOME_STYLE_ALIASES.values())];
+
+const WHOLE_HOME_LIMIT = 5;
+const WHOLE_HOME_WINDOW_MS = 24 * 60 * 60 * 1000;
+const wholeHomeHits = new Map(); // ip -> number[] (timestamps)
+
+function checkWholeHomeLimit(ip) {
+  const now = Date.now();
+  const cutoff = now - WHOLE_HOME_WINDOW_MS;
+  const arr = (wholeHomeHits.get(ip) || []).filter(t => t >= cutoff);
+  wholeHomeHits.set(ip, arr);
+  if (arr.length >= WHOLE_HOME_LIMIT) return false;
+  arr.push(now);
+  return true;
+}
+
+function remainingWholeHomeQuota(ip) {
+  const now = Date.now();
+  const cutoff = now - WHOLE_HOME_WINDOW_MS;
+  return Math.max(
+    0,
+    WHOLE_HOME_LIMIT - (wholeHomeHits.get(ip) || []).filter(t => t >= cutoff).length
+  );
+}
+
+// 豆包 prompt：严格只回 JSON，禁止 markdown / 说明 / 思考 / 前缀
+// 字段对齐到豆包语义（roomSize / currentStyle 等），服务端再映射回 API 合同字段
+function buildWholeHomePrompt({ style, phone }) {
+  const styleHint = style
+    ? `\n【客户倾向风格】${style}（请在 currentStyle / suggestedItems 中呼应）`
+    : '';
+  const phoneHint = phone
+    ? `\n【客户手机号】${phone}（仅用于回访，不进 JSON）`
+    : '';
+  return `【任务】分析这一张中国家庭的室内照片，输出结构化信息。
+【背景】商洛本地（陕南小城），客户预算 1-10 万元。
+【图片】base64 内嵌在消息里${styleHint}${phoneHint}
+【输出 JSON 格式】（严格按字段，缺字段视为不合格）
+{
+  "roomType": "客厅/主卧/次卧/餐厅/厨房/书房/儿童房/卫生间/阳台/玄关 之一",
+  "roomSize": "约 15-20 平米（按视觉估）",
+  "currentStyle": "现有风格，新中式/北欧/极简/侘寂/美式/工业/混搭 之一",
+  "lightingDirection": "南/北/东/西（按窗户高亮估）",
+  "mainColor": "#XXXXXX 三个主色 hex",
+  "suggestedItems": ["应补的家具类型，如：3 人位沙发 + 茶几 + 电视柜"],
+  "estimatedBudget": "¥数字"
+}
+【严格要求】只回 JSON 对象。不要 markdown 代码块（不要 \`\`\`json 包裹）、
+不要说明文字、不要思考过程、不要"以下是 JSON"前缀。
+直接以 { 开头，以 } 结尾。无任何多余字符。`;
+}
+
+async function compressRoomImage(buffer) {
+  const { default: sharp } = await import('sharp');
+  return await sharp(buffer)
+    .resize({ width: 1024, withoutEnlargement: true })
+    .jpeg({ quality: 82 })
+    .toBuffer();
+}
+
+async function analyzeOneRoomWithDoubao({ imageBuffer, style, phone }) {
+  if (!ARK_API_KEY) {
+    throw new Error('ARK_API_KEY 未配置（请检查 .env）');
+  }
+  const b64 = imageBuffer.toString('base64');
+  const prompt = buildWholeHomePrompt({ style, phone });
+  const body = {
+    model: ARK_VISION_MODEL,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${b64}` } },
+        { type: 'text', text: prompt },
+      ],
+    }],
+    temperature: 0.2,
+    response_format: { type: 'json_object' },
+  };
+  const resp = await fetch(ARK_VISION_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${ARK_API_KEY}`,
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(60000),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`豆包 API ${resp.status}：${text.slice(0, 180) || '(empty body)'}`);
+  }
+  const data = await resp.json();
+  const content = data?.choices?.[0]?.message?.content || '';
+  if (!content) throw new Error('豆包返回为空');
+
+  // 三段解析：直 parse → 剥 ```json 围栏 → 抓第一对 {...}
+  let parsed = null;
+  try { parsed = JSON.parse(content); }
+  catch (_) {
+    const fence = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fence) {
+      try { parsed = JSON.parse(fence[1]); } catch (_) { /* fall through */ }
+    }
+    if (!parsed) {
+      const brace = content.match(/\{[\s\S]*\}/);
+      if (brace) {
+        try { parsed = JSON.parse(brace[0]); } catch (_) { /* fall through */ }
+      }
+    }
+    if (!parsed) throw new Error('豆包 JSON 解析失败：' + content.slice(0, 120));
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('豆包 JSON 不是对象');
+  }
+
+  // 字段映射：豆包字段（step 2 prompt） → API 合同字段（step 1c）
+  const roomType = String(parsed.roomType || '未知').trim().slice(0, 30) || '未知';
+  const styleOut = String(parsed.currentStyle || parsed.style || '').trim().slice(0, 30) || '未识别';
+  const sizeEstimate = String(parsed.roomSize || parsed.sizeEstimate || '').trim().slice(0, 50) || '未知';
+  const lightingDirection = String(parsed.lightingDirection || '').trim().slice(0, 10) || '未知';
+  const rawMain = String(parsed.mainColor || '').trim();
+  const mainColor = /^#[0-9a-fA-F]{6}$/.test(rawMain) ? rawMain : '#888888';
+  const suggestedItems = Array.isArray(parsed.suggestedItems)
+    ? parsed.suggestedItems.map(s => String(s).trim().slice(0, 60)).filter(Boolean).slice(0, 10)
+    : [];
+  const estimatedBudget = String(parsed.estimatedBudget || '').trim().slice(0, 30);
+
+  return {
+    roomType,
+    style: styleOut,
+    sizeEstimate,
+    lightingDirection,
+    mainColor,
+    suggestedItems,
+    estimatedBudget,
+  };
+}
+
+function computeOverallStyle({ userStyle, rooms }) {
+  if (userStyle) return userStyle;
+  const counts = new Map();
+  for (const r of rooms) {
+    const s = (r.style || '').trim();
+    if (!s || s === '未识别') continue;
+    counts.set(s, (counts.get(s) || 0) + 1);
+  }
+  if (counts.size === 0) return WHOLE_HOME_STYLE_OFFICIAL[3] || '简约北欧';
+  let best = '';
+  let bestN = 0;
+  for (const [s, c] of counts) {
+    if (c > bestN) { best = s; bestN = c; }
+  }
+  return best || WHOLE_HOME_STYLE_OFFICIAL[3] || '简约北欧';
+}
+
+function fmtMoney(v) {
+  if (v >= 10000) {
+    const w = v / 10000;
+    return (Math.round(w * 10) / 10).toFixed(1).replace(/\.0$/, '') + '万';
+  }
+  return Math.round(v / 1000) + 'k';
+}
+
+function computeBudgetSuggestion(rooms) {
+  const n = rooms.length || 1;
+  // 软装基数：每张图 8k-12k，按张数叠加
+  let low = 8000 * n;
+  let high = 12000 * n;
+
+  // 豆包 estimatedBudget 里的最大数字作为高点参考
+  let userPeak = 0;
+  for (const r of rooms) {
+    const m = (r.estimatedBudget || '').match(/(\d+(?:\.\d+)?)/);
+    if (m) {
+      const v = parseFloat(m[1]);
+      if (Number.isFinite(v) && v > 100) userPeak = Math.max(userPeak, v);
+    }
+  }
+  if (userPeak > high) high = userPeak;
+
+  // 1-10 万硬上限（用户提到的预算区间）
+  if (low < 10000) low = 10000;
+  if (low > 30000) low = 30000;
+  if (high > 100000) high = 100000;
+
+  return `¥${fmtMoney(low)} - ¥${fmtMoney(high)}`;
+}
+
+const wholeHomeUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+}).fields([
+  { name: 'rooms', maxCount: 6 },
+  { name: 'phone', maxCount: 1 },
+  { name: 'style', maxCount: 1 },
+]);
+
+// POST /api/whole-home/analyze — 全屋分析入口
+app.post('/api/whole-home/analyze', (req, res) => {
+  wholeHomeUpload(req, res, async (multerErr) => {
+    if (multerErr) {
+      if (multerErr.code === 'LIMIT_FILE_SIZE') return fail(res, 400, '单张图片不能超过 15MB，请压缩后重传');
+      if (multerErr.code === 'LIMIT_FILE_COUNT' || multerErr.code === 'LIMIT_UNEXPECTED_FILE') {
+        return fail(res, 400, '一次最多 6 张房间照片');
+      }
+      return fail(res, 400, '上传失败：' + (multerErr.message || '未知错误'));
+    }
+
+    const ip = getClientIp(req);
+    if (!checkWholeHomeLimit(ip)) {
+      return fail(res, 429, `全屋分析每天限 ${WHOLE_HOME_LIMIT} 次，请登录以提升额度（剩余 ${remainingWholeHomeQuota(ip)} 次）`);
+    }
+
+    const roomFiles = Array.isArray(req.files?.rooms) ? req.files.rooms : [];
+    if (roomFiles.length < 3) return fail(res, 400, '请至少上传 3 张房间照片');
+    if (roomFiles.length > 6) return fail(res, 400, '一次最多 6 张房间照片');
+
+    const phoneRaw = String(req.body?.phone || '').trim();
+    const styleRaw = String(req.body?.style || '').trim();
+    if (phoneRaw && !isValidPhone(phoneRaw)) {
+      return fail(res, 400, '手机号格式不对（11 位、1 开头）');
+    }
+    let officialStyle = '';
+    if (styleRaw) {
+      officialStyle = WHOLE_HOME_STYLE_ALIASES.get(styleRaw) || '';
+      if (!officialStyle) {
+        return fail(res, 400, `风格只能是：${WHOLE_HOME_STYLE_OFFICIAL.join(' / ')}`);
+      }
+    }
+
+    const roomsAnalyzed = [];
+    const roomsPersisted = [];
+    let i = 0;
+    for (const f of roomFiles) {
+      i++;
+      try {
+        // 1) 原图持久化（MinIO → 本地 fallback）
+        const ext = path.extname(f.originalname || '') || mimeToExt(f.mimetype) || '.jpg';
+        const persistName = `whan-${Date.now()}-${i}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+        const persisted = await saveImage(f.buffer, 'rooms', persistName, f.mimetype || 'image/jpeg');
+        roomsPersisted.push(persisted.url);
+
+        // 2) 压到 1024 宽再调豆包（降 token + 提速）
+        const compressed = await compressRoomImage(f.buffer);
+        // 3) 豆包结构化分析
+        const one = await analyzeOneRoomWithDoubao({
+          imageBuffer: compressed,
+          style: officialStyle,
+          phone: phoneRaw,
+        });
+        roomsAnalyzed.push({ ...one, originalUrl: persisted.url, index: i });
+      } catch (err) {
+        console.warn(`[whole-home] room #${i} failed: ${err.message}`);
+        return fail(res, 502, `第 ${i} 张图分析失败：${err.message}`);
+      }
+    }
+
+    const analyzeId = generateId('whan');
+    const overallStyle = computeOverallStyle({ userStyle: officialStyle, rooms: roomsAnalyzed });
+    const budgetSuggestion = computeBudgetSuggestion(roomsAnalyzed);
+
+    // 写 uploads.json 的 wholeHomeAnalyzes[]（与现有 uploads[] 并列，独立数组）
+    try {
+      const container = loadUploadsContainer();
+      if (!Array.isArray(container.wholeHomeAnalyzes)) container.wholeHomeAnalyzes = [];
+      container.wholeHomeAnalyzes.unshift({
+        id: analyzeId,
+        type: 'whole-home-analyze',
+        phone: phoneRaw,
+        userStyle: officialStyle,
+        style: overallStyle,
+        rooms: roomsAnalyzed,
+        overallStyle,
+        budgetSuggestion,
+        roomImageUrls: roomsPersisted,
+        ip,
+        uploadedBy: phoneRaw ? `user:${phoneRaw}` : 'anonymous',
+        createdAt: new Date().toISOString(),
+      });
+      if (container.wholeHomeAnalyzes.length > 1000) {
+        container.wholeHomeAnalyzes = container.wholeHomeAnalyzes.slice(0, 1000);
+      }
+      saveUploadsContainer(container);
+    } catch (err) {
+      console.warn(`[whole-home] persist analyze record failed: ${err.message}`);
+    }
+
+    return ok(res, {
+      analyzeId,
+      rooms: roomsAnalyzed,
+      overallStyle,
+      budgetSuggestion,
+      message: `已分析 ${roomsAnalyzed.length} 张照片，整体推荐「${overallStyle}」，预算 ${budgetSuggestion}`,
+      remaining: remainingWholeHomeQuota(ip),
+    });
+  });
 });
 
 function requireUser(req, res, next) {

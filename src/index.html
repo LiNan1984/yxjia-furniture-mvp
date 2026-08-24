@@ -250,6 +250,38 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 }
 .default-room-btn:hover{background:var(--paper);border-style:solid}
 .default-room-btn.active{background:var(--paper);border-style:solid;border-width:2px;padding:13px}
+
+/* 整屋搭配升级版入口（主页） */
+.upgrade-banner{
+  display:block;
+  background:var(--coffee);color:var(--paper);
+  padding:22px 24px;
+  margin-bottom:14px;
+  text-decoration:none;
+  border:1.5px solid var(--coffee);
+  transition:transform .15s;
+}
+.upgrade-banner:hover{transform:translateY(-2px)}
+.upgrade-banner:active{transform:translateY(0)}
+.upgrade-tag{
+  display:inline-block;
+  font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+  background:var(--paper);color:var(--coffee);
+  padding:4px 10px;margin-bottom:10px;
+}
+.upgrade-title{
+  font-size:1.25rem;font-weight:800;line-height:1.2;margin-bottom:6px;
+  letter-spacing:-.01em;
+}
+.upgrade-desc{
+  font-size:.88rem;opacity:.85;line-height:1.5;margin-bottom:12px;
+}
+.upgrade-cta{
+  font-size:.85rem;font-weight:700;letter-spacing:.05em;
+  display:inline-block;
+  border-bottom:1.5px solid var(--paper);
+  padding-bottom:2px;
+}
 </style>
 </head>
 <body>
@@ -283,6 +315,14 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
   <div class="tryon-grid">
     <!-- 左：表单 -->
     <div>
+      <!-- 整屋搭配 升级版入口 -->
+      <a href="/whole-home" class="upgrade-banner">
+        <div class="upgrade-tag">升级版 · 新功能</div>
+        <div class="upgrade-title">🏠 整屋搭配 升级版</div>
+        <div class="upgrade-desc">3-6 张房间照 → AI 出整屋方案 + 透明报价 → 不用跑装修公司</div>
+        <div class="upgrade-cta">立即体验 →</div>
+      </a>
+
       <form class="tryon-form" id="tryonForm">
         <h3>📷 三步出图</h3>
         <p class="lead">客厅照 + 选家具 → 约 60 秒出真实合成图 → 不满意换款</p>
