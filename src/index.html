@@ -285,7 +285,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
     <div>
       <form class="tryon-form" id="tryonForm">
         <h3>📷 三步出图</h3>
-        <p class="lead">客厅照 + 选家具 → 15 秒出真实合成图 → 不满意换款</p>
+        <p class="lead">客厅照 + 选家具 → 约 60 秒出真实合成图 → 不满意换款</p>
 
         <!-- 客厅照 -->
         <div class="field">
@@ -350,7 +350,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
         </div>
 
         <button type="submit" class="submit-btn" id="submitBtn">
-          立即生成 <span class="eta">· 约 15 秒</span>
+          立即生成 <span class="eta">· 约 60 秒</span>
         </button>
 
         <!-- 大读秒计时器（按钮下方） -->
@@ -390,7 +390,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
     <div class="step">
       <div class="n">03</div>
       <h3>看效果</h3>
-      <p>15 秒出图，不满意换款</p>
+      <p>约 60 秒出图，不满意换款</p>
     </div>
   </div>
 </section>
@@ -445,7 +445,7 @@ let PRODUCTS = [];
 let SELECTED_ROOM_FILE = null;
 let SELECTED_ROOM_URL = null;
 let SELECTED_PRODUCT = null;
-const ETA_SECONDS = 15;
+const ETA_SECONDS = 60;
 
 async function loadProducts() {
   const r = await fetch('/api/products').then(r=>r.json());
@@ -456,10 +456,14 @@ async function loadProducts() {
 }
 
 function setHeroImage() {
-  // 用 sofa-1 的真实上传图作为主推（之前那张是错的草图）
+  // 用首张在售商品的真实图作为主推；如该图加载失败回退到 /images/sofa-zhongshi.jpg
   const hero = document.getElementById('heroImg');
   const featured = PRODUCTS.find(p => p.id === 'sofa-1') || PRODUCTS[0];
-  if (hero && featured && featured.image) hero.src = featured.image;
+  if (!hero) return;
+  const fallback = '/images/sofa-zhongshi.jpg';
+  const target = (featured && featured.image) || fallback;
+  hero.onerror = () => { if (hero.src !== fallback) hero.src = fallback; };
+  hero.src = target;
 }
 
 function renderCatalog() {
@@ -718,7 +722,7 @@ document.getElementById('tryonForm').addEventListener('submit', async e => {
     }
   } finally {
     submitBtn.disabled = false;
-    submitBtn.innerHTML = '立即生成 <span class="eta">· 约 15 秒</span>';
+    submitBtn.innerHTML = '立即生成 <span class="eta">· 约 60 秒</span>';
   }
 });
 
