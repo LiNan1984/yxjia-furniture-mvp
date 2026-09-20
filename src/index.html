@@ -282,6 +282,63 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
   border-bottom:1.5px solid var(--paper);
   padding-bottom:2px;
 }
+
+/* ===== AI 语音导购（悬浮按钮 + 面板） ===== */
+.voice-fab{
+  position:fixed;right:16px;bottom:calc(72px + env(safe-area-inset-bottom,6px));
+  z-index:110;
+  width:60px;height:60px;border-radius:50%;
+  background:var(--coffee);color:var(--paper);
+  font-size:1.5rem;line-height:1;
+  box-shadow:0 6px 18px rgba(58,40,24,.35);
+  display:flex;align-items:center;justify-content:center;
+}
+.voice-fab:active{transform:scale(.94)}
+.voice-panel{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(26,26,26,.45);
+  display:none;align-items:flex-end;
+}
+.voice-panel.open{display:flex}
+.voice-card{
+  width:100%;background:var(--paper);
+  border-radius:20px 20px 0 0;
+  padding:22px 20px calc(26px + env(safe-area-inset-bottom,6px));
+  text-align:center;
+}
+.voice-title{
+  font-size:1.05rem;font-weight:800;color:var(--coffee);
+  margin-bottom:4px;
+}
+.voice-sub{font-size:.82rem;opacity:.6;margin-bottom:18px}
+.voice-mic{
+  width:96px;height:96px;border-radius:50%;
+  margin:0 auto 14px;
+  background:var(--coffee);color:var(--paper);
+  font-size:2.2rem;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 18px rgba(58,40,24,.3);
+}
+.voice-mic.recording{animation:voicePulse 1.2s ease-in-out infinite}
+@keyframes voicePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(58,40,24,.35)}
+  50%{box-shadow:0 0 0 16px rgba(58,40,24,0)}
+}
+.voice-status{font-size:.95rem;font-weight:600;min-height:1.4em;margin-bottom:10px}
+.voice-chat{
+  display:none;flex-direction:column;gap:8px;
+  max-height:36vh;overflow-y:auto;
+  background:#fff;border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;margin-bottom:14px;
+  text-align:left;
+}
+.voice-chat.open{display:flex}
+.bubble{max-width:86%;padding:8px 12px;border-radius:14px;font-size:.92rem;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.bubble.user{align-self:flex-end;background:var(--coffee);color:var(--paper);border-bottom-right-radius:4px}
+.bubble.guide{align-self:flex-start;background:#f1e9dc;color:var(--coffee);border-bottom-left-radius:4px}
+.voice-close{
+  font-size:.9rem;color:var(--coffee);opacity:.6;padding:8px 20px;
+}
 </style>
 </head>
 <body>
@@ -316,6 +373,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
     <!-- 左：表单 -->
     <div>
       <!-- 整屋搭配 升级版入口 -->
+
       <a href="/whole-home" class="upgrade-banner">
         <div class="upgrade-tag">升级版 · 新功能</div>
         <div class="upgrade-title">🏠 整屋搭配 升级版</div>
@@ -477,6 +535,18 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
   <a href="#tryon" class="cta"><span class="ico">📷</span><span>试摆</span></a>
   <a href="tel:13359140982"><span class="ico">📞</span><span>拨号</span></a>
   <a href="/login" id="nav-me-tab"><span class="ico">👤</span><span>我的</span></a>
+</div>
+
+<button class="voice-fab" id="voiceFab" onclick="openVoicePanel()" aria-label="语音导购">🎤</button>
+<div class="voice-panel" id="voicePanel">
+  <div class="voice-card">
+    <div class="voice-title">AI 语音导购</div>
+    <div class="voice-sub">点话筒接通，像打电话一样聊 · 说完自动回答 · 也可以直接拨 13359140982</div>
+    <button class="voice-mic" id="voiceMic" onclick="toggleVoiceRecording()">🎤</button>
+    <div class="voice-status" id="voiceStatus">点上面的话筒开始提问</div>
+    <div class="voice-chat" id="voiceChat"></div>
+    <button class="voice-close" onclick="closeVoicePanel()">关闭</button>
+  </div>
 </div>
 
 <script>
@@ -863,6 +933,434 @@ fetch('/api/auth/me').then(r=>r.json()).then(d=>{
     tab.querySelector('span:last-child').textContent='我的';
   }
 }).catch(()=>{});
+
+// ===== AI 语音导购 · 实时通话模式（stepaudio-2.5-realtime，类豆包连续对话） =====
+// 点一下话筒 = 接通；之后免提连续对话：说完自动回答、回答完自动继续听、说话可随时打断；再点一下 = 挂断
+let rtWs = null;              // 通话 WebSocket
+let rtState = 'idle';         // idle | listening | thinking | speaking
+let rtStream = null;
+let rtCtx = null;             // 录音用 AudioContext
+let rtProcessor = null;
+let rtBuf = [];               // 待处理 Float32 采样
+let rtSendTimer = null;
+let rtPlaying = false;
+let rtPlayCtx = null;         // 播放用 AudioContext
+let rtNextPlayAt = 0;
+let rtCallTimer = null;       // 通话时长保护
+// 客户端能量 VAD（自动断句 + 打断检测）
+let rtNoise = 0.005;          // 滚动噪声底（RMS）
+let rtSpeechMs = 0;           // 累计检测到说话的毫秒数
+let rtSilentMs = 0;           // 说完后连续静音毫秒数
+let rtListenStart = 0;
+let rtTurnSeq = 0;            // 话轮序号：区分新回答与打断后的迟到事件
+let rtNoSpeechHinted = false; // "没听到"提示只发一次
+let rtStarting = false;       // 接通过程防重入（快速连点）
+let rtInputRate = 16000;      // 实际输入采样率（建管线时记录）
+let rtLastAudioUrl = null;    // 回退模式用
+
+const RT_MAX_CALL_MS = 3 * 60 * 1000; // 单次通话上限，防刷
+
+function rtSetStatus(t){ setVoiceStatus(t); }
+function rtSetMicIcon(icon){ document.getElementById('voiceMic').textContent = icon; }
+
+// ===== 文字版对话记录（参考 OpenAI Realtime Console：语音之外保留完整转写，方便回看） =====
+let rtCurGuideBubble = null;  // 当前正在流式追加的导购气泡
+function voiceChatShow(){ document.getElementById('voiceChat').classList.add('open'); }
+function voiceChatClear(){
+  document.getElementById('voiceChat').innerHTML = '';
+  rtCurGuideBubble = null;
+  voiceChatShow();
+}
+function voiceChatScroll(){
+  const c = document.getElementById('voiceChat');
+  c.scrollTop = c.scrollHeight;
+}
+function voiceAddBubble(role, text){
+  voiceChatShow();
+  const b = document.createElement('div');
+  b.className = 'bubble ' + role;
+  b.textContent = text || '';
+  document.getElementById('voiceChat').appendChild(b);
+  voiceChatScroll();
+  return b;
+}
+
+function rtAppendReply(t){
+  if (!rtCurGuideBubble || !rtCurGuideBubble.isConnected) rtCurGuideBubble = voiceAddBubble('guide', '');
+  rtCurGuideBubble.textContent += t;
+  voiceChatScroll();
+}
+
+// —— 播放：把 base64 pcm16@16k 增量排进 AudioContext 队列 ——
+function rtPlayChunk(b64){
+  if (!rtPlayCtx) rtPlayCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (rtPlayCtx.state === 'suspended') rtPlayCtx.resume();
+  const bin = atob(b64);
+  const i16 = new Int16Array(bin.length / 2);
+  for (let i = 0; i < i16.length; i++) i16[i] = (bin.charCodeAt(2*i) | (bin.charCodeAt(2*i+1) << 8)) << 16 >> 16;
+  const f32 = new Float32Array(i16.length);
+  for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768;
+  const buf = rtPlayCtx.createBuffer(1, f32.length, 16000);
+  buf.copyToChannel(f32, 0);
+  const src = rtPlayCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(rtPlayCtx.destination);
+  const now = rtPlayCtx.currentTime;
+  rtNextPlayAt = Math.max(rtNextPlayAt, now + 0.05);
+  src.start(rtNextPlayAt);
+  src.onended = () => { if (rtPlayCtx && rtNextPlayAt <= rtPlayCtx.currentTime + 0.05) rtPlaying = false; };
+  rtNextPlayAt += buf.duration;
+  rtPlaying = true;
+}
+function rtStopPlayback(){
+  if (rtPlayCtx) { rtPlayCtx.close().catch(()=>{}); rtPlayCtx = null; }
+  rtNextPlayAt = 0; rtPlaying = false;
+}
+
+function rtResetVad(){
+  rtNoise = 0.005; rtSpeechMs = 0; rtSilentMs = 0; rtListenStart = Date.now();
+}
+
+// —— 每 100ms：混平采样 → 能量 VAD →（listening 态）推流 ——
+function rtSendAudio(){
+  if (!rtBuf.length) return;
+  const flat = rtBuf;
+  rtBuf = [];
+  const total = flat.reduce((n,c)=>n+c.length, 0);
+  const mono = new Float32Array(total);
+  let off = 0;
+  for (const c of flat){ mono.set(c, off); off += c.length; }
+
+  // 能量 VAD：说话=能量超过 噪声底×3.5 且不低于 0.018
+  let sum = 0;
+  for (let i = 0; i < mono.length; i++) sum += mono[i] * mono[i];
+  const rms = Math.sqrt(sum / mono.length);
+  const chunkMs = (mono.length / rtInputRate) * 1000;
+  if (rms < rtNoise * 1.5) rtNoise = rtNoise * 0.9 + rms * 0.1; // 静音段缓慢跟踪噪声底
+  const isSpeech = rms > Math.max(rtNoise * 3.5, 0.018);
+  if (isSpeech) { rtSpeechMs += chunkMs; rtSilentMs = 0; }
+  else if (rtSpeechMs > 0) { rtSilentMs += chunkMs; }
+
+  if (rtState === 'listening') {
+    // 说完（说过 >600ms 后静音 ≥900ms）→ 自动提交
+    if (rtSpeechMs > 600 && rtSilentMs >= 900) { rtEndTurn(); return; }
+    // 一直没说话 → 只提示一次，不退出通话
+    if (rtSpeechMs === 0 && Date.now() - rtListenStart > 8000) {
+      if (!rtNoSpeechHinted) { rtNoSpeechHinted = true; rtSetStatus('没听到您说话，请靠近手机说（点话筒挂断）'); }
+    }
+    // 推流
+    if (!rtWs || rtWs.readyState !== WebSocket.OPEN) return;
+    const ratio = rtCtx.sampleRate / 16000;
+    const outLen = Math.max(1, Math.floor(mono.length / ratio));
+    const i16 = new Int16Array(outLen);
+    for (let i = 0; i < outLen; i++){
+      const pos = i * ratio, i0 = Math.floor(pos), i1 = Math.min(mono.length-1, i0+1);
+      const s = Math.max(-1, Math.min(1, mono[i0] + (mono[i1]-mono[i0]) * (pos-i0)));
+      i16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    let bin = '';
+    const u8 = new Uint8Array(i16.buffer);
+    for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+    rtWs.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: btoa(bin) }));
+  } else if (rtState === 'thinking' || rtState === 'speaking') {
+    // 打断检测：回答期间持续说话 >600ms → 掐掉回答，回到听
+    if (rtSpeechMs > 600) { rtInterrupt(); }
+  }
+}
+
+function rtSend(ev){ if (rtWs && rtWs.readyState === WebSocket.OPEN) rtWs.send(JSON.stringify(ev)); }
+
+function rtOpen(onReady, onFail){
+  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const ws = new WebSocket(proto + location.host + '/api/voice/realtime');
+  let ready = false;
+  ws.onmessage = (m) => {
+    let ev; try { ev = JSON.parse(m.data); } catch(_) { return; }
+    switch (ev.type) {
+      case 'session.updated': if (!ready) { ready = true; if (onReady) onReady(); } break;
+      case 'response.audio.delta':
+        // 守卫：打断/挂断后在途的 delta 不播放（防幽灵语音 + 懒加载泄漏 ctx）
+        if (rtState !== 'thinking' && rtState !== 'speaking') break;
+        if (rtState === 'thinking') { rtState = 'speaking'; rtSetStatus('我在说… 您随时可以打断'); }
+        rtPlayChunk(ev.delta);
+        break;
+      case 'response.audio_transcript.delta': rtAppendReply(ev.delta); break;
+      case 'conversation.item.input_audio_transcription.completed':
+        voiceAddBubble('user', ev.transcript || '');
+        rtCurGuideBubble = null;
+        break;
+      case 'response.done': {
+        rtCurGuideBubble = null;
+        // 只处理当前话轮的 done；打断/挂断后的迟到 done 直接忽略
+        if (rtState !== 'thinking' && rtState !== 'speaking') break;
+        // 按播放队列余量延迟切回听，避免截断回复尾音
+        const seq = rtTurnSeq;
+        const delay = rtPlayCtx ? Math.max(0, (rtNextPlayAt - rtPlayCtx.currentTime) * 1000) : 0;
+        setTimeout(() => {
+          if (rtTurnSeq === seq && (rtState === 'thinking' || rtState === 'speaking')) {
+            rtStartListening('您还需要什么？请继续说');
+          }
+        }, delay + 30);
+        break;
+      }
+      case 'error': {
+        const msg = (ev.error && ev.error.message) || '连接出了点问题';
+        // 打断时 response 恰好已结束属正常竞态，不打扰用户
+        if (/no ongoing response/i.test(msg)) break;
+        rtSetStatus(msg + '，可拨打 13359140982');
+        break;
+      }
+    }
+  };
+  ws.onclose = () => {
+    if (rtWs !== ws) return;
+    rtWs = null;
+    // 握手阶段就被拒（429/503/网络）→ 走失败回调触发 legacy 回退
+    if (!ready && onFail) { onFail(); return; }
+    if (rtState !== 'idle') rtHangup('连接断开了，点话筒重新开始');
+  };
+  ws.onerror = () => {};
+  rtWs = ws;
+  ws.readyFlag = () => ready;
+  ws.onFail = onFail;
+}
+
+function rtStartListening(msg){
+  if (!rtStream) return;
+  rtStopPlayback();
+  rtState = 'listening';
+  rtResetVad();
+  document.getElementById('voiceMic').classList.add('recording');
+  rtSetStatus(msg || '请讲… 说完停一下我就回答');
+}
+
+// 说完 → 提交推理
+function rtEndTurn(){
+  if (rtState !== 'listening') return;
+  rtState = 'thinking';
+  // 关键：清掉上一轮的 VAD 残留，否则残留的 rtSpeechMs>600 会在下一 tick 触发假打断
+  rtSpeechMs = 0; rtSilentMs = 0;
+  rtNoSpeechHinted = false;
+  rtTurnSeq += 1;
+  document.getElementById('voiceMic').classList.remove('recording');
+  rtSetStatus('听清了，正在想…');
+  rtSend({ type: 'input_audio_buffer.commit' });
+  rtSend({ type: 'response.create' });
+  setTimeout(() => { if (rtState === 'thinking' && !rtPlaying) rtSetStatus('还在想… 您也可以直接拨 13359140982'); }, 10000);
+}
+
+// 打断：掐掉回答回到听
+function rtInterrupt(){
+  rtStopPlayback();
+  rtSend({ type: 'response.cancel' });
+  rtSend({ type: 'input_audio_buffer.clear' });
+  rtStartListening('好的您说，我在听');
+}
+
+// 接通 / 挂断（话筒按钮）
+async function toggleVoiceRecording(){
+  if (voiceRecording) { stopVoiceCapture(); return; } // legacy 录音中：点击=结束本次提问
+  if (rtState !== 'idle') { rtHangup('通话已结束，再点话筒重新开始'); return; }
+  if (rtStarting) return; // 接通过程防重入（长辈快速连点）
+  rtStarting = true;
+
+  try {
+    rtStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, // AEC 防自己声音触发打断
+    });
+  } catch(_) { rtStarting = false; rtSetStatus('无法使用麦克风，请检查浏览器权限，或直接拨 13359140982'); return; }
+
+  if (rtLastAudioUrl) { URL.revokeObjectURL(rtLastAudioUrl); rtLastAudioUrl = null; }
+  voiceChatClear();
+  rtSetMicIcon('⏹️');
+
+  const start = () => {
+    // 通话期间管线常开，推流与否由 rtState 决定
+    rtCtx = new (window.AudioContext || window.webkitAudioContext)();
+    rtInputRate = rtCtx.sampleRate;
+    const src = rtCtx.createMediaStreamSource(rtStream);
+    rtProcessor = rtCtx.createScriptProcessor(4096, 1, 1);
+    rtProcessor.onaudioprocess = (e) => { rtBuf.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+    src.connect(rtProcessor); rtProcessor.connect(rtCtx.destination);
+    clearInterval(rtSendTimer);
+    rtSendTimer = setInterval(rtSendAudio, 100);
+    rtCallTimer = setTimeout(() => rtHangup('本次通话已达 3 分钟，自动挂断'), RT_MAX_CALL_MS);
+    rtStarting = false;
+    rtStartListening('请讲… 说完停一下我就回答');
+  };
+
+  const failToLegacy = () => {
+    rtStarting = false;
+    try { if (rtStream) { rtStream.getTracks().forEach(t=>t.stop()); rtStream = null; } } catch(_) {}
+    rtSetMicIcon('🎤');
+    legacyToggleVoiceRecording();
+  };
+
+  if (rtWs && rtWs.readyState === WebSocket.OPEN) { start(); return; }
+  rtSetStatus('正在接通语音导购…');
+  rtOpen(() => {
+    start();
+    // 打招呼期间不开麦收集（AEC 下顾客说话仍可打断），说完 response.done 自动进入连续听
+    rtState = 'speaking';
+    rtSetStatus('已接通，导购正在和您打招呼…');
+    rtSend({ type: 'response.create', response: { modalities: ['text','audio'], instructions: '请用一句不超过15字的简短问候欢迎顾客，例如：您好，银杏家具，想看点什么家具？' } });
+  }, failToLegacy);
+  // WS 打不开或 5 秒内未完成握手 → 回退一次性模式（用 ready 标志判断，不能用 readyState：
+  // 429/503 时 onclose 会把 rtWs 置 null，readyState 判断会永远失真）
+  setTimeout(() => {
+    if (rtState === 'idle' && rtStarting && !(rtWs && rtWs.readyFlag && rtWs.readyFlag())) {
+      if (rtWs) { try { rtWs.onFail = null; rtWs.close(); } catch(_) {} rtWs = null; }
+      failToLegacy();
+    }
+  }, 5000);
+}
+
+// 挂断
+function rtHangup(msg){
+  rtState = 'idle';
+  rtStarting = false;
+  clearInterval(rtSendTimer);
+  clearTimeout(rtCallTimer);
+  rtSend({ type: 'response.cancel' });
+  rtStopPlayback();
+  if (rtProcessor) { rtProcessor.disconnect(); rtProcessor = null; }
+  if (rtStream) { rtStream.getTracks().forEach(t=>t.stop()); rtStream = null; }
+  if (rtCtx) { rtCtx.close().catch(()=>{}); rtCtx = null; }
+  if (rtWs) { try { rtWs.close(); } catch(_){} rtWs = null; }
+  document.getElementById('voiceMic').classList.remove('recording');
+  rtSetMicIcon('🎤');
+  rtSetStatus(msg || '通话已结束，再点话筒重新开始');
+}
+
+// 切后台/锁屏：自动挂断（后台定时器被限流会破坏 VAD 时序，且持续占麦）
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && rtState !== 'idle') rtHangup('页面切到后台，通话已结束');
+  if (document.hidden && voiceRecording) stopVoiceCapture(true);
+});
+
+// ===== 一次性问答模式（回退路径：/api/voice/ask，整段 WAV 上传） =====
+let voiceStream = null;
+let voiceCtx = null;
+let voiceProcessor = null;
+let voiceChunks = [];
+let voiceRecording = false;
+let voiceMaxTimer = null;
+async function legacyToggleVoiceRecording(){
+  if (voiceRecording) { stopVoiceCapture(); return; }
+  try {
+    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(_) {
+    setVoiceStatus('无法使用麦克风，请检查浏览器权限，或直接拨 13359140982');
+    return;
+  }
+  if (rtLastAudioUrl) { URL.revokeObjectURL(rtLastAudioUrl); rtLastAudioUrl = null; }
+
+  voiceCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = voiceCtx.createMediaStreamSource(voiceStream);
+  voiceProcessor = voiceCtx.createScriptProcessor(4096, 1, 1);
+  voiceChunks = [];
+  voiceProcessor.onaudioprocess = (e) => {
+    if (!voiceRecording) return;
+    voiceChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  };
+  src.connect(voiceProcessor);
+  voiceProcessor.connect(voiceCtx.destination);
+
+  voiceRecording = true;
+  document.getElementById('voiceMic').classList.add('recording');
+  setVoiceStatus('正在听您说话… 说完点一下话筒结束');
+  voiceMaxTimer = setTimeout(() => { if (voiceRecording) stopVoiceCapture(); }, 30000);
+}
+
+// 停止录音并提交一次性问答
+function stopVoiceCapture(discard){
+  voiceRecording = false;
+  clearTimeout(voiceMaxTimer);
+  const rate = voiceCtx ? voiceCtx.sampleRate : 48000;
+  if (voiceProcessor) { voiceProcessor.disconnect(); voiceProcessor = null; }
+  if (voiceStream) { voiceStream.getTracks().forEach(t=>t.stop()); voiceStream = null; }
+  if (voiceCtx) { try { voiceCtx.close(); } catch(_){} voiceCtx = null; }
+  document.getElementById('voiceMic').classList.remove('recording');
+  rtSetMicIcon('🎤');
+  const chunks = voiceChunks; voiceChunks = [];
+  if (discard) { setVoiceStatus(''); return; } // 关面板：丢弃录音，不提交
+  if (chunks.length) {
+    setVoiceStatus('正在识别…');
+    askVoiceGuide(encodeWav16k(chunks, rate));
+  } else {
+    setVoiceStatus('没有录到声音，再点一下话筒试试');
+  }
+}
+
+// ===== 通用关闭/状态 =====
+function setVoiceStatus(t){
+  document.getElementById('voiceStatus').textContent = t || '';
+}
+
+function openVoicePanel(){
+  document.getElementById('voicePanel').classList.add('open');
+}
+function closeVoicePanel(){
+  if (rtState !== 'idle' || rtWs || rtStarting) rtHangup(); // RT：彻底清理麦/ctx/定时器/WS
+  if (voiceRecording) stopVoiceCapture(true); // legacy：关面板=丢弃，不自动提交提问
+  document.getElementById('voicePanel').classList.remove('open');
+}
+
+// 任意采样率 → 16kHz 单声道 16bit WAV（服务端 ASR 直接收 wav）
+function encodeWav16k(chunks, fromRate){
+  const target = 16000;
+  const total = chunks.reduce((n,c)=>n+c.length, 0);
+  const mono = new Float32Array(total);
+  let off = 0;
+  for (const c of chunks){ mono.set(c, off); off += c.length; }
+  const ratio = fromRate / target;
+  const outLen = Math.max(1, Math.floor(mono.length / ratio));
+  const down = new Float32Array(outLen);
+  for (let i=0;i<outLen;i++){
+    const pos = i * ratio;
+    const i0 = Math.floor(pos), i1 = Math.min(mono.length-1, i0+1);
+    down[i] = mono[i0] + (mono[i1]-mono[i0]) * (pos - i0);
+  }
+  const buf = new ArrayBuffer(44 + outLen*2);
+  const v = new DataView(buf);
+  const wstr = (o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  wstr(0,'RIFF'); v.setUint32(4, 36+outLen*2, true); wstr(8,'WAVE');
+  wstr(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,target,true); v.setUint32(28,target*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  wstr(36,'data'); v.setUint32(40, outLen*2, true);
+  for (let i=0;i<outLen;i++){
+    const s = Math.max(-1, Math.min(1, down[i]));
+    v.setInt16(44+i*2, s<0 ? s*0x8000 : s*0x7FFF, true);
+  }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+async function askVoiceGuide(wavBlob){
+  try {
+    const f = new FormData();
+    f.append('audio', wavBlob, 'question.wav');
+    const r = await fetch('/api/voice/ask', { method:'POST', body:f });
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok || !d.success) {
+      setVoiceStatus(d.error || '语音导购暂时不可用，请拨打 13359140982');
+      return;
+    }
+    const { userText, reply, audioBase64, audioMime } = d.data || {};
+    voiceAddBubble('user', userText || '');
+    rtCurGuideBubble = voiceAddBubble('guide', reply || '');
+    setVoiceStatus('点话筒可以继续问');
+    if (audioBase64) {
+      rtLastAudioUrl = URL.createObjectURL(new Blob(
+        [Uint8Array.from(atob(audioBase64), c=>c.charCodeAt(0))],
+        { type: audioMime || 'audio/mpeg' }
+      ));
+      const player = new Audio(rtLastAudioUrl);
+      player.play().catch(()=>{ /* 自动播放被拦截时静默，文字已展示 */ });
+    }
+  } catch(_) {
+    setVoiceStatus('网络不太顺畅，请再试一次或拨打 13359140982');
+  }
+}
 </script>
 </body>
 </html>
