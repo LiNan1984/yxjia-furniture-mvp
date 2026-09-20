@@ -7,6 +7,15 @@ import requests
 BASE = "http://127.0.0.1:3000"
 
 
+def _user_session():
+    """试摆接口要求登录（设计原则 5），先登录一个测试用户拿会话"""
+    sess = requests.Session()
+    r = sess.post(f"{BASE}/api/auth/login",
+                  json={"phone": "13900139888", "code": "123456"}, timeout=10)
+    assert r.status_code == 200, r.text
+    return sess
+
+
 def test_admin_login_success():
     """admin / 123456 登录应成功，并写入 cookie"""
     r = requests.post(
@@ -194,8 +203,9 @@ def test_tryon_ai_with_real_api():
     """
     room_path = "/Users/linan/Desktop/aicode/peilian/yxjia-mvp/public/images/sofa-zhongshi.jpg"
     sofa_path = "/Users/linan/Desktop/aicode/peilian/yxjia-mvp/public/images/sofa-corner.jpg"
+    sess = _user_session()
     with open(room_path, "rb") as room_f, open(sofa_path, "rb") as sofa_f:
-        r = requests.post(
+        r = sess.post(
             f"{BASE}/api/tryon/ai",
             files={
                 "room": ("room.jpg", room_f, "image/jpeg"),
@@ -216,8 +226,8 @@ def test_tryon_ai_with_real_api():
 
 
 def test_tryon_ai_missing_file():
-    """缺文件应 400"""
-    r = requests.post(
+    """缺文件应 400（已登录才轮到参数校验）"""
+    r = _user_session().post(
         f"{BASE}/api/tryon/ai",
         data={"productId": "sofa-1"},
         timeout=10,
@@ -228,7 +238,7 @@ def test_tryon_ai_missing_file():
 
 def test_tryon_ai_missing_product_id():
     """缺 productId 应 400"""
-    r = requests.post(
+    r = _user_session().post(
         f"{BASE}/api/tryon/ai",
         files={
             "room": ("a.jpg", b"\xff\xd8\xff\xe0", "image/jpeg"),
@@ -242,7 +252,7 @@ def test_tryon_ai_missing_product_id():
 
 def test_tryon_ai_unknown_product():
     """未知 productId 应 404"""
-    r = requests.post(
+    r = _user_session().post(
         f"{BASE}/api/tryon/ai",
         files={
             "room": ("a.jpg", b"\xff\xd8\xff\xe0", "image/jpeg"),

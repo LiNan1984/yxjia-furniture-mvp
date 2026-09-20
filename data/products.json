@@ -9,6 +9,141 @@
   },
   "products": [
     {
+      "id": "sofa-1",
+      "name": "新中式三人沙发",
+      "subtitle": "雾霾蓝亚麻+真皮 · 金色竹节",
+      "price": "¥3xxx 起",
+      "size": "3.4 米大尺寸",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#3a2818",
+      "description": "新中式轻奢三人沙发。雾霾蓝亚麻布料 + 藏蓝真皮拼接 + 金色竹节金属装饰条。3.4 米大尺寸气场足，适合中大户型客厅。时光不负此行。",
+      "highlights": [
+        "雾霾蓝亚麻布料（粗犷纹理）",
+        "藏蓝真皮拼接（细腻光泽）",
+        "金色竹节金属装饰",
+        "3.4 米大尺寸气场",
+        "现货 · 当天发货"
+      ],
+      "image": "/images/sofa-zhongshi.jpg",
+      "status": "在售",
+      "images": [
+        "/uploads/products/sofa-1-msdc33ob.png"
+      ],
+      "sceneImages": []
+    },
+    {
+      "id": "sofa-2",
+      "name": "轻奢 L 形转角沙发",
+      "subtitle": "雾霾蓝天鹅绒 · 大户型贵妃位",
+      "price": "¥5xxx 起",
+      "size": "3.2 米 × 1.8 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "🛋️",
+      "color": "#5a3e26",
+      "description": "现代轻奢 L 形转角沙发。雾霾蓝天鹅绒面料 + 蓬松绗缝竖向拉扣设计 + 贵妃躺位。适合大户型家庭多人使用。",
+      "highlights": [
+        "雾霾蓝天鹅绒面料",
+        "蓬松绗缝竖向拉扣",
+        "贵妃躺位",
+        "宽大扶手 + 厚实坐垫",
+        "现货"
+      ],
+      "image": "/images/sofa-corner.jpg",
+      "status": "在售",
+      "sceneImages": []
+    },
+    {
+      "id": "sofa-3",
+      "name": "米白提花三人沙发",
+      "subtitle": "雪尼尔 · 热带植物抱枕",
+      "price": "¥4xxx 起",
+      "size": "2.4 米三人位",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "🛋️",
+      "color": "#6a5040",
+      "description": "现代轻奢 / 美式休闲三人沙发。米白雪尼尔提花面料 + 热带棕榈叶印花抱枕 + 多层叠褶底座。客餐厅一体化 C 位沙发。",
+      "highlights": [
+        "米白雪尼尔提花面料",
+        "热带植物印花抱枕",
+        "多层叠褶底座",
+        "圆润饱满造型",
+        "现货"
+      ],
+      "image": "/images/sofa-tihua.jpg",
+      "status": "在售",
+      "sceneImages": []
+    },
+    {
+      "id": "cabinet-1",
+      "name": "实木电视柜",
+      "subtitle": "原木色 · 内嵌暖色灯带",
+      "price": "¥1xxx 起",
+      "size": "2 米 × 0.4 米 × 0.5 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "📺",
+      "color": "#5a4030",
+      "description": "浅原木色实木电视柜。原木哑光质感 + 金属长拉手 + 内嵌暖色灯带。米白墙面、浅木地板，宁静高级的客厅配套。",
+      "highlights": [
+        "浅原木哑光质感",
+        "金属长拉手",
+        "内嵌暖色灯带",
+        "可定制尺寸",
+        "现货"
+      ],
+      "image": "/images/cabinet-tv.jpg",
+      "status": "在售",
+      "sceneImages": []
+    },
+    {
+      "id": "bed-1",
+      "name": "原木双人床",
+      "subtitle": "米白床品 · 新中式",
+      "price": "¥3xxx 起",
+      "size": "1.8 米 × 2 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "🛏️",
+      "color": "#5a4030",
+      "description": "原木框架双人床。原木哑光框架 + 米白床品（羽绒被+灰咖靠枕+焦糖毯）。新中式风格卧室核心。",
+      "highlights": [
+        "原木哑光框架",
+        "米白羽绒床品",
+        "灰咖+焦糖搭配",
+        "暖光台灯配套",
+        "现货"
+      ],
+      "image": "/images/bed-double.jpg",
+      "status": "在售",
+      "sceneImages": []
+    },
+    {
+      "id": "table-1",
+      "name": "深色实木餐桌椅",
+      "subtitle": "客餐厅一体化 · 6 人位",
+      "price": "¥2xxx 起",
+      "size": "1.6 米 × 0.85 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "🍽️",
+      "color": "#3a2818",
+      "description": "深色实木餐桌椅（6 人位：1 桌 + 6 椅）。圆形餐桌 + 米色软包餐椅。客餐厅一体化首选。",
+      "highlights": [
+        "深色实木台面",
+        "米色软包餐椅",
+        "6 人位",
+        "圆形餐桌",
+        "现货"
+      ],
+      "image": "/images/cabinet-wardrobe.jpg",
+      "status": "在售",
+      "sceneImages": []
+    },
+    {
       "id": "p-msbx2zg6-6zv",
       "name": "植物印花弧形布艺沙发",
       "subtitle": "粗纺布艺软包材质",
@@ -20,11 +155,11 @@
       "color": "#F2F0E9",
       "description": "AI 识别：植物印花弧形布艺沙发。粗纺布艺软包材质",
       "highlights": [
-        "粗纺布艺软包材质",
-        "AI 识别于 2026/8/2 22:50:10"
+        "粗纺布艺软包材质"
       ],
       "image": "/uploads/products/48db3d44429607ca.png",
-      "status": "在售"
+      "status": "在售",
+      "sceneImages": []
     },
     {
       "id": "p-msbx4qb0-s2i",
@@ -38,8 +173,7 @@
       "color": "#C0C9D2",
       "description": "AI 识别：浅灰色弧形科技布沙发。科技布高弹海绵填充",
       "highlights": [
-        "科技布高弹海绵填充",
-        "AI 识别于 2026/8/2 22:51:31"
+        "科技布高弹海绵填充"
       ],
       "image": "/uploads/products/6643b82f2118379b.png",
       "status": "在售"
@@ -56,11 +190,112 @@
       "color": "#44494E",
       "description": "AI 识别：新中式竹节皮麻沙发。竹节外架皮麻结合",
       "highlights": [
-        "竹节外架皮麻结合",
-        "AI 识别于 2026/8/2 22:52:20"
+        "竹节外架皮麻结合"
       ],
       "image": "/uploads/products/4f6500a04ef0e16a.png",
       "status": "在售"
+    },
+    {
+      "id": "p-mu6yfeg0-1pp",
+      "name": "测试新沙发 pytest",
+      "subtitle": "沙发",
+      "price": "¥2xxx 起",
+      "size": "2.0 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "📦",
+      "color": "#5a4030",
+      "description": "测试新沙发 pytest",
+      "highlights": [
+        "沙发",
+        "上传时间：2026/9/18 20:48:22"
+      ],
+      "image": "/uploads/products/c5572413c827b667.jpg"
+    },
+    {
+      "id": "p-mu6yfie3-ura",
+      "name": "测试新沙发 pytest",
+      "subtitle": "沙发",
+      "price": "¥2xxx 起",
+      "size": "2.0 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "📦",
+      "color": "#5a4030",
+      "description": "测试新沙发 pytest",
+      "highlights": [
+        "沙发",
+        "上传时间：2026/9/18 20:48:27"
+      ],
+      "image": "/uploads/products/d12336be6d1b6cca.jpg"
+    },
+    {
+      "id": "p-mu6yfwgd-iaz",
+      "name": "测试新沙发 pytest",
+      "subtitle": "沙发",
+      "price": "¥2xxx 起",
+      "size": "2.0 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "📦",
+      "color": "#5a4030",
+      "description": "测试新沙发 pytest",
+      "highlights": [
+        "沙发",
+        "上传时间：2026/9/18 20:48:46"
+      ],
+      "image": "/uploads/products/ec7602420bccb593.jpg"
+    },
+    {
+      "id": "p-mu6ygc1l-n7o",
+      "name": "测试新沙发 pytest",
+      "subtitle": "沙发",
+      "price": "¥2xxx 起",
+      "size": "2.0 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "📦",
+      "color": "#5a4030",
+      "description": "测试新沙发 pytest",
+      "highlights": [
+        "沙发",
+        "上传时间：2026/9/18 20:49:06"
+      ],
+      "image": "/uploads/products/8fa1d6480684cc1d.jpg"
+    },
+    {
+      "id": "p-mu9w2b34-hto",
+      "name": "测试新沙发 pytest",
+      "subtitle": "沙发",
+      "price": "¥2xxx 起",
+      "size": "2.0 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "📦",
+      "color": "#5a4030",
+      "description": "测试新沙发 pytest",
+      "highlights": [
+        "沙发",
+        "上传时间：2026/9/20 22:05:31"
+      ],
+      "image": "/uploads/products/9f6423e57c732ff6.jpg"
+    },
+    {
+      "id": "p-mu9w4rp6-u48",
+      "name": "测试新沙发 pytest",
+      "subtitle": "沙发",
+      "price": "¥2xxx 起",
+      "size": "2.0 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "📦",
+      "color": "#5a4030",
+      "description": "测试新沙发 pytest",
+      "highlights": [
+        "沙发",
+        "上传时间：2026/9/20 22:07:26"
+      ],
+      "image": "/uploads/products/70e5bb2472373fbe.jpg"
     }
   ]
 }
