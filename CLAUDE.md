@@ -22,10 +22,11 @@
 | 对象存储 | MinIO (9000/9001) | 用户上传图、合成图、试摆结果 |
 | 元数据 | 本地 JSON | `data/products.json` `orders.json` `users.json` `uploads.json` |
 | 视觉合成 | `twofishai.com /v1/images/edits` (gpt-image-2) | 写真合成核心 |
-| 视觉识别 | 火山引擎 `doubao-seed-2-1-pro-260628` | 上传图自动命名 |
+| 视觉识别 | 阶跃 `step-3.7-flash`（Step Plan 路径） | 商品识别 + 全屋分析；方舟 doubao 兜底 |
+| 语音导购 | 阶跃 **StepAudio 3 Realtime**（限免，开放平台路径 `/v1`）+ StepAudio 2.5 ASR/TTS 兜底（Step Plan） | `/api/voice/realtime` 实时全双工（默认，env `STEP_RT_MODEL`）；`/api/voice/ask` 一次性兜底 |
 | 前端 | 单 HTML + 原生 CSS | 不引任何前端框架 |
 | 设计 | Apple HIG + 极简两色调 | 深咖 #3a2818 + 奶白 #faf6ef |
-| 测试 | Playwright (Node 36 + Python 6) | 共 42 测试 |
+| 测试 | Playwright (Node 48 + Python 23) | 共 71 测试 |
 
 ---
 
@@ -75,6 +76,9 @@ node src/server.js
 | POST | `/api/auth/login` | 否 | 登录（自动注册） |
 | GET | `/api/auth/me` | 否 | 当前用户 |
 | POST | `/api/auth/logout` | — | 退出 |
+| POST | `/api/voice/ask` | 否 | 语音导购（一次性）：录 WAV → ASR → 商品库问答 → TTS mp3 |
+| GET | `/api/voice/realtime` | 否（WS） | 语音导购（实时）：stepaudio-2.5-realtime 全双工代理，服务端注入商品库人设，并发上限 3 |
+| GET | `/api/voice/status` | 否 | 语音导购就绪状态（排障用） |
 
 ### 后台端
 
@@ -244,22 +248,30 @@ docker run -d --name yxjia \
 | multipart 大文件解析失败 | 自写 parseMultipart 有边界 bug | 已用 multer memoryStorage 替代 |
 | 旧 SSH 部署卡住 | ssh+弱密码 | 改用 GitHub push + Docker rebuild |
 | linter 频繁改 server.js | 自动格式化工具 | Edit 后必须重启测试 |
+| StepAudio 3 在订阅路径调不通 | 3 系列只在**开放平台路径** `/v1` 限免开放，Step Plan 订阅路径 404 | Realtime 走 `wss://api.stepfun.com/v1/realtime?model=stepaudio-3-realtime-preview`（`STEP_RT_MODEL`/`STEP_RT_BASE_URL` 可切回 2.25）；一次性兜底走 Step Plan 的 2.5 asr/tts。限免到期需换正式版 |
+| 阶跃图像接口（生图/改图） | 官方公告 2026-10-10 全线下线 | 试摆合成保持 twofishai 主路径 + Pollinations 兜底，勿迁到阶跃图像模型 |
+| 服务器重建 yxjia-mvp 容器后 MinIO 解析失败 | 容器必须在 `yxjia-net` 网络里才能解析 `yxjia-minio` | `docker network connect yxjia-net yxjia-mvp`，宿主机端口是 **3300**（3000 被 new-api 占用） |
+| **源码部署时进程绑到 3000** | `server.js` 第 18 行读 `PORT` 在 dotenv 加载 `.env` **之前** | systemd 单元显式 `Environment=PORT=3300`（已配好：`systemctl status yxjia`，日志 /var/log/yxjia.log） |
+| 语音导购点话筒没反应 | 重构遗留坏引用（`voiceLastAudioUrl`/`stopVoiceCapture`/`rtStopCapture` 未定义），点击第一行就抛 ReferenceError | 已修（2026-09-18）；改语音前端代码后必须用 Playwright 点一遍验证 |
+| 商品列表只剩 AI 识别的几款 | admin 上传流程整体覆盖了 products.json，把 6 款手工核心商品冲掉 | 已从 git 历史（5b9f0c6）找回合并；以后改 products.json 走合并不要整体覆盖 |
 
 ---
 
 ## 10. 测试
 
 ```bash
-# Node Playwright（36 个 API 测试）
+# Node Playwright（48 个 API 测试）
 cd yxjia-mvp
 ./node_modules/.bin/playwright test tests/api.test.js
 
-# Python 老人视角（6 个流程测试）
+# Python 老人视角（23 个流程测试）
 source .venv/bin/activate
 python3 -m pytest tests/test_01_browse.py tests/test_02_call_button.py tests/test_03_browse_products.py tests/test_04_order_flow.py tests/test_05_api.py tests/test_06_admin_user_system.py -v
 ```
 
 测试覆盖率：API 100%，UI 关键流程（浏览/拨号/下单/查询订单/后台+用户系统）100%。
+语音导购：接通后导购先打招呼（response.create 内联 instructions，~1.7s 首包）；
+挂断后文字版对话记录保留在面板里可回看（气泡式，参考 OpenAI Realtime Console）。
 
 ---
 
@@ -363,4 +375,4 @@ curl -X POST http://127.0.0.1:3000/api/auth/login \
 
 ---
 
-*最后更新：2026-08-22 · 项目 commit 4abf54b · 完整可用 MVP*
+*最后更新：2026-09-18 · 语音导购修复迭代版（打招呼 + 文字记录 + 6 款核心商品找回 + 71 测试全绿）*
