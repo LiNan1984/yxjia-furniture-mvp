@@ -15,11 +15,13 @@ import {
   listOnSaleProducts,
   getStoreInfo,
 } from './chat-guide-agent.js';
+import { pushOrderToWechat } from './serverchan.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
+const SELF_BASE = `http://127.0.0.1:${PORT}`;
 const ROOT = path.join(__dirname, '..');
 const DATA_DIR = path.join(ROOT, 'data');
 const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json');
@@ -55,6 +57,12 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '123456';
 
 // 验证码 MVP：固定 123456（生产请接真短信）
 const FIXED_VERIFY_CODE = '123456';
+
+// Server酱订单推送（新订单 → 老板微信）。密钥走 env 不落 data/；ORDER_PUSH=0 可整体关
+const SERVERCHAN_SENDKEY = process.env.SERVERCHAN_SENDKEY || '';
+const SERVERCHAN_API_BASE = process.env.SERVERCHAN_API_BASE || 'https://sctapi.ftqq.com';
+const ORDER_PUSH_ENABLED = process.env.ORDER_PUSH !== '0';
+if (SERVERCHAN_SENDKEY && ORDER_PUSH_ENABLED) console.info('[serverchan] 订单推送已开启（新订单 → 微信）');
 
 // ---------- MinIO 对象存储 ----------
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || '127.0.0.1';
@@ -614,7 +622,7 @@ async function fetchProductImage(productId) {
   const product = findProduct(productId);
   if (!product || !product.image) return null;
   try {
-    const productUrl = new URL(product.image, 'http://127.0.0.1:3000');
+    const productUrl = new URL(product.image, SELF_BASE);
     const r = await fetch(productUrl);
     if (!r.ok) return null;
     const arr = new Uint8Array(await r.arrayBuffer());
@@ -663,6 +671,16 @@ async function composeRoomAndProduct(roomBuffer, productBuffer) {
     .toBuffer();
 }
 
+// twofishai edits 只收小图：手机上传的客厅照动辄 3–8MB / 3000–4000px，
+// 原样发会被拒（HTTP 400 invalid_image_file）。长边压到 1024 + JPEG q85，同时卡住尺寸和体积。
+async function shrinkForAI(buf) {
+  const { default: sharp } = await import('sharp');
+  return sharp(buf)
+    .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 85 })
+    .toBuffer();
+}
+
 // callTryonAI 返回结构化结果：{ buffer, demoType }
 // demoType:
 //   'ai-composition'      TWO_FISH 真合成成功
@@ -679,12 +697,14 @@ async function callTryonAI({ productId, roomBuffer, sofaBuffer, productImagePath
       form.append('model', 'gpt-image-2');
       form.append('prompt', prompt || buildTryonPrompt(productId));
       form.append('size', '1024x1024');
-      form.append('image[]', new Blob([roomBuffer], { type: 'image/jpeg' }), 'room.jpg');
-      form.append('image[]', new Blob([sofaBuffer], { type: 'image/jpeg' }), 'sofa.jpg');
+      const sofaBuf = sofaBuffer || await fetchProductImage(productId);
+      const [roomSmall, sofaSmall] = await Promise.all([shrinkForAI(roomBuffer), shrinkForAI(sofaBuf)]);
+      form.append('image[]', new Blob([roomSmall], { type: 'image/jpeg' }), 'room.jpg');
+      form.append('image[]', new Blob([sofaSmall], { type: 'image/jpeg' }), 'sofa.jpg');
 
       const resp = await fetch(TWO_FISH_EDITS_URL, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${TWO_FISH_API_KEY}` },
+        headers: { 'x-api-key': TWO_FISH_API_KEY },
         body: form,
       });
       if (!resp.ok) {
@@ -945,11 +965,12 @@ async function callSceneImageAI({ product, productBuffer, style }) {
       form.append('model', 'gpt-image-2');
       form.append('prompt', prompt);
       form.append('size', '1024x1024');
-      form.append('image[]', new Blob([productBuffer], { type: 'image/jpeg' }), 'product.jpg');
+      const productSmall = await shrinkForAI(productBuffer);
+      form.append('image[]', new Blob([productSmall], { type: 'image/jpeg' }), 'product.jpg');
 
       const resp = await fetch(TWO_FISH_EDITS_URL, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${TWO_FISH_API_KEY}` },
+        headers: { 'x-api-key': TWO_FISH_API_KEY },
         body: form,
         signal: AbortSignal.timeout(90000),
       });
@@ -1098,7 +1119,7 @@ app.post('/v1/images/generations', requireAdminOpenAI, async (req, res) => {
         const upstream = await fetch('https://twofishai.com/v1/images/generations', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${TWO_FISH_API_KEY}`,
+            'x-api-key': TWO_FISH_API_KEY,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ model, prompt, size, n }),
@@ -2060,6 +2081,12 @@ app.post('/api/orders', (req, res) => {
     };
     container.orders.unshift(order);
     saveOrdersContainer(container);
+    // 推送老板微信（fire-and-forget，不影响下单返回；异常模块内已吞）
+    pushOrderToWechat(order, {
+      sendKey: SERVERCHAN_SENDKEY,
+      apiBase: SERVERCHAN_API_BASE,
+      enabled: ORDER_PUSH_ENABLED,
+    });
     return ok(res, { ok: true, order });
   } catch (err) {
     return fail(res, 500, '保存订单失败');
@@ -2606,7 +2633,7 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
     let productFetchError = null;
     if (product.image) {
       try {
-        const productUrl = new URL(product.image, 'http://127.0.0.1:3000');
+        const productUrl = new URL(product.image, SELF_BASE);
         const r = await fetch(productUrl);
         if (r.ok) sofaBuffer = Buffer.from(await r.arrayBuffer());
         else productFetchError = `${productUrl} → HTTP ${r.status}`;
@@ -2614,7 +2641,7 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
     }
     if (!sofaBuffer) {
       // 兜底：用内置的沙发图
-      const fallback = await fetch('http://127.0.0.1:3000/images/sofa-zhongshi.jpg');
+      const fallback = await fetch(`${SELF_BASE}/images/sofa-zhongshi.jpg`);
       if (!fallback.ok) return fail(res, 502, `拉取商品图失败（${productFetchError}）且无内置兜底图`);
       sofaBuffer = Buffer.from(await fallback.arrayBuffer());
     }
