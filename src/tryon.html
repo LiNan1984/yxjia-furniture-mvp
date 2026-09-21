@@ -102,10 +102,14 @@ a{color:var(--ink);text-decoration:none}
 </div>
 
 <script>
+// HTML 转义：商品名/副标题来自后台商品库，拼 innerHTML 前必须转义，防存储型 XSS
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+
 fetch('/api/products').then(r=>r.json()).then(d=>{
   const sel = document.getElementById('prodSelect');
-  sel.innerHTML = d.products.map(p=>`<option value="${p.id}">${p.name} (${p.subtitle})</option>`).join('');
-});
+  const list = (d.data && d.data.products) || d.products || [];
+  sel.innerHTML = list.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.subtitle ? ' (' + esc(p.subtitle) + ')' : ''}</option>`).join('');
+}).catch(()=>{ /* 下拉保留静态兜底选项 */ });
 
 document.getElementById('tryonForm').addEventListener('submit',e=>{
   e.preventDefault();

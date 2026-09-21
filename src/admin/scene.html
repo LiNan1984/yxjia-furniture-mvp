@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>场景图工厂 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a;--line:#c8b89a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.nav a{color:#fff;font-size:1.2rem;text-decoration:none}
+.wrap{max-width:880px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:8px}
+p.lead{color:#444;margin-bottom:18px;font-size:1.05rem}
+.msg{display:none;padding:14px;border-radius:10px;margin-bottom:18px;font-size:1.1rem;font-weight:700}
+.msg.ok{display:block;background:var(--green);color:#fff}
+.msg.err{display:block;background:var(--red);color:#fff}
+/* 商品头 */
+.product{background:#fff;border-radius:14px;padding:18px;display:flex;gap:18px;align-items:center;margin-bottom:22px;border:2px solid var(--paper)}
+.product img{width:120px;height:120px;object-fit:cover;border-radius:12px;background:var(--coffee);flex-shrink:0}
+.product h2{font-size:1.4rem;color:var(--coffee);margin-bottom:6px}
+.product .price{font-size:1.15rem;font-weight:800;color:var(--coffee)}
+.product .sub{font-size:.95rem;color:#666;margin-top:4px}
+/* 状态读秒 */
+.status{display:none;margin:18px 0;padding:22px;background:var(--coffee);color:#fff;border-radius:14px;text-align:center}
+.status.show{display:block}
+.status .big{font-size:1.25rem;font-weight:800;margin-bottom:8px}
+.status .timer{font-size:2rem;font-weight:800;color:#ffd9a0}
+.status .tip{font-size:1rem;opacity:.85;margin-top:8px}
+/* 风格按钮 */
+.styles{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:720px){.styles{grid-template-columns:1fr 1fr}}
+.style-card{background:#fff;border:2px solid var(--paper);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.style-card.done{border-color:var(--green)}
+.style-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.style-name{font-size:1.3rem;font-weight:800;color:var(--coffee)}
+.style-tag{font-size:.85rem;font-weight:700;color:var(--green);white-space:nowrap}
+.style-desc{font-size:1rem;color:#555;line-height:1.5}
+.style-actions{display:flex;gap:8px;flex-wrap:wrap}
+.style-actions button,.style-actions a{padding:12px 16px;border:none;border-radius:10px;font-size:1.05rem;font-weight:800;cursor:pointer;text-decoration:none;text-align:center}
+.btn-gen{background:var(--coffee);color:#fff;flex:1;min-width:130px}
+.btn-download{background:var(--paper);color:var(--coffee);flex:1;min-width:130px}
+.btn-copy{background:#fff;color:var(--coffee);border:2px solid var(--coffee)!important;flex:1;min-width:130px}
+.btn-regen{background:#fff;color:var(--coffee);border:2px dashed var(--coffee)!important}
+.btn-del{background:#fff;color:var(--red);border:2px solid var(--red)!important}
+button[disabled]{opacity:.55;cursor:not-allowed}
+.thumb{width:100%;border-radius:10px;display:none;background:var(--paper)}
+.thumb.show{display:block}
+/* 商品选择（无 productId 时） */
+.pick-list{display:flex;flex-direction:column;gap:10px}
+.pick-item{display:flex;align-items:center;gap:14px;background:#fff;border-radius:12px;padding:12px 16px;text-decoration:none;color:var(--ink);border:2px solid var(--paper)}
+.pick-item:hover{border-color:var(--coffee)}
+.pick-item img{width:64px;height:64px;object-fit:cover;border-radius:8px;background:var(--coffee)}
+.pick-item .n{font-size:1.1rem;font-weight:700}
+.pick-item .c{font-size:.85rem;color:var(--green);font-weight:700}
+</style>
+</head>
+<body>
+<header class="nav">
+  <a href="/admin/products">← 返回商品列表</a>
+  <div style="font-size:1.3rem;font-weight:800">🖼 场景图工厂</div>
+</header>
+<main class="wrap">
+  <a href="/admin/index" style="display:inline-block;margin-bottom:14px;color:var(--coffee);font-size:1.1rem;text-decoration:none">← 返回后台首页</a>
+  <h1>🖼 场景图工厂</h1>
+  <p class="lead">选一个风格，AI 把这件家具摆进真实家庭场景，约 15-60 秒出图。图可直接下载发朋友圈。</p>
+
+  <div id="msg" class="msg"></div>
+  <div id="picker" style="display:none">
+    <p class="lead">先选一款商品：</p>
+    <div id="pick-list" class="pick-list"></div>
+  </div>
+
+  <div id="workbench" style="display:none">
+    <div class="product">
+      <img id="p-img" src="" alt="">
+      <div>
+        <h2 id="p-name"></h2>
+        <div class="price" id="p-price"></div>
+        <div class="sub" id="p-sub"></div>
+      </div>
+    </div>
+
+    <div id="status" class="status">
+      <div class="big">AI 正在摆场景…</div>
+      <div class="timer"><span id="secs">0</span> 秒</div>
+      <div class="tip">约 15-60 秒，别关页面，好了会自动出图</div>
+    </div>
+
+    <div id="styles" class="styles">
+      <!-- 5 个默认风格卡（与 data/scene-styles.json 对应；名称直接写在页面里，老人一眼能看到） -->
+      <div class="style-card" data-style="daylight">
+        <div class="style-head"><span class="style-name">明亮家居</span><span class="style-tag"></span></div>
+        <div class="style-desc">白天自然光，画面干净通透</div>
+        <img class="thumb" alt="明亮家居场景图">
+        <div class="style-actions">
+          <button class="btn-gen">生成这张</button>
+          <a class="btn-download" style="display:none" download>⬇ 下载图片</a>
+          <button class="btn-copy" style="display:none">📋 复制发圈文案</button>
+          <button class="btn-regen" style="display:none">↻ 重新生成</button>
+          <button class="btn-del" style="display:none">删除</button>
+        </div>
+      </div>
+      <div class="style-card" data-style="warmlight">
+        <div class="style-head"><span class="style-name">暖光氛围</span><span class="style-tag"></span></div>
+        <div class="style-desc">傍晚暖黄灯光，温馨氛围</div>
+        <img class="thumb" alt="暖光氛围场景图">
+        <div class="style-actions">
+          <button class="btn-gen">生成这张</button>
+          <a class="btn-download" style="display:none" download>⬇ 下载图片</a>
+          <button class="btn-copy" style="display:none">📋 复制发圈文案</button>
+          <button class="btn-regen" style="display:none">↻ 重新生成</button>
+          <button class="btn-del" style="display:none">删除</button>
+        </div>
+      </div>
+      <div class="style-card" data-style="night">
+        <div class="style-head"><span class="style-name">夜晚温馨</span><span class="style-tag"></span></div>
+        <div class="style-desc">夜晚暖色台灯，家具显得安稳</div>
+        <img class="thumb" alt="夜晚温馨场景图">
+        <div class="style-actions">
+          <button class="btn-gen">生成这张</button>
+          <a class="btn-download" style="display:none" download>⬇ 下载图片</a>
+          <button class="btn-copy" style="display:none">📋 复制发圈文案</button>
+          <button class="btn-regen" style="display:none">↻ 重新生成</button>
+          <button class="btn-del" style="display:none">删除</button>
+        </div>
+      </div>
+      <div class="style-card" data-style="minimal">
+        <div class="style-head"><span class="style-name">极简留白</span><span class="style-tag"></span></div>
+        <div class="style-desc">极简空间，家具居中突出</div>
+        <img class="thumb" alt="极简留白场景图">
+        <div class="style-actions">
+          <button class="btn-gen">生成这张</button>
+          <a class="btn-download" style="display:none" download>⬇ 下载图片</a>
+          <button class="btn-copy" style="display:none">📋 复制发圈文案</button>
+          <button class="btn-regen" style="display:none">↻ 重新生成</button>
+          <button class="btn-del" style="display:none">删除</button>
+        </div>
+      </div>
+      <div class="style-card" data-style="family">
+        <div class="style-head"><span class="style-name">家庭生活</span><span class="style-tag"></span></div>
+        <div class="style-desc">有生活气息，真实住家的样子</div>
+        <img class="thumb" alt="家庭生活场景图">
+        <div class="style-actions">
+          <button class="btn-gen">生成这张</button>
+          <a class="btn-download" style="display:none" download>⬇ 下载图片</a>
+          <button class="btn-copy" style="display:none">📋 复制发圈文案</button>
+          <button class="btn-regen" style="display:none">↻ 重新生成</button>
+          <button class="btn-del" style="display:none">删除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const msgEl=document.getElementById('msg');
+function showMsg(t,ok){msgEl.textContent=t;msgEl.className='msg '+(ok?'ok':'err');setTimeout(()=>{msgEl.className='msg'},4000)}
+
+// HTML 转义：商品名/价格/图片等来自商品库，拼 innerHTML 前必须转义，防存储型 XSS
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+
+let product=null;
+let store={};
+let busy=false;
+let timerId=null;
+
+function setBusy(on){
+  busy=on;
+  document.querySelectorAll('.btn-gen').forEach(b=>{b.disabled=on});
+  const st=document.getElementById('status');
+  if(on){
+    st.classList.add('show');
+    const t0=Date.now();
+    document.getElementById('secs').textContent='0';
+    timerId=setInterval(()=>{document.getElementById('secs').textContent=Math.floor((Date.now()-t0)/1000)},1000);
+  }else{
+    st.classList.remove('show');
+    if(timerId){clearInterval(timerId);timerId=null}
+  }
+}
+
+function sceneEntry(styleId){
+  return (product.sceneImages||[]).find(s=>s.styleId===styleId);
+}
+
+// 按 product.sceneImages 渲染每张风格卡的已生成状态 + 操作按钮
+function renderCards(){
+  document.querySelectorAll('.style-card').forEach(card=>{
+    const styleId=card.dataset.style;
+    const entry=sceneEntry(styleId);
+    const thumb=card.querySelector('.thumb');
+    const tag=card.querySelector('.style-tag');
+    const btnGen=card.querySelector('.btn-gen');
+    const btnDown=card.querySelector('.btn-download');
+    const btnCopy=card.querySelector('.btn-copy');
+    const btnRegen=card.querySelector('.btn-regen');
+    const btnDel=card.querySelector('.btn-del');
+    if(entry){
+      card.classList.add('done');
+      tag.textContent='✅ 已生成';
+      thumb.src=entry.url;
+      thumb.classList.add('show');
+      btnGen.style.display='none';
+      [btnDown,btnCopy,btnRegen,btnDel].forEach(b=>b.style.display='');
+      btnDown.href=entry.url;
+      btnDown.download=(product.name||'家具')+'-'+(entry.styleName||styleId)+'.jpg';
+    }else{
+      card.classList.remove('done');
+      tag.textContent='';
+      thumb.classList.remove('show');
+      thumb.src='';
+      btnGen.style.display='';
+      btnGen.textContent='生成这张';
+      [btnDown,btnCopy,btnRegen,btnDel].forEach(b=>b.style.display='none');
+    }
+  });
+}
+
+// 发圈文案（决策 4：文字标注，不烧图；末尾固定 AI 合成提示）
+function buildCopyText(){
+  const name=product.name||'这款家具';
+  const price=product.price?'，'+product.price:'';
+  const address=store.address||'陕西省商洛市柞水县乾佑街道 农机路河西';
+  const phone=store.phone||'13359140982';
+  return `${name}${price}。看这个摆放效果，喜欢欢迎到店看实物，到店更多惊喜！门店：${address}，电话 ${phone}（AI 合成场景图，仅供参考，实物以到店为准）`;
+}
+
+async function generate(styleId,force){
+  if(busy)return;
+  setBusy(true);
+  try{
+    const r=await fetch(`/api/admin/products/${product.id}/scene-image`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({styleId,force:!!force}),
+    });
+    const d=await r.json();
+    if(!d.success){
+      if(r.status===409){showMsg(d.error||'有场景图正在生成，请等它完成',false)}
+      else{showMsg(d.error||'生成失败，请再试一次',false)}
+      return;
+    }
+    product=d.data.product;
+    showMsg('✅ 场景图生成好了，可下载或复制文案发朋友圈',true);
+  }catch(e){
+    showMsg('网络出错，请再试一次',false);
+  }finally{
+    setBusy(false);
+    renderCards();
+  }
+}
+
+async function removeScene(styleId){
+  if(busy)return;
+  if(!confirm('确定删除这张场景图记录？（仅本页不再显示，不影响商品本身）'))return;
+  try{
+    const r=await fetch(`/api/admin/products/${product.id}/scene-image`,{
+      method:'DELETE',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({styleId}),
+    });
+    const d=await r.json();
+    if(!d.success){showMsg(d.error||'删除失败',false);return}
+    product=d.data.product;
+    showMsg('✅ 已删除',true);
+    renderCards();
+  }catch(e){showMsg('网络出错',false)}
+}
+
+async function copyText(){
+  const text=buildCopyText();
+  try{
+    await navigator.clipboard.writeText(text);
+    showMsg('✅ 文案已复制，去朋友圈粘贴就行',true);
+  }catch(e){
+    // 老浏览器兜底
+    const ta=document.createElement('textarea');
+    ta.value=text;document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');showMsg('✅ 文案已复制，去朋友圈粘贴就行',true)}
+    catch(_){showMsg('复制失败，请手动抄一下：'+text,false)}
+    ta.remove();
+  }
+}
+
+document.querySelectorAll('.style-card').forEach(card=>{
+  const styleId=card.dataset.style;
+  card.querySelector('.btn-gen').addEventListener('click',()=>generate(styleId,false));
+  card.querySelector('.btn-regen').addEventListener('click',()=>{
+    if(confirm('重新生成会替换掉这张图（约 15-60 秒），确定吗？'))generate(styleId,true);
+  });
+  card.querySelector('.btn-del').addEventListener('click',()=>removeScene(styleId));
+  card.querySelector('.btn-copy').addEventListener('click',copyText);
+});
+
+async function loadProduct(productId){
+  const r=await fetch('/api/products/'+encodeURIComponent(productId)).then(r=>r.json());
+  if(!r.success||!r.data||!r.data.product){
+    showMsg('商品不存在',' ');
+    return;
+  }
+  product=r.data.product;
+  store=r.data.store||{};
+  document.getElementById('p-img').src=product.image||'/images/sofa-zhongshi.jpg';
+  document.getElementById('p-name').textContent=product.name||'(无名)';
+  document.getElementById('p-price').textContent=product.price||'面议';
+  document.getElementById('p-sub').textContent=[product.subtitle,product.size].filter(Boolean).join(' · ');
+  document.getElementById('workbench').style.display='block';
+  renderCards();
+}
+
+// 无 productId：列出全部商品让老板选
+async function showPicker(){
+  const r=await fetch('/api/products?all=1').then(r=>r.json());
+  const products=(r.data&&r.data.products)||r.products||[];
+  document.getElementById('picker').style.display='block';
+  document.getElementById('pick-list').innerHTML=products.map(p=>`
+    <a class="pick-item" href="/admin/scene?productId=${encodeURIComponent(p.id)}">
+      <img src="${esc(p.image||'/images/sofa-zhongshi.jpg')}" alt="" onerror="this.style.visibility='hidden'">
+      <div>
+        <div class="n">${esc(p.name||'(无名)')}</div>
+        <div>${esc(p.price||'')} ${p.status==='下架'?'<span style="color:#d94f3e">（已下架）</span>':''}</div>
+        ${(p.sceneImages&&p.sceneImages.length)?`<div class="c">${esc(p.sceneImages.length)} 张场景图</div>`:''}
+      </div>
+    </a>`).join('');
+}
+
+async function check(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(!data.success||!data.data||!data.data.user||data.data.user.id!=='admin'){
+    location.href='/admin/login';
+  }
+}
+
+(async function init(){
+  await check();
+  const productId=new URLSearchParams(location.search).get('productId');
+  if(productId){loadProduct(productId)}else{showPicker()}
+})();
+</script>
+</body>
+</html>

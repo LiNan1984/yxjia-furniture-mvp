@@ -72,6 +72,9 @@ const count=document.getElementById('count');
 const msg=document.getElementById('msg');
 function showMsg(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');setTimeout(()=>{msg.className='msg'},3000)}
 
+// HTML 转义：顾客上传记录的 URL/手机号等拼 innerHTML 前必须转义，防存储型 XSS
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+
 async function load(){
   const r=await fetch('/api/admin/rooms').then(r=>r.json());
   rooms=(r.data&&r.data.rooms)||[];
@@ -84,16 +87,23 @@ function render(filter=''){
   if(list.length===0){empty.style.display='block';grid.innerHTML='';return}
   empty.style.display='none';
   grid.innerHTML=list.map(u=>`
-    <div class="tile" data-id="${u.id}">
-      <button class="del" onclick="del('${u.id}')">×</button>
-      <div class="img" onclick="zoom('${u.url}')"><img src="${u.url}" alt="客厅照" onerror="this.style.display='none'"></div>
+    <div class="tile" data-id="${esc(u.id)}">
+      <button class="del" data-act="del" data-id="${esc(u.id)}">×</button>
+      <div class="img" data-act="zoom" data-url="${esc(u.url)}"><img src="${esc(u.url)}" alt="客厅照" onerror="this.style.display='none'"></div>
       <div class="meta">
-        <div class="phone">${u.userPhone?u.userPhone:'匿名'}</div>
-        <div class="ts">${new Date(u.createdAt).toLocaleString('zh-CN')}</div>
-        <div class="id">${u.id}</div>
+        <div class="phone">${esc(u.userPhone||'匿名')}</div>
+        <div class="ts">${esc(new Date(u.createdAt).toLocaleString('zh-CN'))}</div>
+        <div class="id">${esc(u.id)}</div>
       </div>
     </div>`).join('');
 }
+// 缩略图/删除按钮点击：事件委托读 dataset，url 与 id 不进内联 JS 字符串字面量
+grid.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  if (el.dataset.act === 'zoom') zoom(el.dataset.url);
+  else if (el.dataset.act === 'del') del(el.dataset.id);
+});
 document.getElementById('filter').addEventListener('input',e=>render(e.target.value));
 
 function zoom(url){

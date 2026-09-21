@@ -31,11 +31,13 @@ p.lead{color:#444;margin-bottom:18px}
 .meta .badge{font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--coffee)}
 .meta .badge.off{color:var(--red)}
 .meta .id{font-size:.7rem;color:#888;font-family:monospace}
-.actions{padding:10px 14px;display:flex;gap:8px;border-top:1px solid var(--paper)}
-.actions button{flex:1;padding:10px;border:none;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer}
-.btn-edit{background:var(--paper);color:var(--coffee)}
-.btn-toggle{background:#fff;color:var(--ink);border:1px solid var(--line)}
-.btn-del{background:var(--red);color:#fff}
+.actions{padding:10px 14px;display:flex;gap:8px;border-top:1px solid var(--paper);flex-wrap:wrap}
+.actions button,.actions a{flex:1 1 42%;padding:10px;border:none;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;text-decoration:none;text-align:center;color:var(--coffee)}
+.btn-edit{background:var(--paper);color:var(--coffee)!important}
+.btn-toggle{background:#fff;color:var(--ink)!important;border:1px solid var(--line)}
+.btn-del{background:var(--red);color:#fff!important}
+.btn-scene{background:var(--coffee);color:#fff!important}
+.meta .scene-count{font-size:.78rem;font-weight:700;color:var(--green)}
 .empty{padding:60px 20px;text-align:center;color:#888;font-size:1.1rem}
 .msg{display:none;padding:14px;border-radius:10px;margin-bottom:18px;font-size:1.05rem;font-weight:700}
 .msg.ok{display:block;background:var(--green);color:#fff}
@@ -52,6 +54,8 @@ p.lead{color:#444;margin-bottom:18px}
 .modal .row button{flex:1;padding:14px;border:none;border-radius:10px;font-size:1.05rem;font-weight:800;cursor:pointer}
 .btn-save{background:var(--coffee);color:#fff}
 .btn-cancel{background:#fff;color:var(--coffee);border:2px solid var(--coffee)}
+.btn-regen{background:#fff;color:var(--coffee);border:2px dashed var(--coffee);margin-top:14px;width:100%;padding:13px;border-radius:10px;font-size:1rem;font-weight:800;cursor:pointer}
+button[disabled]{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -86,6 +90,13 @@ p.lead{color:#444;margin-bottom:18px}
     <input id="m-subtitle">
     <label>尺寸</label>
     <input id="m-size">
+    <label>适合谁（大白话，一句话）</label>
+    <input id="m-suitable" placeholder="例：适合客厅开间 3.5 米以上的家庭">
+    <label>摆放建议（一句话）</label>
+    <input id="m-placement" placeholder="例：靠墙摆，前面留 60 厘米过道">
+    <label>卖点（一行一条，顾客详情页能看到）</label>
+    <textarea id="m-points" rows="4"></textarea>
+    <button class="btn-regen" id="m-regen" type="button">🤖 AI 重写文案（按商品照片重写卖点尺寸，不动名字价格）</button>
     <div class="row">
       <button class="btn-cancel" id="m-cancel">取消</button>
       <button class="btn-save" id="m-save">保存</button>
@@ -101,6 +112,9 @@ const empty=document.getElementById('empty');
 const msg=document.getElementById('msg');
 const modal=document.getElementById('modal');
 
+// HTML 转义：商品名/价格/图片等来自商品库，拼 innerHTML 前必须转义，防存储型 XSS
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+
 function showMsg(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');setTimeout(()=>{msg.className='msg'},3000)}
 
 async function load(){
@@ -114,21 +128,32 @@ function render(filter=''){
   if(list.length===0){empty.style.display='block';grid.innerHTML='';return}
   empty.style.display='none';
   grid.innerHTML=list.map(p=>`
-    <div class="card ${p.status==='下架'?'off-shelf':''}" data-id="${p.id}">
-      <div class="img"><img src="${p.image||'/images/sofa-zhongshi.jpg'}" alt="${p.name}" onerror="this.style.display='none'"></div>
+    <div class="card ${p.status==='下架'?'off-shelf':''}" data-id="${esc(p.id)}">
+      <div class="img"><img src="${esc(p.image||'/images/sofa-zhongshi.jpg')}" alt="${esc(p.name)}" onerror="this.style.display='none'"></div>
       <div class="meta">
-        <div class="badge ${p.status==='下架'?'off':''}">${p.status||'在售'} · ${p.category||'家具'}</div>
-        <h3>${p.name||'(无名)'}</h3>
-        <div class="price">${p.price||''}</div>
-        <div class="id">${p.id}</div>
+        <div class="badge ${p.status==='下架'?'off':''}">${esc(p.status||'在售')} · ${esc(p.category||'家具')}</div>
+        <h3>${esc(p.name||'(无名)')}</h3>
+        <div class="price">${esc(p.price||'')}</div>
+        ${(Array.isArray(p.sceneImages)&&p.sceneImages.length)?`<div class="scene-count">🖼 ${esc(p.sceneImages.length)} 张场景图</div>`:''}
+        <div class="id">${esc(p.id)}</div>
       </div>
       <div class="actions">
-        <button class="btn-edit" onclick="openEdit('${p.id}')">编辑</button>
-        <button class="btn-toggle" onclick="toggle('${p.id}')">${p.status==='下架'?'上架':'下架'}</button>
-        <button class="btn-del" onclick="del('${p.id}')">删除</button>
+        <a class="btn-scene" href="/admin/scene?productId=${encodeURIComponent(p.id)}">🖼 场景图</a>
+        <button class="btn-edit" data-act="edit" data-id="${esc(p.id)}">编辑</button>
+        <button class="btn-toggle" data-act="toggle" data-id="${esc(p.id)}">${p.status==='下架'?'上架':'下架'}</button>
+        <button class="btn-del" data-act="del" data-id="${esc(p.id)}">删除</button>
       </div>
     </div>`).join('');
 }
+// 卡片按钮点击：事件委托读 dataset，id 不进内联 JS 字符串字面量
+grid.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  if (btn.dataset.act === 'edit') openEdit(id);
+  else if (btn.dataset.act === 'toggle') toggle(id);
+  else if (btn.dataset.act === 'del') del(id);
+});
 document.getElementById('filter').addEventListener('input',e=>render(e.target.value));
 
 function openEdit(id){
@@ -139,9 +164,30 @@ function openEdit(id){
   document.getElementById('m-price').value=p.price||'';
   document.getElementById('m-subtitle').value=p.subtitle||'';
   document.getElementById('m-size').value=p.size||'';
+  document.getElementById('m-suitable').value=p.suitableFor||'';
+  document.getElementById('m-placement').value=p.placementTip||'';
+  document.getElementById('m-points').value=(p.sellingPoints||[]).join('\n');
   modal.classList.add('show');
 }
 document.getElementById('m-cancel').onclick=()=>{modal.classList.remove('show');editingId=null};
+document.getElementById('m-regen').onclick=async()=>{
+  if(!editingId)return;
+  if(!confirm('让 AI 按商品照片重写卖点 / 尺寸 / 介绍？名字和价格不会被改，改完可再手动调整。'))return;
+  const btn=document.getElementById('m-regen');
+  btn.disabled=true;btn.textContent='AI 正在看图，约 10-20 秒…';
+  try{
+    const r=await fetch(`/api/admin/products/${editingId}/regenerate-copy`,{method:'POST'});
+    const d=await r.json();
+    if(!d.success){showMsg(d.error||'AI 重写失败',false);return}
+    const p=d.data.product;
+    document.getElementById('m-size').value=p.size||'';
+    document.getElementById('m-suitable').value=p.suitableFor||'';
+    document.getElementById('m-placement').value=p.placementTip||'';
+    document.getElementById('m-points').value=(p.sellingPoints||[]).join('\n');
+    showMsg('✅ AI 已重写，核对后记得点保存',true);
+  }catch(e){showMsg('网络出错',false)}
+  finally{btn.disabled=false;btn.textContent='🤖 AI 重写文案（按商品照片重写卖点尺寸，不动名字价格）'}
+};
 document.getElementById('m-save').onclick=async()=>{
   if(!editingId)return;
   const body={
@@ -149,6 +195,9 @@ document.getElementById('m-save').onclick=async()=>{
     price:document.getElementById('m-price').value.trim(),
     subtitle:document.getElementById('m-subtitle').value.trim(),
     size:document.getElementById('m-size').value.trim(),
+    suitableFor:document.getElementById('m-suitable').value.trim(),
+    placementTip:document.getElementById('m-placement').value.trim(),
+    sellingPoints:document.getElementById('m-points').value.split('\n').map(s=>s.trim()).filter(Boolean),
   };
   try{
     const r=await fetch(`/api/admin/products/${editingId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

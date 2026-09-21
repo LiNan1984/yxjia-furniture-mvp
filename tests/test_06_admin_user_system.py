@@ -16,6 +16,16 @@ def _user_session():
     return sess
 
 
+def _admin_session():
+    """后台接口（/api/upload/product-image 等）要求 admin 会话，先登录拿 cookie"""
+    sess = requests.Session()
+    r = sess.post(f"{BASE}/api/admin/login",
+                  json={"username": "admin", "password": "123456"}, timeout=10)
+    assert r.status_code == 200, r.text
+    assert "yxjia_sid" in sess.cookies
+    return sess
+
+
 def test_admin_login_success():
     """admin / 123456 登录应成功，并写入 cookie"""
     r = requests.post(
@@ -166,10 +176,15 @@ def test_upload_room_image_returns_url():
 
 
 def test_upload_product_image_creates_product():
-    """上传新商品图，应自动追加到 products.json"""
+    """上传新商品图，应自动追加到 products.json
+
+    安全变更：/api/upload/product-image 现在挂 requireAdmin（后台上架商品用）。
+    所以先 POST /api/admin/login 建立 admin 会话（带 cookie），再上传。
+    """
     img_path = "/Users/linan/Desktop/aicode/peilian/yxjia-mvp/public/images/sofa-corner.jpg"
+    sess = _admin_session()
     with open(img_path, "rb") as f:
-        r = requests.post(
+        r = sess.post(
             f"{BASE}/api/upload/product-image",
             files={"file": ("corner.jpg", f, "image/jpeg")},
             data={
@@ -194,6 +209,28 @@ def test_upload_product_image_creates_product():
     products = requests.get(f"{BASE}/api/products").json()["data"]["products"]
     assert any(pp["id"] == p["id"] for pp in products)
     print(f"✓ 上传商品成功：{p['id']} {p['name']}")
+
+    # 清理：删掉本次造出来的测试商品，避免每跑一次就往 products.json 堆一条
+    # （堆过的历史数据会把首页「试摆选家具」的 furn-grid 撑爆，也会污染商品计数断言）
+    try:
+        sess.delete(f"{BASE}/api/admin/products/{p['id']}", timeout=10)
+    except Exception as e:  # 清理失败不该让用例本身红
+        print(f"! 清理测试商品失败（无害）：{e}")
+
+
+def test_upload_product_image_requires_admin():
+    """安全回归：匿名 POST /api/upload/product-image 必须 401（未挂 requireAdmin 前可匿名上架）"""
+    img_path = "/Users/linan/Desktop/aicode/peilian/yxjia-mvp/public/images/sofa-corner.jpg"
+    with open(img_path, "rb") as f:
+        r = requests.post(
+            f"{BASE}/api/upload/product-image",
+            files={"file": ("corner.jpg", f, "image/jpeg")},
+            data={"name": "匿名上架应被拒", "price": "¥1xxx 起"},
+            timeout=30,
+        )
+    assert r.status_code == 401, r.text
+    assert r.json()["success"] is False
+    print("✓ 匿名上传商品图返回 401（requireAdmin 生效）")
 
 
 def test_tryon_ai_with_real_api():

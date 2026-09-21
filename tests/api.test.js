@@ -2,6 +2,16 @@ import { test, expect } from '@playwright/test';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { Runner } from '@openai/agents';
+import { ScriptedModel, assistantMessage, functionCall } from '@openai/agents/testing';
+import {
+  listOnSaleProducts,
+  searchProducts,
+  getStoreInfo,
+  createShoppingGuideAgent,
+  runShoppingGuideChat,
+  streamShoppingGuideChat,
+} from '../src/chat-guide-agent.js';
 
 const BASE_URL = 'http://127.0.0.1:3000';
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -163,12 +173,10 @@ test.describe('Products API', () => {
 });
 
 test.describe('Orders API', () => {
-  test('GET /api/orders returns orders in ApiResponse shape', async () => {
+  test('GET /api/orders requires admin → 匿名 401（防全量订单泄露）', async () => {
+    // 修复：/api/orders 是后台全量列表，加 requireAdmin；匿名或 /api/orders/ 尾斜杠一律 401
     const res = await makeRequest('GET', '/api/orders');
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveProperty('orders');
-    expect(Array.isArray(res.body.data.orders)).toBe(true);
+    expect(res.status).toBe(401);
   });
 
   test('POST /api/orders creates a new order', async () => {
@@ -323,6 +331,107 @@ test.describe('TryOn (AI composition) API', () => {
   });
 });
 
+test.describe('Whole-home history API (我的家)', () => {
+  const UPLOADS_FILE = path.join(DATA_DIR, 'uploads.json');
+  const USERS_FILE = path.join(DATA_DIR, 'users.json');
+  let usersBackup = null;
+
+  // 带 Cookie 的请求（登录态），返回 { status, body, setCookie }
+  function requestCookie(method, urlPath, { body = null, cookie = '' } = {}) {
+    return new Promise((resolve, reject) => {
+      const url = new URL(urlPath, BASE_URL);
+      const headers = { 'Content-Type': 'application/json' };
+      if (cookie) headers.Cookie = cookie;
+      const req = http.request({
+        method, hostname: url.hostname, port: url.port,
+        path: url.pathname + url.search, headers,
+      }, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          let parsed = null;
+          try { parsed = data ? JSON.parse(data) : null; } catch (e) { parsed = data; }
+          resolve({ status: res.statusCode, body: parsed, setCookie: res.headers['set-cookie'] || [] });
+        });
+      });
+      req.on('error', reject);
+      if (body) req.write(JSON.stringify(body));
+      req.end();
+    });
+  }
+
+  async function loginCookie(phone) {
+    const res = await requestCookie('POST', '/api/auth/login', { body: { phone, code: '123456' } });
+    return (res.setCookie[0] || '').split(';')[0];
+  }
+
+  // 登录会在 users.json 自动注册测试号，跑完还原，避免污染
+  test.beforeEach(() => {
+    usersBackup = fs.existsSync(USERS_FILE) ? fs.readFileSync(USERS_FILE, 'utf-8') : null;
+  });
+  test.afterEach(() => {
+    if (usersBackup !== null) fs.writeFileSync(USERS_FILE, usersBackup, 'utf-8');
+  });
+
+  test('GET /api/whole-home/history rejects invalid phone → 400', async () => {
+    const res = await makeRequest('GET', '/api/whole-home/history?phone=invalid');
+    expect(res.status).toBe(400);
+  });
+
+  test('logged-in querying another phone → 403（只能看自己）', async () => {
+    const cookie = await loginCookie('13800138000');
+    const res = await requestCookie('GET', '/api/whole-home/history?phone=13911112222', { cookie });
+    expect(res.status).toBe(403);
+  });
+
+  test('logged-in own phone, no analyses → 200 + empty array', async () => {
+    const phone = '13800138000';
+    const cookie = await loginCookie(phone);
+    const res = await requestCookie('GET', `/api/whole-home/history?phone=${phone}`, { cookie });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data.analyses)).toBe(true);
+  });
+
+  test('logged-in own phone, seeded analysis → 200 + 照片+推荐 shape', async () => {
+    const phone = '13800138000';
+    const uploadsBackup = fs.existsSync(UPLOADS_FILE) ? fs.readFileSync(UPLOADS_FILE, 'utf-8') : null;
+    try {
+      const container = uploadsBackup ? JSON.parse(uploadsBackup) : { uploads: [], wholeHomeAnalyzes: [] };
+      if (!Array.isArray(container.wholeHomeAnalyzes)) container.wholeHomeAnalyzes = [];
+      const seedId = 'whan-test-' + Date.now();
+      container.wholeHomeAnalyzes.unshift({
+        id: seedId,
+        type: 'whole-home-analyze',
+        phone,
+        userStyle: '', style: '现代简约', overallStyle: '现代简约',
+        budgetSuggestion: '¥1万 - ¥6万',
+        rooms: [{ roomType: '客厅', sizeEstimate: '约20㎡', lightingDirection: '南', mainColor: '米白', suggestedItems: ['沙发', '茶几'], originalUrl: 'http://127.0.0.1:9000/yxjia-uploads/rooms/test.jpg', index: 1 }],
+        roomImageUrls: ['http://127.0.0.1:9000/yxjia-uploads/rooms/test.jpg'],
+        ip: '127.0.0.1', uploadedBy: 'user:' + phone,
+        createdAt: new Date().toISOString(),
+      });
+      fs.writeFileSync(UPLOADS_FILE, JSON.stringify(container, null, 2), 'utf-8');
+
+      const cookie = await loginCookie(phone);
+      const res = await requestCookie('GET', `/api/whole-home/history?phone=${phone}`, { cookie });
+      expect(res.status).toBe(200);
+      const list = res.body.data.analyses;
+      expect(Array.isArray(list)).toBe(true);
+      const hit = list.find(a => a.id === seedId);
+      expect(hit).toBeTruthy();
+      expect(Array.isArray(hit.roomImageUrls)).toBe(true);
+      expect(hit.roomImageUrls.length).toBeGreaterThan(0);
+      expect(hit.overallStyle).toBe('现代简约');
+      expect(hit.budgetSuggestion).toBe('¥1万 - ¥6万');
+      expect(Array.isArray(hit.rooms)).toBe(true);
+      expect(hit.rooms[0].suggestedItems).toContain('沙发');
+    } finally {
+      if (uploadsBackup !== null) fs.writeFileSync(UPLOADS_FILE, uploadsBackup, 'utf-8');
+    }
+  });
+});
+
 test.describe('Static assets', () => {
   test('GET /images/ returns directory or 404 cleanly (no server crash)', async () => {
     const res = await makeRequest('GET', '/images/');
@@ -332,5 +441,289 @@ test.describe('Static assets', () => {
   test('GET /images path is supported (static middleware)', async () => {
     const res = await makeRequest('GET', '/images/non-existent.jpg');
     expect([200, 404]).toContain(res.status);
+  });
+});
+
+test.describe('AI chat shopping guide', () => {
+  test('GET /chat-guide serves chat UI with ynet stream markdown', async () => {
+    const res = await makeRequest('GET', '/chat-guide');
+    expect(res.status).toBe(200);
+    expect(typeof res.body).toBe('string');
+    expect(res.body).toContain('导购');
+    expect(res.body).toContain('chatInput');
+    expect(res.body).toContain('sendBtn');
+    expect(res.body).toContain('/api/chat/guide/stream');
+    expect(res.body).toContain('/vendor/ynet-markdown-render-h5/index.js');
+    expect(res.body).toContain('MarkdownNative');
+    expect(res.body).toContain('MarkdownRenderView');
+    expect(res.body).toContain('parseStream');
+    expect(res.body).toContain('parseMarkdown');
+    expect(res.body).toContain('#3a2818');
+    expect(res.body).toContain('#faf6ef');
+  });
+
+  test('GET ynet markdown vendor ESM is served', async () => {
+    const res = await makeRequest('GET', '/vendor/ynet-markdown-render-h5/index.js');
+    expect(res.status).toBe(200);
+    expect(typeof res.body).toBe('string');
+    expect(res.body).toContain('MarkdownNative');
+    expect(res.body).toContain('./parser.js');
+  });
+
+  test('Homepage links to /chat-guide', async () => {
+    const res = await makeRequest('GET', '/');
+    expect(res.status).toBe(200);
+    expect(res.body).toContain('/chat-guide');
+    expect(res.body).toContain('AI 导购');
+  });
+
+  test('Catalog tools read live on-sale products.json', async () => {
+    const disk = JSON.parse(fs.readFileSync(PRODUCTS_FILE, 'utf-8'));
+    const diskOnSale = (disk.products || []).filter((p) => !p.status || p.status === '在售');
+    const listed = listOnSaleProducts();
+
+    expect(listed.length).toBe(diskOnSale.length);
+    expect(listed.length).toBeGreaterThan(0);
+
+    for (const p of listed) {
+      const raw = diskOnSale.find((x) => x.id === p.id);
+      expect(raw).toBeDefined();
+      expect(p.name).toBe(raw.name);
+      expect(p.price).toBe(raw.price);
+      expect(p.status).toBe('在售');
+    }
+
+    const sofaHits = searchProducts({ query: '沙发' });
+    expect(sofaHits.length).toBeGreaterThan(0);
+    expect(sofaHits.every((p) => listed.some((x) => x.id === p.id))).toBe(true);
+
+    const store = getStoreInfo();
+    expect(store.phone).toBe(disk.store.phone);
+    expect(store.address).toContain('柞水');
+    expect(store.hours).toBeTruthy();
+  });
+
+  test('Agents SDK run with ScriptedModel executes catalog tool', async () => {
+    const onSale = listOnSaleProducts();
+    expect(onSale.length).toBeGreaterThan(0);
+    const sample = onSale[0];
+
+    const md = [
+      '## 推荐',
+      '',
+      `| 商品 | 价格 | 编号 |`,
+      `| --- | --- | --- |`,
+      `| ${sample.name} | ${sample.price} | ${sample.id} |`,
+    ].join('\n');
+
+    const model = new ScriptedModel([
+      [functionCall('list_on_sale_products', {}, { callId: 'call_guide_1' })],
+      [assistantMessage(md)],
+    ]);
+
+    const agent = createShoppingGuideAgent({ model });
+    const runner = new Runner({ tracingDisabled: true });
+    const result = await runner.run(agent, '有什么沙发推荐？多少钱？');
+
+    expect(typeof result.finalOutput).toBe('string');
+    expect(result.finalOutput).toContain(sample.name);
+    expect(result.finalOutput).toContain(sample.price);
+    expect(result.finalOutput).toContain(sample.id);
+    expect(result.finalOutput).toContain('##');
+    expect(model.calls.length).toBe(2);
+
+    const secondInput = model.lastCall?.request?.input;
+    expect(Array.isArray(secondInput)).toBe(true);
+    const toolResult = secondInput.find((item) => item.type === 'function_call_result');
+    expect(toolResult).toBeDefined();
+    const payload = JSON.stringify(toolResult);
+    expect(payload).toContain(sample.id);
+    expect(payload).toContain(sample.name);
+    expect(payload).toContain(sample.price);
+    model.assertComplete();
+  });
+
+  test('runShoppingGuideChat returns markdown reply via injectable model', async () => {
+    const onSale = listOnSaleProducts();
+    const sample = onSale[0];
+    const model = new ScriptedModel([
+      [functionCall('search_products', { query: '沙发' }, { callId: 'call_search_1' })],
+      [
+        assistantMessage(
+          `## 推荐\n\n- **${sample.name}**：${sample.price}`
+        ),
+      ],
+    ]);
+
+    const out = await runShoppingGuideChat({
+      message: '推荐一款沙发',
+      history: [{ role: 'user', content: '你好' }, { role: 'assistant', content: '您好，请问想看什么？' }],
+      model,
+    });
+
+    expect(out.reply).toBeTruthy();
+    expect(out.reply.length).toBeGreaterThan(0);
+    expect(out.reply).toContain(sample.name);
+    expect(out.reply).toContain(sample.price);
+    expect(out.reply).toContain('##');
+  });
+
+  test('streamShoppingGuideChat yields markdown deltas via injectable model', async () => {
+    const onSale = listOnSaleProducts();
+    const sample = onSale[0];
+    const model = new ScriptedModel([
+      [functionCall('list_on_sale_products', {}, { callId: 'call_stream_1' })],
+      [
+        assistantMessage(
+          `## 在售\n\n| 商品 | 价格 |\n| --- | --- |\n| ${sample.name} | ${sample.price} |`
+        ),
+      ],
+    ]);
+
+    let assembled = '';
+    let doneReply = '';
+    for await (const ev of streamShoppingGuideChat({
+      message: '有什么沙发？',
+      model,
+    })) {
+      if (ev.type === 'delta') assembled += ev.text;
+      if (ev.type === 'done') doneReply = ev.reply;
+    }
+
+    expect(doneReply).toContain(sample.name);
+    expect(doneReply).toContain('|');
+    expect(doneReply).toContain('##');
+    expect(assembled.length + doneReply.length).toBeGreaterThan(0);
+  });
+
+  test('POST /api/chat/guide rejects empty message', async () => {
+    const res = await makeRequest('POST', '/api/chat/guide', { message: '   ' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBeTruthy();
+  });
+
+  test('POST /api/chat/guide rejects oversized message', async () => {
+    const res = await makeRequest('POST', '/api/chat/guide', {
+      message: '沙发'.repeat(300),
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(String(res.body.error)).toMatch(/太长|缩短/);
+  });
+
+  test('POST /api/chat/guide returns ApiResponse (live key, fake provider, or clear missing-key)', async () => {
+    const res = await makeRequest('POST', '/api/chat/guide', {
+      message: '有什么沙发推荐？大概什么价格？',
+      history: [],
+    });
+
+    expect(res.body).toBeTruthy();
+    expect(typeof res.body.success).toBe('boolean');
+
+    if (res.body.success) {
+      expect(res.status).toBe(200);
+      expect(res.body.data).toBeTruthy();
+      expect(typeof res.body.data.reply).toBe('string');
+      expect(res.body.data.reply.trim().length).toBeGreaterThan(0);
+      expect(res.body.data.reply).toMatch(/##|\||-/);
+    } else {
+      // 无 OPENAI_API_KEY 且未开 CHAT_GUIDE_FAKE_MODEL 时允许明确失败
+      expect([503, 500]).toContain(res.status);
+      expect(String(res.body.error || '')).toMatch(/OPENAI_API_KEY|导购/);
+    }
+  });
+
+  test('GET /api/chat/guide/status reports provider readiness', async () => {
+    const res = await makeRequest('GET', '/api/chat/guide/status');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toBeTruthy();
+    expect(typeof res.body.data.live).toBe('boolean');
+    expect(res.body.data.model).toBeTruthy();
+  });
+
+  test('POST /api/chat/guide/stream returns SSE markdown events when model available', async () => {
+    const raw = await new Promise((resolve, reject) => {
+      const body = JSON.stringify({
+        message: '有什么沙发推荐？大概多少钱？请根据店里在售商品回答。',
+        history: [],
+      });
+      const req = http.request(
+        {
+          method: 'POST',
+          hostname: '127.0.0.1',
+          port: 3000,
+          path: '/api/chat/guide/stream',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+            'Content-Length': Buffer.byteLength(body),
+          },
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
+          res.on('end', () =>
+            resolve({
+              status: res.statusCode,
+              contentType: res.headers['content-type'] || '',
+              body: data,
+            })
+          );
+        }
+      );
+      req.setTimeout(100000);
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+
+    if (raw.contentType.includes('text/event-stream')) {
+      expect(raw.status).toBe(200);
+      expect(raw.body).toContain('data:');
+      expect(raw.body).toMatch(/"type":"status"/);
+      expect(raw.body).toMatch(/"type":"(delta|done)"/);
+
+      const events = raw.body
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.startsWith('data:'))
+        .map((l) => {
+          try {
+            return JSON.parse(l.replace(/^data:\s*/, ''));
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+
+      const statusEv = events.find((e) => e.type === 'status');
+      expect(statusEv).toBeTruthy();
+      expect(statusEv.streaming).toBe(true);
+
+      const deltas = events.filter((e) => e.type === 'delta');
+      const doneEv = events.find((e) => e.type === 'done');
+      expect(doneEv).toBeTruthy();
+      expect(doneEv.reply).toBeTruthy();
+      expect(doneEv.reply.trim().length).toBeGreaterThan(0);
+
+      // 真流式：至少 1 个 delta；假模型也可能整段一条 delta
+      expect(deltas.length).toBeGreaterThanOrEqual(1);
+
+      const onSale = listOnSaleProducts();
+      // 真模型应通过工具接地；允许名称或价格命中
+      const grounded = onSale.some(
+        (p) => doneEv.reply.includes(p.name) || doneEv.reply.includes(p.price)
+      );
+      expect(grounded).toBe(true);
+    } else {
+      // JSON error path when no model configured on the running server
+      const parsed = JSON.parse(raw.body);
+      expect(parsed.success).toBe(false);
+      expect([400, 429, 503, 500]).toContain(raw.status);
+    }
   });
 });

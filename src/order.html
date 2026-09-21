@@ -116,6 +116,9 @@
 </div>
 
 <script>
+  // HTML 转义：顾客自由填写的称呼/地址/备注等字段必须先转义再拼 innerHTML，防存储型 XSS
+  function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+
   function getQueryParam(name) {
     const params = new URLSearchParams(window.location.search);
     return params.get(name);
@@ -145,16 +148,16 @@
       const el = document.getElementById('order-detail');
       el.innerHTML =
         '<h3>订单信息</h3>' +
-        '<div class="row"><strong>订单号：</strong>' + order.id + '</div>' +
-        '<div class="row"><strong>称呼：</strong>' + order.name + '</div>' +
-        '<div class="row"><strong>手机：</strong>' + order.phone + '</div>' +
-        '<div class="row"><strong>家具：</strong>' + (product ? product.name : order.productName || order.productId) + '</div>' +
-        '<div class="row"><strong>收货：</strong>' + (order.address || '来店自提') + '</div>' +
-        (order.spec ? '<div class="row"><strong>规格备注：</strong>' + order.spec + '</div>' : '') +
-        '<div class="row"><strong>数量：</strong>' + (order.quantity || 1) + '</div>' +
-        '<div class="row"><strong>价格：</strong>' + (order.productPrice || '面议') + '</div>' +
-        '<div class="row"><strong>状态：</strong>' + (order.status || '待联系') + '</div>' +
-        '<div class="row"><strong>下单时间：</strong>' + new Date(order.createdAt).toLocaleString('zh-CN') + '</div>';
+        '<div class="row"><strong>订单号：</strong>' + esc(order.id) + '</div>' +
+        '<div class="row"><strong>称呼：</strong>' + esc(order.name) + '</div>' +
+        '<div class="row"><strong>手机：</strong>' + esc(order.phone) + '</div>' +
+        '<div class="row"><strong>家具：</strong>' + esc(product ? product.name : (order.productName || order.productId)) + '</div>' +
+        '<div class="row"><strong>收货：</strong>' + esc(order.address || '来店自提') + '</div>' +
+        (order.spec ? '<div class="row"><strong>规格备注：</strong>' + esc(order.spec) + '</div>' : '') +
+        '<div class="row"><strong>数量：</strong>' + esc(order.quantity || 1) + '</div>' +
+        '<div class="row"><strong>价格：</strong>' + esc(order.productPrice || '面议') + '</div>' +
+        '<div class="row"><strong>状态：</strong>' + esc(order.status || '待联系') + '</div>' +
+        '<div class="row"><strong>下单时间：</strong>' + esc(new Date(order.createdAt).toLocaleString('zh-CN')) + '</div>';
     } catch (err) {
       document.getElementById('order-detail').innerHTML =
         '<h3>订单信息</h3><p>未找到此订单，请电话联系我们：13359140982</p>';

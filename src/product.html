@@ -36,6 +36,13 @@ button{font-family:inherit;border:none;background:none;cursor:pointer}
 .highlight{display:flex;align-items:center;gap:12px;font-size:1rem;padding:12px;background:var(--paper);border-radius:10px}
 .highlight::before{content:"✓";width:28px;height:28px;background:var(--coffee);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;flex-shrink:0}
 
+/* v2 场景图画廊：横向滑动缩略图，点开看大图 */
+.scene-gallery{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+.scene-gallery a{flex-shrink:0;width:168px}
+.scene-gallery img{width:168px;height:168px;object-fit:cover;border-radius:12px;display:block;background:var(--paper)}
+.scene-gallery .cap{font-size:.8rem;color:var(--ink2);margin-top:6px;text-align:center;opacity:.8}
+.scene-note{font-size:.82rem;color:var(--ink2);opacity:.7;margin-top:10px}
+
 .tryon-card{margin:24px 20px;padding:24px;background:var(--coffee);color:#fff;border-radius:16px;text-align:center}
 .tryon-card h3{font-size:1.2rem;font-weight:800;margin-bottom:6px}
 .tryon-card p{font-size:.95rem;opacity:.85;margin-bottom:14px}
@@ -64,43 +71,78 @@ button{font-family:inherit;border:none;background:none;cursor:pointer}
 </div>
 
 <script>
+// HTML 转义：商品字段可能来自 AI 识别/上传，插 innerHTML 前必须过一遍
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
 const id = location.pathname.split('/').pop();
 let product = null;
 fetch('/api/products/'+id).then(r=>r.json()).then(api=>{
   if (!api.success) throw new Error(api.error || '未找到');
   product = api.data.product;
   document.title = product.name + ' - 银杏家具';
+  // "常规尺寸" 是旧占位符，视为无效尺寸，不显示角标
+  const sizeText = product.size && product.size !== '常规尺寸' ? product.size : '';
+  // color 走 CSS 上下文：只认颜色 token（hex/rgb/英文名），可疑值回落默认深咖
+  const colorText = /^[#0-9a-zA-Z(),.%\s-]+$/.test(String(product.color || '')) ? product.color : '#3a2818';
+  // 新商品用 sellingPoints；旧商品回落到 highlights（读取时后端已过滤机器噪音）
+  const points = (Array.isArray(product.sellingPoints) && product.sellingPoints.length)
+    ? product.sellingPoints
+    : (product.highlights || []);
   document.getElementById('content').innerHTML = `
-    <div class="product-img" style="background:${product.color || '#3a2818'}">
-      ${product.badge ? `<div class="badge">${product.badge}</div>` : ''}
-      <img src="${product.image}" alt="${product.name}" onerror="this.style.display='none'">
-      ${product.size ? `<div class="size">${product.size}</div>` : ''}
+    <div class="product-img" style="background:${esc(colorText)}">
+      ${product.badge ? `<div class="badge">${esc(product.badge)}</div>` : ''}
+      <img src="${esc(product.image)}" alt="${esc(product.name)}" onerror="this.style.display='none'">
+      ${sizeText ? `<div class="size">${esc(sizeText)}</div>` : ''}
     </div>
     <div class="info">
-      <h1>${product.name}</h1>
-      <div class="sub">${product.subtitle || ''}</div>
-      <div class="price">${product.price || '面议'}</div>
-      <div class="stock">${product.stock || ''}</div>
+      <h1>${esc(product.name)}</h1>
+      <div class="sub">${esc(product.subtitle)}</div>
+      <div class="price">${esc(product.price) || '面议'}</div>
+      <div class="stock">${esc(product.stock)}</div>
     </div>
+    ${(Array.isArray(product.sceneImages) && product.sceneImages.length) ? `
+    <div class="section">
+      <h2>摆进家里是什么样</h2>
+      <div class="scene-gallery">
+        ${product.sceneImages.map(s => `
+        <a href="${esc(s.url)}" target="_blank" rel="noopener">
+          <img src="${esc(s.url)}" alt="${esc(s.styleName) || '场景图'}" loading="lazy">
+          <div class="cap">${esc(s.styleName)}</div>
+        </a>`).join('')}
+      </div>
+      <div class="scene-note">AI 合成场景，仅供参考，实物以到店为准</div>
+    </div>` : ''}
     <div class="section">
       <h2>详细介绍</h2>
-      <div class="desc">${product.description || ''}</div>
+      <div class="desc">${esc(product.description)}</div>
     </div>
+    ${product.suitableFor ? `
+    <div class="section">
+      <h2>这台家具适合谁</h2>
+      <div class="desc">${esc(product.suitableFor)}</div>
+    </div>` : ''}
+    ${product.placementTip ? `
+    <div class="section">
+      <h2>摆家里怎么摆</h2>
+      <div class="desc">${esc(product.placementTip)}</div>
+    </div>` : ''}
+    ${points.length ? `
     <div class="section">
       <h2>商品亮点</h2>
       <div class="highlights">
-        ${(product.highlights || []).map(h=>`<div class="highlight">${h}</div>`).join('')}
+        ${points.map(h=>`<div class="highlight">${esc(h)}</div>`).join('')}
       </div>
-    </div>
+    </div>` : ''}
     <div class="tryon-card">
       <h3>📷 先看摆进家效果</h3>
       <p>发张您家客厅照，免费 AI 试摆</p>
-      <a href="/tryon?product=${product.id}" class="tryon-cta">立即试摆</a>
+      <a href="/tryon?product=${esc(product.id)}" class="tryon-cta">立即试摆</a>
     </div>
   `;
   document.getElementById('buyBtn').href = '/checkout/' + product.id;
 }).catch(e=>{
+  // 商品不存在：隐藏底部购买按钮，避免对无效商品下单
   document.getElementById('content').innerHTML = '<div style="padding:40px;text-align:center">商品不存在 <a href="/">返回首页</a></div>';
+  document.getElementById('buyBtn').style.display = 'none';
 });
 </script>
 </body>
