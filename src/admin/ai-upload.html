@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>AI 拍照上架 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--ink2:#3a3a3a;--paper:#faf6ef;--coffee:#3a2818;--coffee-2:#5a3e26;--line:#c8b89a;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.nav a{color:#fff;font-size:1.2rem;text-decoration:none}
+.wrap{max-width:720px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:8px}
+.lead{font-size:1.15rem;color:var(--ink2);margin-bottom:20px;line-height:1.6}
+.back{display:inline-block;margin-bottom:16px;font-size:1.2rem;color:var(--coffee);text-decoration:none}
+.card-box{background:#fff;border:2px solid var(--coffee);border-radius:16px;padding:24px}
+label{display:block;font-size:1.2rem;margin:22px 0 8px;font-weight:700}
+label .tip{font-weight:400;font-size:1rem;color:#777}
+input,select,textarea{width:100%;padding:16px;font-size:1.15rem;border:2px solid var(--line);border-radius:12px;background:#fff;font-family:inherit;color:var(--ink)}
+textarea{resize:vertical;line-height:1.6}
+input[type=file]{padding:14px;font-size:1.1rem}
+button.big{min-height:64px;width:100%;padding:18px;font-size:1.45rem;font-weight:800;background:var(--coffee);color:#fff;border:none;border-radius:12px;margin-top:24px;cursor:pointer}
+button.big:hover{background:var(--coffee-2)}
+button.big:disabled{background:#a89880;cursor:not-allowed}
+button.ghost{background:#fff;color:var(--coffee);border:2px solid var(--coffee)}
+.msg{display:none;padding:18px;border-radius:12px;margin-top:18px;font-size:1.15rem;font-weight:700;line-height:1.6}
+.msg.ok{display:block;background:var(--green);color:#fff}
+.msg.err{display:block;background:var(--red);color:#fff}
+.preview{margin-top:14px;width:100%;max-width:320px;border-radius:12px;border:2px solid var(--line);display:none}
+.step2{display:none;margin-top:24px}
+.step2.show{display:block}
+.review-img{width:100%;border-radius:12px;border:2px solid var(--line);margin-bottom:8px;background:var(--coffee)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:560px){.row2{grid-template-columns:1fr}}
+.after-save{display:none;margin-top:18px}
+.after-save.show{display:block}
+.after-save a{display:block;text-align:center;padding:16px;border-radius:12px;font-size:1.2rem;font-weight:800;text-decoration:none;margin-top:12px}
+.link-coffee{background:var(--coffee);color:#fff}
+.link-outline{background:#fff;color:var(--coffee);border:2px solid var(--coffee)}
+.waiting{font-size:1.2rem;color:var(--coffee);font-weight:700;margin-top:16px;display:none;text-align:center}
+.waiting.show{display:block}
+</style>
+</head>
+<body>
+<header class="nav"><a href="/admin/index">← 返回</a><div style="font-size:1.3rem;font-weight:800">📷 AI 拍照上架</div></header>
+<main class="wrap">
+  <a class="back" href="/admin/index">← 返回后台首页</a>
+  <h1>📷 AI 拍照上架</h1>
+  <p class="lead">拍张家具照片传上来，AI 帮你写好名字、卖点、适合谁家、怎么摆。写完您过目改一改，再点「确认上架」。</p>
+
+  <!-- 第一步：选图 -->
+  <div class="card-box" id="step1">
+    <label for="hint">名称提示（可不填）<span class="tip">例：科技布三人沙发，填了 AI 起名更准</span></label>
+    <input id="hint" type="text" placeholder="不确定就留空，AI 自己看图起">
+
+    <label for="file">商品照片（jpg / png）</label>
+    <input id="file" type="file" accept="image/*">
+    <img id="preview" class="preview" alt="照片预览">
+
+    <button class="big" id="identifyBtn">🤖 开始识别，帮我写文案</button>
+    <div class="waiting" id="waiting">AI 正在看图写文案，约等 10-20 秒…</div>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <!-- 第二步：核对改稿 -->
+  <div class="step2" id="step2">
+    <div class="card-box">
+      <img id="reviewImg" class="review-img" alt="商品图">
+
+      <label for="m-name">商品名</label>
+      <input id="m-name">
+
+      <div class="row2">
+        <div>
+          <label for="m-price">价格</label>
+          <input id="m-price" placeholder="到店询价">
+        </div>
+        <div>
+          <label for="m-category">分类</label>
+          <select id="m-category">
+            <option value="sofa">沙发</option>
+            <option value="cabinet">柜子</option>
+            <option value="bed">床</option>
+            <option value="table">桌子</option>
+            <option value="other">其他</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="m-subtitle">副标题 / 材质简述</label>
+      <input id="m-subtitle">
+
+      <label for="m-size">尺寸<span class="tip">（拿不准就留"可到店量尺"，别写死）</span></label>
+      <input id="m-size">
+
+      <label for="m-suitable">这台家具适合谁</label>
+      <input id="m-suitable" placeholder="例：适合客厅开间 3.5 米以上的家庭">
+
+      <label for="m-placement">摆家里怎么摆</label>
+      <input id="m-placement" placeholder="例：靠墙摆，前面留 60 厘米过道">
+
+      <label for="m-points">三条卖点<span class="tip">（一行一条，顾客在商品详情能看到）</span></label>
+      <textarea id="m-points" rows="4"></textarea>
+
+      <label for="m-desc">详细介绍</label>
+      <textarea id="m-desc" rows="4"></textarea>
+
+      <button class="big" id="saveBtn">✅ 确认上架</button>
+      <button class="big ghost" id="againBtn" type="button">↻ 重新拍一张</button>
+    </div>
+
+    <div class="after-save" id="afterSave">
+      <a class="link-coffee" id="viewLink" href="#" target="_blank">👀 看看商品页</a>
+      <a class="link-outline" href="/admin/products">📝 去商品管理</a>
+    </div>
+  </div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const fileInput=$('file');
+const preview=$('preview');
+const msg=$('msg');
+let draftProduct=null;
+
+function showMsg(text,ok){
+  msg.textContent=text;
+  msg.className='msg '+(ok?'ok':'err');
+}
+function clearMsg(){msg.className='msg';msg.textContent=''}
+
+// 客户端访问兜底：没登录后台直接跳登录页
+async function check(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(!data.success||!data.data||!data.data.user||data.data.user.id!=='admin'){
+    location.href='/admin/login';
+  }
+}
+check();
+
+fileInput.addEventListener('change',()=>{
+  const f=fileInput.files[0];
+  if(!f){preview.style.display='none';return}
+  const reader=new FileReader();
+  reader.onload=e=>{preview.src=e.target.result;preview.style.display='block'};
+  reader.readAsDataURL(f);
+});
+
+$('identifyBtn').addEventListener('click',async()=>{
+  clearMsg();
+  const file=fileInput.files[0];
+  if(!file){showMsg('请先选一张家具照片',false);return}
+  const form=new FormData();
+  form.append('file',file);
+  form.append('hint',$('hint').value.trim());
+  $('identifyBtn').disabled=true;
+  $('waiting').classList.add('show');
+  try{
+    const r=await fetch('/api/admin/upload-and-identify',{method:'POST',body:form});
+    const data=await r.json();
+    if(!r.ok||!data.success){showMsg(data.error||('识别失败（'+r.status+'）'),false);return}
+    const d=data.data;
+    if(!d.ok){
+      // 图片已存但 AI 没识别出来：引导去手动填表
+      showMsg((d.message||'AI 没认出来')+'，可以去「上传商品图」手动填写。',false);
+      return;
+    }
+    draftProduct=d.product;
+    fillReview(d.product);
+    $('step2').classList.add('show');
+    $('step2').scrollIntoView({behavior:'smooth'});
+  }catch(err){
+    showMsg('网络出错，请重试',false);
+  }finally{
+    $('identifyBtn').disabled=false;
+    $('waiting').classList.remove('show');
+  }
+});
+
+function fillReview(p){
+  $('reviewImg').src=p.image;
+  $('m-name').value=p.name||'';
+  $('m-price').value=p.price||'到店询价';
+  $('m-category').value=['sofa','cabinet','bed','table','other'].includes(p.category)?p.category:'other';
+  $('m-subtitle').value=p.subtitle||'';
+  $('m-size').value=p.size||'可到店量尺';
+  $('m-suitable').value=p.suitableFor||'';
+  $('m-placement').value=p.placementTip||'';
+  $('m-points').value=(p.sellingPoints||[]).join('\n');
+  $('m-desc').value=p.description||'';
+  $('afterSave').classList.remove('show');
+}
+
+$('saveBtn').addEventListener('click',async()=>{
+  if(!draftProduct)return;
+  const name=$('m-name').value.trim();
+  if(!name){showMsg('商品名不能为空',false);return}
+  const sellingPoints=$('m-points').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const body={
+    name,
+    price:$('m-price').value.trim()||'到店询价',
+    category:$('m-category').value,
+    subtitle:$('m-subtitle').value.trim(),
+    size:$('m-size').value.trim()||'可到店量尺',
+    suitableFor:$('m-suitable').value.trim(),
+    placementTip:$('m-placement').value.trim(),
+    sellingPoints,
+    highlights:sellingPoints.slice(0,3),
+    description:$('m-desc').value.trim(),
+    status:'在售'
+  };
+  $('saveBtn').disabled=true;
+  try{
+    const r=await fetch('/api/admin/products/'+draftProduct.id,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data=await r.json();
+    if(!data.success){showMsg(data.error||'保存失败',false);return}
+    showMsg('✅ 已上架：'+name,true);
+    $('viewLink').href='/product/'+draftProduct.id;
+    $('afterSave').classList.add('show');
+    $('afterSave').scrollIntoView({behavior:'smooth'});
+  }catch(e){
+    showMsg('网络出错，请重试',false);
+  }finally{
+    $('saveBtn').disabled=false;
+  }
+});
+
+$('againBtn').addEventListener('click',()=>{
+  draftProduct=null;
+  $('step2').classList.remove('show');
+  $('afterSave').classList.remove('show');
+  fileInput.value='';
+  $('hint').value='';
+  preview.style.display='none';
+  clearMsg();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+</script>
+</body>
+</html>

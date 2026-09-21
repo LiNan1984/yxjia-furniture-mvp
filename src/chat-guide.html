@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>AI 导购助手 · 银杏家具</title>
+<style>
+:root{
+  --ink:#1a1a1a;
+  --coffee:#3a2818;
+  --paper:#faf6ef;
+  --line:rgba(58,40,24,.15);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{
+  font-family:"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--paper);color:var(--ink);
+  font-size:1rem;line-height:1.5;
+  min-height:100vh;
+  display:flex;flex-direction:column;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit}
+
+.nav{
+  background:var(--coffee);color:var(--paper);
+  padding:10px 16px;
+  display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;z-index:50;
+}
+.nav a{color:var(--paper);font-weight:600;padding:8px 10px;border:1px solid transparent}
+.nav-logo{font-size:1.05rem;font-weight:700}
+.nav-logo small{font-size:.6rem;font-weight:400;opacity:.55;margin-left:4px}
+
+.intro{
+  padding:20px 20px 8px;
+  max-width:720px;margin:0 auto;width:100%;
+}
+.intro .tag{
+  display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.2em;
+  text-transform:uppercase;background:var(--coffee);color:var(--paper);
+  padding:6px 10px;margin-bottom:10px;
+}
+.intro h1{
+  font-size:clamp(28px,6vw,40px);font-weight:800;color:var(--coffee);
+  line-height:1.15;letter-spacing:-.03em;margin-bottom:8px;
+}
+.intro p{font-size:.95rem;opacity:.8;max-width:36em}
+
+.chat-shell{
+  flex:1;display:flex;flex-direction:column;
+  max-width:720px;width:100%;margin:0 auto;
+  padding:8px 16px 16px;
+  min-height:0;
+}
+#messages{
+  flex:1;overflow-y:auto;
+  display:flex;flex-direction:column;gap:12px;
+  padding:12px 4px 20px;
+  min-height:280px;
+}
+.bubble{
+  max-width:92%;
+  padding:14px 16px;
+  border:1px solid var(--line);
+  background:#fff;
+  font-size:1.05rem;line-height:1.55;
+  word-break:break-word;
+}
+.bubble.assistant{align-self:flex-start;border-color:var(--coffee);border-width:1.5px}
+.bubble.user{align-self:flex-end;background:var(--coffee);color:var(--paper);border-color:var(--coffee);white-space:pre-wrap}
+.bubble .who{
+  display:block;font-size:.7rem;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;opacity:.65;margin-bottom:6px;
+}
+.bubble.user .who{color:var(--paper);opacity:.75}
+.bubble.pending .md-host{opacity:.85}
+.bubble .md-host{min-height:1.2em}
+.thinking-box{
+  display:none;
+  border:1.5px dashed var(--coffee);
+  background:var(--paper);
+  padding:10px 12px;
+  margin-bottom:12px;
+  max-height:200px;
+  overflow-y:auto;
+}
+.thinking-box.show{display:block}
+.thinking-box .lbl{
+  font-size:.7rem;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--coffee);margin-bottom:6px;
+}
+.thinking-box .tool-line{
+  font-size:.8rem;font-weight:700;color:var(--coffee);
+  margin-bottom:6px;opacity:.9;
+}
+.thinking-box .body{
+  font-size:.82rem;line-height:1.45;color:var(--ink);
+  white-space:pre-wrap;word-break:break-word;opacity:.8;
+}
+.thinking-box.collapsed .body{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.thinking-box .toggle{
+  margin-top:8px;font-size:.75rem;font-weight:700;color:var(--coffee);
+  text-decoration:underline;min-height:auto;padding:0;
+}
+
+/* ynet Markdown → 银杏两色调覆盖（禁止蓝/红原色） */
+.ynet-md-root{color:var(--ink)!important;font-size:1.05rem!important;line-height:1.55!important}
+.ynet-md-heading{color:var(--coffee)!important;margin:12px 0 8px!important}
+.ynet-md-heading-1{font-size:1.35rem!important}
+.ynet-md-heading-2{font-size:1.2rem!important}
+.ynet-md-heading-3{font-size:1.1rem!important}
+.ynet-md-blockquote{
+  border-left-color:var(--coffee)!important;
+  background:var(--paper)!important;
+  color:var(--coffee)!important;
+  font-style:normal!important;
+}
+.ynet-md-link{color:var(--coffee)!important;text-decoration:underline}
+.ynet-md-inline-code{color:var(--coffee)!important;background:var(--paper)!important}
+.ynet-md-code-block{background:var(--paper)!important;border-color:var(--line)!important;color:var(--ink)!important}
+.ynet-md-table th{background:var(--paper)!important;color:var(--coffee)!important}
+.ynet-md-table th,.ynet-md-table td{border-color:var(--line)!important;color:var(--ink)!important}
+.ynet-md-divider{background:var(--line)!important}
+.ynet-md-list-bullet{color:var(--coffee)!important}
+
+.quick{
+  display:flex;flex-wrap:wrap;gap:8px;
+  padding:0 4px 12px;
+}
+.quick button{
+  min-height:48px;padding:10px 14px;
+  border:1.5px solid var(--coffee);
+  background:#fff;color:var(--coffee);
+  font-size:.9rem;font-weight:700;
+}
+.quick button:hover{background:var(--paper)}
+
+.composer{
+  display:flex;gap:8px;align-items:stretch;
+  padding:12px;background:#fff;border:1.5px solid var(--coffee);
+  position:sticky;bottom:0;
+}
+#chatInput{
+  flex:1;min-height:64px;padding:14px 12px;
+  font-size:1.15rem;font-family:inherit;
+  border:none;background:var(--paper);color:var(--ink);resize:none;
+}
+#chatInput:focus{outline:2px solid var(--coffee);outline-offset:-2px;background:#fff}
+#sendBtn{
+  min-width:96px;min-height:64px;padding:0 18px;
+  background:var(--coffee);color:var(--paper);
+  font-size:1.15rem;font-weight:800;
+}
+#sendBtn:disabled{opacity:.45;cursor:not-allowed}
+.status{
+  font-size:.8rem;color:var(--coffee);padding:6px 4px 0;min-height:1.4em;
+}
+.status.error{color:var(--coffee);font-weight:800;opacity:.9}
+
+.footer-links{
+  display:flex;gap:10px;flex-wrap:wrap;
+  padding:8px 4px 24px;font-size:.85rem;font-weight:600;
+}
+.footer-links a{
+  padding:10px 12px;border:1px solid var(--coffee);color:var(--coffee);
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/">← 首页</a>
+  <div class="nav-logo">AI 导购<small>银杏家具</small></div>
+  <a href="tel:13359140982">📞 电话</a>
+</nav>
+
+<section class="intro">
+  <div class="tag">— AI 聊天导购</div>
+  <h1>问一句<br>帮您挑家具</h1>
+  <p>回复全部用 <strong>流式 Markdown</strong> 渲染（ynet）。根据店里<strong>真实在售商品</strong>回答；不会的直接拨 13359140982。</p>
+</section>
+
+<div class="chat-shell">
+  <div id="messages" role="log" aria-live="polite" aria-label="导购对话"></div>
+
+  <div class="quick" id="quickAsks">
+    <button type="button" data-q="有什么沙发推荐？大概多少钱？">沙发推荐</button>
+    <button type="button" data-q="店在哪里？营业到几点？电话多少？">到店信息</button>
+    <button type="button" data-q="有没有 3000 左右的沙发？">三千左右</button>
+  </div>
+
+  <form class="composer" id="chatForm">
+    <textarea id="chatInput" name="message" rows="2" maxlength="500"
+      placeholder="例如：客厅想换沙发，有什么推荐？"
+      aria-label="输入导购问题" required></textarea>
+    <button type="submit" id="sendBtn">发送</button>
+  </form>
+  <div class="status" id="status"></div>
+
+  <div class="footer-links">
+    <a href="/#tryon">去 AI 试摆</a>
+    <a href="/whole-home">整屋搭配</a>
+    <a href="tel:13359140982">拨打门店</a>
+  </div>
+</div>
+
+<script type="module">
+import {
+  MarkdownNative,
+  MarkdownRenderView,
+  MarkdownLinkRegistry,
+} from '/vendor/ynet-markdown-render-h5/index.js';
+
+const messagesEl = document.getElementById('messages');
+const form = document.getElementById('chatForm');
+const input = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const statusEl = document.getElementById('status');
+/** @type {{role:string,content:string}[]} */
+const history = [];
+/** @type {MarkdownRenderView[]} */
+const liveViews = [];
+
+MarkdownLinkRegistry.setHandler((ctx) => {
+  if (ctx.url && /^tel:/i.test(ctx.url)) {
+    window.location.href = ctx.url;
+    return true;
+  }
+  if (ctx.url && (ctx.url.startsWith('/') || ctx.url.startsWith(window.location.origin))) {
+    window.location.href = ctx.url;
+    return true;
+  }
+  return false;
+});
+
+function scrollMessages() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addUserBubble(text) {
+  const div = document.createElement('div');
+  div.className = 'bubble user';
+  const who = document.createElement('span');
+  who.className = 'who';
+  who.textContent = '您';
+  div.appendChild(who);
+  div.appendChild(document.createTextNode(text));
+  messagesEl.appendChild(div);
+  scrollMessages();
+  return div;
+}
+
+/**
+ * 助手气泡：思考过程面板 + ynet MarkdownRenderView（parseStream / parseMarkdown）
+ */
+function addAssistantMarkdownBubble(initialMarkdown, pending) {
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble assistant' + (pending ? ' pending' : '');
+  const who = document.createElement('span');
+  who.className = 'who';
+  who.textContent = '导购助手';
+
+  const thinkingBox = document.createElement('div');
+  thinkingBox.className = 'thinking-box';
+  const thinkingLbl = document.createElement('div');
+  thinkingLbl.className = 'lbl';
+  thinkingLbl.textContent = '思考过程';
+  const toolLine = document.createElement('div');
+  toolLine.className = 'tool-line';
+  toolLine.style.display = 'none';
+  const thinkingBody = document.createElement('div');
+  thinkingBody.className = 'body';
+  const thinkingToggle = document.createElement('button');
+  thinkingToggle.type = 'button';
+  thinkingToggle.className = 'toggle';
+  thinkingToggle.textContent = '收起思考';
+  thinkingToggle.style.display = 'none';
+  thinkingBox.append(thinkingLbl, toolLine, thinkingBody, thinkingToggle);
+
+  const host = document.createElement('div');
+  host.className = 'md-host';
+  host.setAttribute('data-ynet-markdown', '1');
+  bubble.append(who, thinkingBox, host);
+  messagesEl.appendChild(bubble);
+
+  const view = new MarkdownRenderView(host);
+  liveViews.push(view);
+
+  let thinkingText = '';
+  let thinkingOpen = true;
+
+  thinkingToggle.addEventListener('click', () => {
+    thinkingOpen = !thinkingOpen;
+    thinkingBox.classList.toggle('collapsed', !thinkingOpen);
+    thinkingToggle.textContent = thinkingOpen ? '收起思考' : '展开思考';
+  });
+
+  const renderStream = (md) => {
+    view.renderJson(MarkdownNative.parseStream(md || ''));
+    scrollMessages();
+  };
+  const renderFinal = (md) => {
+    view.renderJson(MarkdownNative.parseMarkdown(md || ''));
+    scrollMessages();
+  };
+
+  if (pending) renderStream(initialMarkdown || '*大模型思考中…*');
+  else renderFinal(initialMarkdown || '');
+
+  return {
+    bubble,
+    host,
+    view,
+    setPending(v) {
+      bubble.classList.toggle('pending', !!v);
+    },
+    appendThinking(text) {
+      if (!text) return;
+      thinkingText += text;
+      thinkingBox.classList.add('show');
+      thinkingBody.textContent = thinkingText;
+      thinkingToggle.style.display = 'inline';
+      scrollMessages();
+    },
+    setToolStatus(name) {
+      thinkingBox.classList.add('show');
+      toolLine.style.display = 'block';
+      const labelMap = {
+        list_on_sale_products: '正在查询在售商品…',
+        search_products: '正在搜索匹配商品…',
+        get_store_info: '正在读取门店信息…',
+      };
+      toolLine.textContent = '🔧 ' + (labelMap[name] || ('正在调用工具：' + name));
+      scrollMessages();
+    },
+    collapseThinking() {
+      if (!thinkingText) return;
+      thinkingOpen = false;
+      thinkingBox.classList.add('collapsed');
+      thinkingToggle.textContent = '展开思考';
+      thinkingLbl.textContent = '思考过程（已完成）';
+    },
+    renderStream,
+    renderFinal,
+    destroy() {
+      const idx = liveViews.indexOf(view);
+      if (idx >= 0) liveViews.splice(idx, 1);
+      view.destroy();
+      bubble.remove();
+    },
+  };
+}
+
+addAssistantMarkdownBubble(
+  [
+    '## 您好',
+    '',
+    '我是银杏家具 **AI 导购**。可以问：',
+    '',
+    '- 沙发款式与价格',
+    '- 门店地址 / 电话 / 营业时间',
+    '',
+    '> 回复会以流式 Markdown 展示店里真实在售信息。',
+  ].join('\n'),
+  false
+);
+
+document.getElementById('quickAsks').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-q]');
+  if (!btn) return;
+  input.value = btn.getAttribute('data-q');
+  form.requestSubmit();
+});
+
+async function readGuideSse(resp, onEvent) {
+  if (!resp.body || !resp.body.getReader) {
+    throw new Error('浏览器不支持流式读取');
+  }
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split('\n\n');
+    buffer = chunks.pop() || '';
+    for (const chunk of chunks) {
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const raw = line.slice(5).trim();
+        if (!raw) continue;
+        let payload;
+        try { payload = JSON.parse(raw); } catch { continue; }
+        onEvent(payload);
+      }
+    }
+  }
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const message = (input.value || '').trim();
+  if (!message) return;
+
+  statusEl.textContent = '';
+  statusEl.classList.remove('error');
+  addUserBubble(message);
+  input.value = '';
+  sendBtn.disabled = true;
+
+  const assistant = addAssistantMarkdownBubble('*大模型思考中，请稍候…*', true);
+  let markdown = '';
+  let finished = false;
+  let sawDelta = false;
+
+  try {
+    const resp = await fetch('/api/chat/guide/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify({ message, history }),
+    });
+
+    // 非 SSE（校验失败等）走 JSON
+    const contentType = resp.headers.get('content-type') || '';
+    if (!contentType.includes('text/event-stream')) {
+      const body = await resp.json().catch(() => null);
+      assistant.destroy();
+      const errText = (body && body.error) || ('导购暂时不可用（HTTP ' + resp.status + '）');
+      statusEl.textContent = errText;
+      statusEl.classList.add('error');
+      addAssistantMarkdownBubble(
+        '## 暂时没答上来\n\n请直接拨打 [13359140982](tel:13359140982)，店员帮您挑。',
+        false
+      );
+      return;
+    }
+
+    await readGuideSse(resp, (ev) => {
+      if (!ev || !ev.type) return;
+      if (ev.type === 'status') {
+        const label = ev.provider === 'ark_doubao'
+          ? `豆包 ${ev.model || ''}`.trim()
+          : (ev.provider === 'fake' ? '本地假模型' : (ev.model || '大模型'));
+        statusEl.textContent = `思考/生成中 · ${label}`;
+        return;
+      }
+      if (ev.type === 'thinking' && ev.text) {
+        assistant.appendThinking(ev.text);
+        statusEl.textContent = '正在展示思考过程…';
+        return;
+      }
+      if (ev.type === 'tool' && ev.name) {
+        assistant.setToolStatus(ev.name);
+        return;
+      }
+      if (ev.type === 'delta' && ev.text) {
+        if (!sawDelta) {
+          sawDelta = true;
+          markdown = '';
+          assistant.collapseThinking();
+          statusEl.textContent = '正在流式生成回答…';
+        }
+        markdown += ev.text;
+        assistant.renderStream(markdown);
+      } else if (ev.type === 'done') {
+        finished = true;
+        markdown = String(ev.reply || markdown || '').trim();
+        assistant.collapseThinking();
+        assistant.setPending(false);
+        assistant.renderFinal(markdown);
+        statusEl.textContent = '';
+      } else if (ev.type === 'error') {
+        throw new Error(ev.error || '导购失败');
+      }
+    });
+
+    if (!finished) {
+      markdown = markdown.trim();
+      if (!markdown) throw new Error('导购助手未返回有效回复');
+      assistant.setPending(false);
+      assistant.renderFinal(markdown);
+    }
+
+    history.push({ role: 'user', content: message });
+    history.push({ role: 'assistant', content: markdown });
+    if (history.length > 20) history.splice(0, history.length - 20);
+  } catch (err) {
+    assistant.destroy();
+    statusEl.textContent = (err && err.message) || '网络异常，请稍后重试或打电话。';
+    statusEl.classList.add('error');
+    addAssistantMarkdownBubble(
+      '## 网络不太稳\n\n您也可以拨打 [13359140982](tel:13359140982) 咨询店员。',
+      false
+    );
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+});
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    form.requestSubmit();
+  }
+});
+
+window.addEventListener('pagehide', () => {
+  for (const v of liveViews.splice(0)) v.destroy();
+});
+</script>
+</body>
+</html>
