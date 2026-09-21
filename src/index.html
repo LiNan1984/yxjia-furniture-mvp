@@ -211,6 +211,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 .product-meta{padding:20px 0 0;display:flex;justify-content:space-between;align-items:baseline}
 .product-meta h4{font-size:1rem;font-weight:700;letter-spacing:-.01em}
 .product-meta .price{font-size:.95rem;font-weight:600;color:var(--coffee)}
+.product-sell{font-size:.78rem;color:#6b5d4f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:6px}
 .product-cat{font-size:.7rem;font-weight:700;letter-spacing:.2em;color:var(--coffee);text-transform:uppercase;margin-top:4px}
 
 /* 联系 */
@@ -283,6 +284,11 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
   padding-bottom:2px;
 }
 
+/* 更多功能入口（AI 试摆 / AI 导购 / 整屋搭配 · 放在页面最底部） */
+.more-features{padding:64px 24px;border-top:1px solid var(--line)}
+.more-grid{display:flex;flex-direction:column;gap:14px;max-width:680px;margin:0 auto}
+.more-grid .upgrade-banner{margin-bottom:0}
+
 /* ===== AI 语音导购（悬浮按钮 + 面板） ===== */
 .voice-fab{
   position:fixed;right:16px;bottom:calc(72px + env(safe-area-inset-bottom,6px));
@@ -349,6 +355,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
     <small>柞水 · 13359140982</small>
   </div>
   <div class="nav-actions">
+    <a href="/chat-guide">AI 导购</a>
     <a href="tel:13359140982">联系我们</a>
     <a href="/login" id="nav-me">登录</a>
   </div>
@@ -372,15 +379,6 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
   <div class="tryon-grid">
     <!-- 左：表单 -->
     <div>
-      <!-- 整屋搭配 升级版入口 -->
-
-      <a href="/whole-home" class="upgrade-banner">
-        <div class="upgrade-tag">升级版 · 新功能</div>
-        <div class="upgrade-title">🏠 整屋搭配 升级版</div>
-        <div class="upgrade-desc">3-6 张房间照 → AI 出整屋方案 + 透明报价 → 不用跑装修公司</div>
-        <div class="upgrade-cta">立即体验 →</div>
-      </a>
-
       <form class="tryon-form" id="tryonForm">
         <h3>📷 三步出图</h3>
         <p class="lead">客厅照 + 选家具 → 约 60 秒出真实合成图 → 不满意换款</p>
@@ -524,6 +522,32 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
   </div>
 </section>
 
+<!-- 更多功能入口（AI 试摆 / AI 导购 / 整屋搭配 · 放在页面最底部） -->
+<section class="more-features">
+  <div class="section-tag">— 更多功能</div>
+  <h2 class="section-title">还有这些<br>帮您省心</h2>
+  <div class="more-grid">
+    <a href="#tryon" class="upgrade-banner">
+      <div class="upgrade-tag">核心 · AI 试摆</div>
+      <div class="upgrade-title">📷 照片传上去<br>沙发马上搬进你家</div>
+      <div class="upgrade-desc">拍一张客厅照 → AI 把店里沙发“摆”进你家 → 约 60 秒出真实效果图 → 满意再来店</div>
+      <div class="upgrade-cta">去试摆 →</div>
+    </a>
+    <a href="/chat-guide" class="upgrade-banner">
+      <div class="upgrade-tag">新功能 · AI 导购</div>
+      <div class="upgrade-title">💬 AI 聊天导购助手</div>
+      <div class="upgrade-desc">问沙发款式、价格、门店地址 → 按店里真实在售商品回答 → 再决定试摆或到店</div>
+      <div class="upgrade-cta">打开导购 →</div>
+    </a>
+    <a href="/whole-home" class="upgrade-banner">
+      <div class="upgrade-tag">升级版 · 新功能</div>
+      <div class="upgrade-title">🏠 整屋搭配 升级版</div>
+      <div class="upgrade-desc">3-6 张房间照 → AI 出整屋方案 + 透明报价 → 不用跑装修公司</div>
+      <div class="upgrade-cta">立即体验 →</div>
+    </a>
+  </div>
+</section>
+
 <footer style="padding:48px 24px 32px;border-top:1px solid var(--line);font-size:.8rem;display:flex;justify-content:space-between;align-items:baseline;color:var(--ink);opacity:.6">
   <span>© 银杏家具 · 时光不负此行</span>
   <span style="font-family:monospace;letter-spacing:.1em">ZHA‐SHUI 1973</span>
@@ -531,7 +555,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 
 <div class="tabbar">
   <a href="/" class="active"><span class="ico">🏠</span><span>首页</span></a>
-  <a href="#catalog"><span class="ico">🪑</span><span>分类</span></a>
+  <a href="/chat-guide"><span class="ico">💬</span><span>导购</span></a>
   <a href="#tryon" class="cta"><span class="ico">📷</span><span>试摆</span></a>
   <a href="tel:13359140982"><span class="ico">📞</span><span>拨号</span></a>
   <a href="/login" id="nav-me-tab"><span class="ico">👤</span><span>我的</span></a>
@@ -556,6 +580,9 @@ let SELECTED_ROOM_FILE = null;
 let SELECTED_ROOM_URL = null;
 let SELECTED_PRODUCT = null;
 const ETA_SECONDS = 60;
+
+// HTML 转义：商品字段/AI 返回文本可能含 HTML，插 innerHTML 前必须过一遍
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
 
 async function loadProducts() {
   const r = await fetch('/api/products').then(r=>r.json());
@@ -587,12 +614,13 @@ function renderCatalog() {
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
   grid.innerHTML = sorted.slice(0, 6).map(p => `
-    <a href="/product/${p.id}" class="product">
+    <a href="/product/${esc(p.id)}" class="product">
       <div class="product-image">
-        <img src="${p.image}" alt="${p.name}" onerror="this.style.display='none';this.parentNode.style.background='#3a2818'">
+        <img src="${esc(p.image)}" alt="${esc(p.name)}" onerror="this.style.display='none';this.parentNode.style.background='#3a2818'">
       </div>
-      <div class="product-cat">${[p.badge, p.category].filter(Boolean).join(' · ')}</div>
-      <div class="product-meta"><h4>${p.name}</h4><span class="price">${p.price || ''}</span></div>
+      <div class="product-cat">${esc([p.badge, p.category].filter(Boolean).join(' · '))}</div>
+      <div class="product-meta"><h4>${esc(p.name)}</h4><span class="price">${esc(p.price)}</span></div>
+      ${(p.sellingPoints && p.sellingPoints[0]) ? `<div class="product-sell">${esc(p.sellingPoints[0])}</div>` : ''}
     </a>
   `).join('');
 }
@@ -600,17 +628,23 @@ function renderCatalog() {
 function renderFurnGrid() {
   const grid = document.getElementById('furnGrid');
   const sel = document.getElementById('prodSelect');
-  sel.innerHTML = PRODUCTS.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  sel.innerHTML = PRODUCTS.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
   grid.innerHTML = PRODUCTS.map(p => `
-    <div class="furn-card" data-id="${p.id}" onclick="selectProduct('${p.id}')">
-      <div class="furn-img"><img src="${p.image}" alt="${p.name}" onerror="this.style.display='none'"></div>
+    <div class="furn-card" data-id="${esc(p.id)}">
+      <div class="furn-img"><img src="${esc(p.image)}" alt="${esc(p.name)}" onerror="this.style.display='none'"></div>
       <div class="furn-meta">
-        <div class="cat">${p.category || ''}</div>
-        <h4>${p.name}</h4>
+        <div class="cat">${esc(p.category)}</div>
+        <h4>${esc(p.name)}</h4>
       </div>
     </div>
   `).join('');
 }
+
+// 家具卡片点击：事件委托读 dataset.id，避免把 id 拼进内联 JS 字符串
+document.getElementById('furnGrid').addEventListener('click', e => {
+  const card = e.target.closest('.furn-card');
+  if (card) selectProduct(card.dataset.id);
+});
 
 function selectProduct(id) {
   SELECTED_PRODUCT = id;
@@ -649,12 +683,18 @@ async function loadHistory(phone) {
   }
   const grid = document.getElementById('historyGrid');
   grid.innerHTML = rooms.map(r=>`
-    <div class="history-item" data-url="${r.url}" onclick="pickHistory('${r.url}', this)">
-      <img src="${r.url}" alt="之前上传的客厅照">
+    <div class="history-item" data-url="${esc(r.url)}">
+      <img src="${esc(r.url)}" alt="之前上传的客厅照">
     </div>
   `).join('');
   document.getElementById('historyBox').classList.add('show');
 }
+
+// 历史客厅照点击：事件委托读 dataset.url，url 不进内联 JS 字符串
+document.getElementById('historyGrid').addEventListener('click', e => {
+  const item = e.target.closest('.history-item');
+  if (item) pickHistory(item.dataset.url, item);
+});
 
 function pickHistory(url, el) {
   SELECTED_ROOM_FILE = null;
@@ -820,7 +860,7 @@ document.getElementById('tryonForm').addEventListener('submit', async e => {
       resultBox.innerHTML = `
         <div class="state" style="padding:40px 20px">
           <div style="font-size:48px;margin-bottom:12px">🔐</div>
-          <div class="state-title">${err.message}</div>
+          <div class="state-title">${esc(err.message)}</div>
           <div class="state-time">登录后可无限次试摆</div>
           <div style="margin-top:24px;display:flex;gap:10px;flex-direction:column">
             <a href="/login" style="padding:18px;background:var(--paper);color:var(--coffee);font-weight:800;text-decoration:none;letter-spacing:.05em">📲 顾客登录（手机号 + 验证码）</a>
@@ -828,7 +868,7 @@ document.getElementById('tryonForm').addEventListener('submit', async e => {
           </div>
         </div>`;
     } else {
-      resultBox.innerHTML = `<div class="state"><div style="font-size:48px">⚠️</div><div class="state-title">${err.message}</div><div class="state-time">换个照片再试？</div></div>`;
+      resultBox.innerHTML = `<div class="state"><div style="font-size:48px">⚠️</div><div class="state-title">${esc(err.message)}</div><div class="state-time">换个照片再试？</div></div>`;
     }
   } finally {
     submitBtn.disabled = false;
@@ -840,17 +880,17 @@ function showAnonResult(d, sec) {
   const url = d.compositionUrl || (d.compositionBase64 ? d.compositionBase64 : null);
   const resultBox = document.getElementById('tryonResult');
   if (!url) {
-    resultBox.innerHTML = `<div class="state"><div class="state-title">合成失败</div><div class="state-time">${d.aiError || '换个照片试试'}</div></div>`;
+    resultBox.innerHTML = `<div class="state"><div class="state-title">合成失败</div><div class="state-time">${esc(d.aiError) || '换个照片试试'}</div></div>`;
     return;
   }
   const product = d.product || {};
   const banner = renderDemoBanner(d.demoType);
   resultBox.innerHTML = `
     ${banner}
-    <img src="${url}" class="preview-img" alt="合成结果">
+    <img src="${esc(url)}" class="preview-img" alt="合成结果">
     <div class="meta">
       <strong>匿名体验 · 用时 ${sec.toFixed(1)} 秒</strong>
-      ${product.name || ''} · ${product.subtitle || ''}
+      ${esc(product.name)} · ${esc(product.subtitle)}
       <div style="margin-top:10px;font-size:.8rem;opacity:.7">登录后可保存历史 + 无限次数</div>
     </div>
     <div class="actions">
@@ -863,7 +903,7 @@ function showResult(d, sec, phone) {
   const url = d.compositionUrl;
   const resultBox = document.getElementById('tryonResult');
   if (!url) {
-    resultBox.innerHTML = `<div class="state"><div class="state-title">合成失败</div><div class="state-time">${d.aiError || '换个照片试试'}</div></div>`;
+    resultBox.innerHTML = `<div class="state"><div class="state-title">合成失败</div><div class="state-time">${esc(d.aiError) || '换个照片试试'}</div></div>`;
     return;
   }
   fetch('/api/upload/room', { method:'POST', body: (()=>{
@@ -878,10 +918,10 @@ function showResult(d, sec, phone) {
   const banner = renderDemoBanner(d.demoType);
   resultBox.innerHTML = `
     ${banner}
-    <img src="${url}" class="preview-img" alt="合成结果">
+    <img src="${esc(url)}" class="preview-img" alt="合成结果">
     <div class="meta">
       <strong>已生成 · 用时 ${sec.toFixed(1)} 秒</strong>
-      ${product.name || ''} · ${product.subtitle || ''}
+      ${esc(product.name)} · ${esc(product.subtitle)}
     </div>
     <div class="actions">
       <button onclick="regenerate()">↻ 重新生成</button>
@@ -894,6 +934,7 @@ function renderDemoBanner(demoType) {
   if (!demoType || demoType === 'ai-composition') return '';
   const map = {
     'pollinations':       { text: '✨ Pollinations.ai 生成的合成预览（非 gpt-image-2，但确实是 AI 合成）', tone: 'good' },
+    'step-image':         { text: '✨ 阶跃 Step 模型生成的合成图（step-image-edit-2）', tone: 'good' },
     'cached-composition': { text: '⚠️ AI 暂不可用，这是历史合成图（用过的真实效果）', tone: 'warn' },
     'side-by-side':       { text: '⚠️ AI 暂不可用，左边是您的客厅原图，右边是新沙发预览（不是合成图）', tone: 'warn' },
     'product-image':      { text: '⚠️ AI 暂不可用，仅展示商品原图', tone: 'warn' },
