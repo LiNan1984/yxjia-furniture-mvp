@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>我的家 · 银杏家具</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
+.nav-logo{font-size:1.3rem;font-weight:800}
+.nav a{color:#fff;font-size:1.05rem;text-decoration:none;margin-left:14px}
+.btn-out{background:var(--red);color:#fff;padding:10px 16px;border-radius:8px;font-weight:700}
+.wrap{max-width:720px;margin:0 auto;padding:24px 20px}
+h1{font-size:1.8rem;color:var(--coffee);margin-bottom:16px}
+.hello{font-size:1.15rem;color:#444;margin-bottom:24px}
+.home{background:#fff;border:2px solid var(--coffee);border-radius:14px;padding:18px;margin-bottom:16px}
+.home-date{font-size:1rem;color:#666;font-weight:700;margin-bottom:12px}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.photos a{display:block;border-radius:10px;overflow:hidden;border:1px solid #e2d9c8;background:#f3ede1}
+.photos img{width:100%;height:96px;object-fit:cover;display:block}
+.row{display:flex;justify-content:space-between;align-items:baseline;font-size:1.1rem;padding:8px 0;border-top:1px solid #f0e9db}
+.row:first-of-type{border-top:none}
+.row .k{color:#666}
+.row .v{color:var(--coffee);font-weight:700;text-align:right}
+.row .v.big{font-size:1.35rem;font-weight:800}
+.room{margin-top:10px;padding:10px 12px;background:#faf6ef;border-radius:10px}
+.room-title{font-size:1.1rem;font-weight:800;color:var(--coffee)}
+.room-items{font-size:1.02rem;color:#444;margin-top:4px}
+.empty{text-align:center;color:#666;font-size:1.2rem;padding:40px 20px}
+.empty .btn{display:inline-block;margin-top:16px;background:var(--coffee);color:#fff;padding:16px 28px;border-radius:10px;font-size:1.25rem;font-weight:800;text-decoration:none}
+.call-btn{display:inline-block;margin-top:12px;background:var(--red);color:#fff;padding:14px 22px;border-radius:10px;font-size:1.2rem;font-weight:800;text-decoration:none}
+.not-login{background:#fff;border:2px solid var(--coffee);border-radius:14px;padding:24px;text-align:center}
+.not-login .btn{display:inline-block;background:var(--coffee);color:#fff;padding:16px 28px;border-radius:10px;font-size:1.3rem;font-weight:800;text-decoration:none;margin-top:14px}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="nav-logo">🏠 我的家</div>
+  <div><a href="/my-orders">📋 我的订单</a><a href="/" class="btn-out">← 回首页</a></div>
+</header>
+<main class="wrap">
+  <h1>🏠 我的家</h1>
+  <div id="content"></div>
+</main>
+
+<script>
+function fmt(iso){try{return new Date(iso).toLocaleString('zh-CN',{hour12:false})}catch(e){return iso}}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+
+async function init(){
+  const content=document.getElementById('content');
+  const me=await fetch('/api/auth/me');
+  const meData=await me.json();
+  if(!meData.success||!meData.data||!meData.data.user){
+    content.innerHTML='<div class="not-login"><p style="font-size:1.2rem">登录后就能回看您上传过的家和 AI 给的搭配建议</p><a class="btn" href="/login">👤 去登录</a></div>';
+    return;
+  }
+  const u=meData.data.user;
+  content.innerHTML='<div class="hello">👋 '+esc(u.name||u.phone)+'（'+esc(u.phone)+'）</div><div id="list"></div>';
+
+  const r=await fetch('/api/whole-home/history?phone='+encodeURIComponent(u.phone));
+  const data=await r.json();
+  const box=document.getElementById('list');
+  if(!data.success){
+    box.innerHTML='<div class="empty">加载失败，请稍后再试<br><a class="call-btn" href="tel:13359140982">📞 联系店里</a></div>';
+    return;
+  }
+  const list=data.data&&data.data.analyses||[];
+  if(list.length===0){
+    box.innerHTML='<div class="empty">还没有上传过家照<br>拍下客厅，AI 帮您搭配<a class="btn" href="/whole-home">📷 去全屋搭配</a></div>';
+    return;
+  }
+  box.innerHTML=list.map(a=>{
+    const photos=(Array.isArray(a.roomImageUrls)?a.roomImageUrls:[]);
+    const photosHtml=photos.length
+      ? '<div class="photos">'+photos.map(url=>'<a href="'+esc(url)+'" target="_blank" rel="noopener"><img src="'+esc(url)+'" alt="家照" loading="lazy"></a>').join('')+'</div>'
+      : '';
+    const rooms=(Array.isArray(a.rooms)?a.rooms:[]).map(rm=>{
+      const items=(Array.isArray(rm.suggestedItems)?rm.suggestedItems:[]).filter(Boolean).map(esc).join('、');
+      const size=rm.sizeEstimate?' · '+esc(rm.sizeEstimate):'';
+      return '<div class="room"><div class="room-title">'+esc(rm.roomType||'房间')+size+'</div>'+
+        (items?'<div class="room-items">建议添：'+items+'</div>':'')+'</div>';
+    }).join('');
+    return '<div class="home">'+
+      '<div class="home-date">📅 '+fmt(a.createdAt)+'</div>'+
+      photosHtml+
+      '<div class="row"><span class="k">整体风格</span><span class="v big">'+esc(a.overallStyle||'待定')+'</span></div>'+
+      '<div class="row"><span class="k">预算建议</span><span class="v">'+esc(a.budgetSuggestion||'到店面议')+'</span></div>'+
+      rooms+
+      '<div><a class="call-btn" href="tel:13359140982">📞 联系我们聊聊这套</a></div>'+
+    '</div>';
+  }).join('');
+}
+init();
+</script>
+</body>
+</html>

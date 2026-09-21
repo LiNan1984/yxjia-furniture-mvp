@@ -217,7 +217,7 @@
         return;
       }
       const order = api.data.order;
-      window.location.href = 'order.html?id=' + order.id;
+      window.location.href = '/order/' + order.id;
     } catch (err) {
       showMsg('网络异常，请重试或打电话 13359140982', 'error');
       btn.disabled = false;
