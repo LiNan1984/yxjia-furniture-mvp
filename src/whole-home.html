@@ -191,53 +191,78 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 
 /* ===== 成功结果区 ===== */
 .result{padding:8px 4px}
-.result-hero{
+
+/* 整体分析卡（白卡，放在深咖状态框里） */
+.overall-card{
   background:#fff;border:1px solid var(--line);
-  overflow:hidden;
-  margin-bottom:20px;
+  margin-bottom:22px;
 }
-.result-hero .lbl{padding:10px 16px;font-size:.75rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--paper);background:var(--coffee)}
-.result-hero img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:var(--paper)}
-.result-hero .meta{padding:14px 16px;font-size:.95rem;color:var(--ink)}
-.result-hero .meta strong{font-weight:800;color:var(--coffee);margin-right:6px}
+.overall-card .hd{
+  padding:12px 16px;background:var(--coffee);color:var(--paper);
+  font-size:.75rem;font-weight:700;letter-spacing:.2em;
+}
+.overall-rows{padding:6px 16px 12px}
+.overall-row{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:11px 0;border-bottom:1px solid var(--line);
+}
+.overall-row:last-child{border-bottom:none}
+.overall-row .k{font-size:.75rem;font-weight:700;letter-spacing:.1em;color:var(--coffee);opacity:.65;flex-shrink:0}
+.overall-row .v{font-size:1.05rem;font-weight:800;color:var(--coffee);text-align:right}
+.overall-row .v.big{font-size:1.35rem}
+.overall-note{padding:0 16px 14px;font-size:.8rem;color:var(--ink);opacity:.6}
 
-.result-rooms{margin-bottom:24px}
-.result-rooms .lbl{font-size:.75rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--coffee);margin-bottom:10px;padding:0 4px}
-.room-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-@media(max-width:480px){.room-grid{grid-template-columns:repeat(2,1fr)}}
-.room-cell{background:#fff;border:1px solid var(--line);overflow:hidden}
-.room-cell img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--paper)}
-.room-cell .name{padding:8px 10px;font-size:.85rem;font-weight:700;color:var(--coffee)}
+/* 逐间分析 */
+.room-detail{margin-bottom:22px}
+.room-detail .lbl{
+  font-size:.75rem;font-weight:700;letter-spacing:.2em;
+  color:var(--paper);opacity:.85;margin-bottom:10px;padding:0 4px;
+}
+.room-card{background:#fff;border:1px solid var(--line);margin-bottom:14px;overflow:hidden}
+.room-photo{position:relative;aspect-ratio:4/3;background:var(--paper);border-bottom:1px solid var(--line)}
+.room-photo img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
+.room-photo .photo-fallback{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--coffee);opacity:.55;font-size:.85rem;font-weight:600;
+}
+.room-body{padding:14px 16px 16px}
+.room-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
+.room-head .no{
+  font-size:.7rem;font-weight:700;letter-spacing:.1em;
+  color:var(--paper);background:var(--coffee);padding:4px 9px;flex-shrink:0;
+}
+.room-head .type{font-size:1.3rem;font-weight:800;color:var(--coffee)}
+.room-facts{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:14px}
+@media(max-width:480px){.room-facts{grid-template-columns:1fr}}
+.room-facts .fact{display:flex;flex-direction:column;gap:2px;min-width:0}
+.room-facts .fact .k{font-size:.68rem;font-weight:700;letter-spacing:.12em;color:var(--coffee);opacity:.6}
+.room-facts .fact .v{font-size:.95rem;font-weight:700;color:var(--ink);word-break:break-word}
+.room-facts .fact .v .swatch{
+  display:inline-block;width:18px;height:18px;border:1px solid var(--line);
+  vertical-align:-3px;margin-right:6px;
+}
+.room-items .k{font-size:.68rem;font-weight:700;letter-spacing:.12em;color:var(--coffee);opacity:.6;margin-bottom:7px}
+.room-items .chips{display:flex;flex-wrap:wrap;gap:6px}
+.room-items .chip{
+  font-size:.82rem;font-weight:600;color:var(--coffee);
+  background:var(--paper);border:1px solid var(--coffee);padding:5px 10px;
+}
+.room-items .empty{font-size:.85rem;color:var(--ink);opacity:.5}
+.room-budget{
+  margin-top:14px;padding-top:11px;border-top:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+}
+.room-budget .k{font-size:.7rem;font-weight:700;letter-spacing:.12em;color:var(--coffee);opacity:.6}
+.room-budget .v{font-size:1.05rem;font-weight:800;color:var(--coffee)}
 
-/* 推荐方案表格 */
-.rec-table{
-  width:100%;border-collapse:collapse;
-  background:#fff;border:1px solid var(--line);
-  margin-bottom:24px;
-  font-size:.9rem;
+/* 整套方案就绪说明（不造假占位，只说清楚下一步） */
+.plan-ready{
+  background:rgba(255,255,255,.08);
+  border:1px dashed rgba(250,246,239,.45);
+  padding:16px;margin-bottom:22px;
+  font-size:.9rem;line-height:1.65;
 }
-.rec-table th,.rec-table td{
-  padding:12px 10px;text-align:left;
-  border-bottom:1px solid var(--line);
-}
-.rec-table th{
-  background:var(--paper);color:var(--coffee);
-  font-size:.75rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
-}
-.rec-table td.qty{font-weight:800;color:var(--coffee);text-align:center;width:60px}
-.rec-table td.price{font-weight:700;color:var(--coffee);white-space:nowrap;text-align:right}
-.rec-table tr:last-child td{border-bottom:none}
-.rec-table .note{font-size:.8rem;color:var(--ink);opacity:.7;display:block;margin-top:2px}
-
-/* 移动端表格 → 卡片化 */
-@media(max-width:520px){
-  .rec-table thead{display:none}
-  .rec-table,.rec-table tbody,.rec-table tr,.rec-table td{display:block;width:100%}
-  .rec-table tr{border-bottom:1px solid var(--line);padding:12px 0}
-  .rec-table td{padding:4px 10px;border-bottom:none}
-  .rec-table td::before{content:attr(data-label);font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--coffee);opacity:.6;display:block;margin-bottom:2px}
-  .rec-table td.qty,.rec-table td.price{text-align:left}
-}
+.plan-ready strong{display:block;font-weight:800;margin-bottom:5px;font-size:1rem}
 
 /* 三个动作按钮 */
 .result-actions{display:flex;flex-direction:column;gap:12px;margin-top:20px}
@@ -416,6 +441,15 @@ let SELECTED_FILES = [];   // File[]
 let SELECTED_STYLE = '';
 let SELECTED_BUDGET = '';
 
+// 风格 id → 中文名（/api/whole-home/styles 返回的 id 如 shangluo-nuanju）
+// 别把 id 当名字显示给用户看
+const STYLE_NAME_MAP = new Map();
+function styleDisplayName(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  return STYLE_NAME_MAP.get(s) || s; // 已是中文名（服务端 overallStyle）则原样返回
+}
+
 // ===========================================
 // 风格下拉：从 /api/whole-home/styles 拉，失败用 fallback
 // ===========================================
@@ -442,8 +476,13 @@ async function loadStyles() {
 
 function renderStyles(styles) {
   const sel = document.getElementById('styleSelect');
+  STYLE_NAME_MAP.clear();
   sel.innerHTML = '<option value="">请选择风格</option>'
-    + styles.map(s => `<option value="${escapeAttr(s.id)}">${escapeHTML(s.name || s.id)}</option>`).join('');
+    + styles.map(s => {
+        const id = String(s && s.id != null ? s.id : '');
+        if (id) STYLE_NAME_MAP.set(id, String((s && s.name) || id));
+        return `<option value="${escapeAttr(id)}">${escapeHTML((s && s.name) || id)}</option>`;
+      }).join('');
 }
 
 // ===========================================
@@ -576,63 +615,55 @@ function showError(msg, canRetry = true) {
     </div>`;
 }
 
+// ===========================================
+// 成功态：渲染 analyze 接口真实返回
+// 契约（src/server.js /api/whole-home/analyze → data）：
+//   rooms[]: { roomType, style, sizeEstimate, lightingDirection,
+//              mainColor, suggestedItems[], estimatedBudget,
+//              originalUrl, index }
+//   overallStyle: 中文名（服务端已把 id/别名映射成官方风格名）
+//   budgetSuggestion: 已格式化字符串，如 "¥1万 - ¥6万"
+// ===========================================
 function showSuccess(payload) {
   stopCountdown();
-  // 防御性解析：兼容多种字段名
   const d = payload || {};
-  const styleCard = d.styleCard || d.stylePreview || d.overall || {};
-  const styleImg = styleCard.image || styleCard.url || styleCard.preview || d.styleImage || d.stylePreviewUrl || '';
-  const styleName = styleCard.name || d.styleName || '';
-  const rooms = Array.isArray(d.rooms) ? d.rooms
-              : Array.isArray(d.roomImages) ? d.roomImages
-              : [];
-  const recs = Array.isArray(d.recommendations) ? d.recommendations
-             : Array.isArray(d.items) ? d.items
-             : [];
+  const rooms = Array.isArray(d.rooms)
+    ? d.rooms.filter(r => r && typeof r === 'object')
+    : [];
+  const overallStyleName = styleDisplayName(d.overallStyle)
+    || styleDisplayName(SELECTED_STYLE)
+    || '推荐风格';
+  const budgetSuggestion = String(d.budgetSuggestion || '').trim();
+
+  const overallCard = `
+    <div class="overall-card">
+      <div class="hd">全屋分析结果</div>
+      <div class="overall-rows">
+        <div class="overall-row"><span class="k">整体风格</span><span class="v big">${escapeHTML(overallStyleName)}</span></div>
+        <div class="overall-row"><span class="k">预算建议</span><span class="v big">${escapeHTML(budgetSuggestion || '到店面议')}</span></div>
+        <div class="overall-row"><span class="k">已分析房间</span><span class="v">${rooms.length} 间</span></div>
+      </div>
+      ${d.message ? `<div class="overall-note">${escapeHTML(d.message)}</div>` : ''}
+    </div>`;
+
+  const roomsBlock = rooms.length > 0 ? `
+    <div class="room-detail">
+      <div class="lbl">逐间分析 · ${rooms.length} 间</div>
+      ${rooms.map(renderRoomCard).join('')}
+    </div>` : `
+    <div class="room-detail">
+      <div class="lbl">逐间分析</div>
+      <div class="plan-ready">这次没拿到逐间分析数据。您可以重新生成一次，或直接打电话让老板帮您看房。</div>
+    </div>`;
 
   stateBox.innerHTML = `
     <div class="result">
-      <!-- 整体风格卡 -->
-      <div class="result-hero">
-        <div class="lbl">🎨 整体风格 · ${escapeHTML(styleName || SELECTED_STYLE || '推荐')}</div>
-        ${styleImg
-          ? `<img src="${escapeAttr(styleImg)}" alt="整体风格预览" onerror="this.style.display='none'">`
-          : `<div style="aspect-ratio:16/9;background:var(--paper);display:flex;align-items:center;justify-content:center;color:var(--coffee);font-weight:700">整体风格预览生成中</div>`}
-        ${styleCard.note || d.note ? `<div class="meta"><strong>风格说明：</strong>${escapeHTML(styleCard.note || d.note)}</div>` : ''}
+      ${overallCard}
+      ${roomsBlock}
+      <div class="plan-ready">
+        <strong>整套搭配方案</strong>
+        逐间分析已完成。整套家具清单、摆放建议和到货批次，可到店与老板细聊；想先聊聊，打电话 13359140982 约时间。
       </div>
-
-      <!-- 分房间图 -->
-      ${rooms.length > 0 ? `
-        <div class="result-rooms">
-          <div class="lbl">📷 分房间搭配 · ${rooms.length} 间</div>
-          <div class="room-grid">
-            ${rooms.map(r => `
-              <div class="room-cell">
-                <img src="${escapeAttr(r.image || r.url || '')}" alt="${escapeAttr(r.name || '')}" onerror="this.style.display='none'">
-                <div class="name">${escapeHTML(r.name || r.room || '房间')}</div>
-              </div>`).join('')}
-          </div>
-        </div>` : ''}
-
-      <!-- 推荐方案表 -->
-      ${recs.length > 0 ? `
-        <div class="lbl" style="font-size:.75rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--coffee);margin-bottom:10px;padding:0 4px">📋 推荐方案</div>
-        <table class="rec-table">
-          <thead>
-            <tr><th>房间</th><th>家具</th><th>数量</th><th>估价</th></tr>
-          </thead>
-          <tbody>
-            ${recs.map(r => `
-              <tr>
-                <td data-label="房间">${escapeHTML(r.room || r.zone || '')}</td>
-                <td data-label="家具">${escapeHTML(r.furniture || r.name || r.item || '')}${r.note ? `<span class="note">${escapeHTML(r.note)}</span>` : ''}</td>
-                <td class="qty" data-label="数量">${escapeHTML(String(r.quantity || r.qty || 1))}</td>
-                <td class="price" data-label="估价">${escapeHTML(r.price || r.estimate || '面议')}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>` : '<div style="text-align:center;color:var(--paper);opacity:.7;padding:20px 0;font-size:.9rem">详细方案将随后联系您</div>'}
-
-      <!-- 三个动作按钮 -->
       <div class="result-actions">
         <a href="tel:13359140982" class="btn primary">📞 联系店主 · 13359140982</a>
         <button type="button" class="btn solid" onclick="regenerate()">🔄 重新生成</button>
@@ -641,6 +672,63 @@ function showSuccess(payload) {
     </div>`;
   // 滚动到结果
   setTimeout(() => stateBox.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
+// 单间房分析卡：原图 + 类型/面积/采光/当前风格/主色/建议家具/本间预算
+function renderRoomCard(r, i) {
+  const no = Number(r.index) > 0 ? Number(r.index) : i + 1;
+  const type = String(r.roomType || '').trim() || '房间';
+  const size = String(r.sizeEstimate || r.roomSize || '').trim();
+  const light = String(r.lightingDirection || '').trim();
+  const curStyle = styleDisplayName(r.style || r.currentStyle);
+  const rawColor = String(r.mainColor || '').trim();
+  const color = /^#[0-9a-fA-F]{6}$/.test(rawColor) ? rawColor : '';
+  const items = Array.isArray(r.suggestedItems)
+    ? r.suggestedItems.map(s => String(s).trim()).filter(Boolean)
+    : [];
+  const budget = String(r.estimatedBudget || '').trim();
+  const url = String(r.originalUrl || r.image || r.url || '').trim();
+
+  const photo = url
+    ? `<img src="${escapeAttr(url)}" alt="第 ${no} 间${escapeAttr(type)}的原始照片" onerror="this.remove()">`
+    : '';
+  const fact = (k, v) => `<div class="fact"><span class="k">${k}</span><span class="v">${v ? escapeHTML(v) : '—'}</span></div>`;
+  const itemsHTML = items.length > 0
+    ? `<div class="chips">${items.map(s => `<span class="chip">${escapeHTML(s)}</span>`).join('')}</div>`
+    : `<div class="empty">这间暂没有识别出要补的家具</div>`;
+
+  return `
+    <div class="room-card">
+      <div class="room-photo">
+        <div class="photo-fallback">照片暂不可用</div>
+        ${photo}
+      </div>
+      <div class="room-body">
+        <div class="room-head">
+          <span class="type">${escapeHTML(type)}</span>
+          <span class="no">第 ${no} 间</span>
+        </div>
+        <div class="room-facts">
+          ${fact('面积', size)}
+          ${fact('采光', light)}
+          ${fact('当前风格', curStyle)}
+          <div class="fact">
+            <span class="k">主色</span>
+            <span class="v">${color
+              ? `<span class="swatch" style="background:${escapeAttr(color)}"></span>${escapeHTML(color.toUpperCase())}`
+              : '—'}</span>
+          </div>
+        </div>
+        <div class="room-items">
+          <div class="k">建议补的家具</div>
+          ${itemsHTML}
+        </div>
+        <div class="room-budget">
+          <span class="k">本间参考预算</span>
+          <span class="v">${budget ? escapeHTML(budget) : '到店面议'}</span>
+        </div>
+      </div>
+    </div>`;
 }
 
 // ===========================================
@@ -715,7 +803,7 @@ function regenerate() {
 
 function shareResult() {
   // 简单实现：拼一段文字到剪贴板（兼容性最好）
-  const text = `银杏家具 · 全屋方案\n风格：${SELECTED_STYLE}\n预算：${SELECTED_BUDGET || '未填'}\n房间数：${SELECTED_FILES.length} 张\n详情请联系 13359140982`;
+  const text = `银杏家具 · 全屋方案\n风格：${styleDisplayName(SELECTED_STYLE) || '未选'}\n预算：${SELECTED_BUDGET || '未填'}\n房间数：${SELECTED_FILES.length} 张\n详情请联系 13359140982`;
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => showToast('已复制到剪贴板，可发给家人'));
   } else {
