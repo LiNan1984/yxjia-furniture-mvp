@@ -41,6 +41,11 @@ data/uploads.json
 data/users.json
 # 注：data/products.json 保留入仓（这是预填的 6+3 款商品种子数据）
 
+# ---- 微信传来的测试图/临时图（不入库）----
+data/*.jpg
+data/*.jpeg
+data/*.png
+
 # ---- 环境变量 / 密钥（绝不入仓）----
 .env
 .env.local
