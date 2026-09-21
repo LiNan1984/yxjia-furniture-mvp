@@ -9,12 +9,16 @@
     "test": "playwright test"
   },
   "dependencies": {
+    "@openai/agents": "^0.17.0",
     "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "form-data": "^4.0.6",
     "minio": "^8.0.7",
     "multer": "^2.2.0",
-    "sharp": "^0.34.0"
+    "openai": "^7.10.0",
+    "sharp": "^0.34.0",
+    "ws": "^8.21.3",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0"
