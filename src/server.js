@@ -1065,9 +1065,9 @@ app.use('/uploads', (req, res, next) => {
   uploadsHandler(req, res, async (err) => {
     if (res.headersSent) return;
     try {
-      // /uploads/{type}/{file} → MinIO object key = {bucket}/{type}/{file}
+      // /uploads/{type}/{file} → MinIO object key = {type}/{file}（bucket 由 getObject 首参提供，勿再拼进 key）
       const relative = decodeURIComponent(req.path.replace(/^\/+/, ''));
-      const objectName = `${BUCKET}/${relative}`;
+      const objectName = relative;
       const stream = await minioClient.getObject(BUCKET, objectName);
       res.setHeader('Cache-Control', 'public, max-age=86400');
       const ext = relative.split('.').pop().toLowerCase();
