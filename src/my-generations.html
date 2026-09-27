@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>我的生成记录 · 银杏家具</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a;--amber:#b06a12}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
+.nav-logo{font-size:1.3rem;font-weight:800}
+.nav a{color:#fff;font-size:1.1rem;text-decoration:none;margin-left:12px}
+.btn-out{background:var(--red);color:#fff;padding:10px 16px;border-radius:8px;font-weight:700}
+.wrap{max-width:760px;margin:0 auto;padding:24px 20px}
+h1{font-size:1.7rem;color:var(--coffee);margin-bottom:6px}
+.sub{font-size:1.05rem;color:#666;margin-bottom:20px}
+.gen{background:#fff;border:2px solid var(--coffee);border-radius:14px;padding:16px;margin-bottom:16px}
+.gen-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.gen-name{font-size:1.35rem;font-weight:800;color:var(--coffee)}
+.badge{display:inline-block;color:#fff;padding:5px 12px;border-radius:999px;font-size:.95rem;font-weight:700;white-space:nowrap}
+.badge.success{background:var(--green)}
+.badge.fallback{background:var(--amber)}
+.badge.failed{background:var(--red)}
+.gen-meta{font-size:.95rem;color:#666;margin-top:6px}
+.gen-img{width:100%;border-radius:10px;margin-top:12px;display:block;border:1px solid #e6dcc8}
+.noimg{margin-top:12px;padding:24px;text-align:center;background:#f3ece0;border-radius:10px;color:#886;font-size:1.05rem}
+details{margin-top:10px;border-top:1px dashed #d8cbb4;padding-top:10px}
+summary{cursor:pointer;font-size:1.05rem;font-weight:700;color:var(--coffee)}
+.prompt{white-space:pre-wrap;font-size:1.02rem;color:#333;margin-top:8px;line-height:1.5}
+.trace{margin-top:8px;font-size:.95rem}
+.trace-row{display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #f0e9dc}
+.trace-step{font-weight:700;color:var(--coffee);min-width:130px}
+.trace-ok{color:var(--green);font-weight:700}
+.trace-bad{color:var(--red);font-weight:700}
+.trace-body{color:#7a6a52;word-break:break-all}
+.empty{text-align:center;color:#666;font-size:1.2rem;padding:48px 20px;background:#fff;border:2px dashed #cbbda3;border-radius:14px}
+.not-login{background:#fff;border:2px solid var(--coffee);border-radius:14px;padding:24px;text-align:center}
+.not-login .btn{display:inline-block;background:var(--coffee);color:#fff;padding:16px 28px;border-radius:10px;font-size:1.3rem;font-weight:800;text-decoration:none;margin-top:14px}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="nav-logo">📷 我的生成记录</div>
+  <div><a href="/my-home">🏠 我的家</a><a href="/my-orders">📋 订单</a><a href="/" class="btn-out">← 首页</a></div>
+</header>
+<main class="wrap">
+  <h1>📷 我的生成记录</h1>
+  <div class="sub">你每一次 AI 试摆都在这里，含当时用的提示词和完整生成链路。</div>
+  <div id="content"><div class="empty">加载中…</div></div>
+</main>
+
+<script>
+function fmt(iso){try{return new Date(iso).toLocaleString('zh-CN',{hour12:false})}catch(e){return iso||''}}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+const BADGE={success:['✅ 已生成','success'],fallback:['⚠️ 预览/兜底','fallback'],failed:['❌ 失败','failed']};
+
+async function init(){
+  const content=document.getElementById('content');
+  const me=await (await fetch('/api/auth/me')).json();
+  if(!(me.success&&me.data&&me.data.user)){
+    content.innerHTML='<div class="not-login"><p style="font-size:1.2rem">请先登录后查看你的生成记录</p><a class="btn" href="/login">👤 去登录</a></div>';
+    return;
+  }
+  let gens=[];
+  try{
+    const r=await (await fetch('/api/generations/mine?limit=50')).json();
+    gens=(r.data&&r.data.generations)||[];
+  }catch(e){}
+  if(gens.length===0){
+    content.innerHTML='<div class="empty">还没有生成记录<br>去首页选一款家具试摆一下吧</div>';
+    return;
+  }
+  content.innerHTML=gens.map(g=>{
+    const [label,cls]=BADGE[g.status]||BADGE.fallback;
+    const img=g.compositionUrl
+      ? `<a href="${esc(g.compositionUrl)}" target="_blank"><img class="gen-img" loading="lazy" src="${esc(g.compositionUrl)}" alt="合成图"></a>`
+      : `<div class="noimg">这张没有出图（可用上面的链路看原因）</div>`;
+    const preset=g.preset&&g.preset.name?(' · '+esc(g.preset.name)):'';
+    const trace=(g.trace||[]).map(t=>{
+      const ok=t.ok;
+      const mark=ok?'<span class="trace-ok">✓</span>':'<span class="trace-bad">✗</span>';
+      const extra=esc(t.body||t.note||'');
+      const ms=t.ms!=null?(' · '+t.ms+'ms'):'';
+      return `<div class="trace-row"><span class="trace-step">${esc(t.step)}</span><span>${mark}</span><span class="trace-body">${extra}${ms}</span></div>`;
+    }).join('');
+    return `<div class="gen">
+      <div class="gen-head">
+        <div class="gen-name">${esc(g.productName||g.productId||'试摆')}</div>
+        <span class="badge ${cls}">${label}</span>
+      </div>
+      <div class="gen-meta">${fmt(g.createdAt)}${preset}${g.demoType?(' · '+esc(g.demoType)):''}${g.totalMs!=null?(' · '+g.totalMs+'ms'):''}</div>
+      ${img}
+      <details open><summary>📝 当时的提示词</summary><div class="prompt">${esc(g.prompt)}</div></details>
+      ${g.error?`<div class="prompt" style="color:var(--red)">错误：${esc(g.error)}</div>`:''}
+      <details><summary>🔎 生成链路 trace（${(g.trace||[]).length} 步）</summary><div class="trace">${trace||'<div class="trace-body">无</div>'}</div></details>
+    </div>`;
+  }).join('');
+}
+init();
+</script>
+</body>
+</html>

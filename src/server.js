@@ -28,6 +28,7 @@ const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const UPLOADS_FILE = path.join(DATA_DIR, 'uploads.json');
+const GENERATIONS_FILE = path.join(DATA_DIR, 'generations.json');
 const PRESETS_FILE = path.join(DATA_DIR, 'presets.json');
 const FEATURE_FLAGS_FILE = path.join(DATA_DIR, 'feature-flags.json');
 const WHOLE_HOME_STYLES_FILE = path.join(DATA_DIR, 'whole-home-styles.json');
@@ -251,6 +252,41 @@ function loadUploadsContainer() {
 
 function saveUploadsContainer(container) {
   saveContainer(UPLOADS_FILE, container);
+}
+
+// ---------- 生成历史「表」 data/generations.json（gitignore 排除，含手机号/提示词）----------
+// 每次试摆落一条：最终 prompt、状态、失败原因、全链路 trace（各上游步 + 耗时 + 返回）。
+// 支撑「每个登录用户看到自己历史生成图 + 当时提示词」并能逐条 trace 成功/失败/兜底原因。
+function loadGenerationsContainer() {
+  return loadContainer(GENERATIONS_FILE, 'generations');
+}
+
+function saveGenerationsContainer(container) {
+  saveContainer(GENERATIONS_FILE, container);
+}
+
+const GENERATIONS_CAP = 3000; // 防无限增长，只保留最近 3000 条
+// rec: { userPhone, kind, endpoint, productId, productName, preset, prompt,
+//        status, demoType, compositionUrl, error, trace, totalMs, meta }
+function recordGeneration(rec) {
+  try {
+    const c = loadGenerationsContainer();
+    if (!Array.isArray(c.generations)) c.generations = [];
+    const row = { id: generateId('gen'), createdAt: new Date().toISOString(), ...rec };
+    c.generations.unshift(row);
+    if (c.generations.length > GENERATIONS_CAP) c.generations.length = GENERATIONS_CAP;
+    saveGenerationsContainer(c);
+    return row.id;
+  } catch (err) {
+    console.warn('[generations] recordGeneration failed: ' + err.message);
+    return null;
+  }
+}
+
+// 生成记录状态：success=真合成(ai-composition/step/pollinations)；fallback=命中缓存/侧边/仅商品图兜底；failed=无图
+function genStatus(demoType, hasUrl) {
+  if (!hasUrl) return 'failed';
+  return ['ai-composition', 'step-image', 'pollinations'].includes(demoType) ? 'success' : 'fallback';
 }
 
 function loadPresets() {
@@ -751,9 +787,13 @@ async function shrinkForAI(buf) {
 //   'cached-composition'  命中 uploads.json 里该 productId 的历史合成图
 //   'side-by-side'        side-by-side 客厅+商品 预览
 //   'product-image'       仅商品图
-async function callTryonAI({ productId, roomBuffer, sofaBuffer, productImagePath, prompt }) {
+async function callTryonAI({ productId, roomBuffer, sofaBuffer, productImagePath, prompt, trace }) {
+  const T = Array.isArray(trace) ? trace : [];
+  const _log = (step, info) => T.push({ at: new Date().toISOString(), step, ...info });
+  _log('input', { ok: true, roomBytes: roomBuffer ? roomBuffer.length : 0, sofaBytes: sofaBuffer ? sofaBuffer.length : 0 });
   // 1) TWO_FISH / gpt-image-2（主路径，账号池已恢复）
   if (TWO_FISH_API_KEY) {
+    const _t = Date.now();
     try {
       const form = new FormData();
       form.append('model', 'gpt-image-2');
@@ -782,49 +822,77 @@ async function callTryonAI({ productId, roomBuffer, sofaBuffer, productImagePath
         const imgResp = await fetch(item.url);
         buf = Buffer.from(new Uint8Array(await imgResp.arrayBuffer()));
       }
-      if (buf && buf.length > 0) return { buffer: buf, demoType: 'ai-composition' };
+      if (buf && buf.length > 0) {
+        _log('twofishai:edits', { ok: true, ms: Date.now() - _t, bytes: buf.length });
+        return { buffer: buf, demoType: 'ai-composition', trace: T };
+      }
       throw new Error('TwoFish response unrecognized shape');
     } catch (err) {
       console.warn(`[ai] twofishai failed: ${err.message}`);
+      _log('twofishai:edits', { ok: false, ms: Date.now() - _t, body: err.message });
     }
+  } else {
+    _log('twofishai:edits', { ok: false, skipped: true, body: 'TWO_FISH_API_KEY 未设置' });
   }
   // 2) 阶跃 step-image-edit-2 兜底（Pro 套餐 Step Plan 路径；官方 2026-10-10 停服，失效后自动滑向下一级）
   if (STEP_API_KEY && roomBuffer && (sofaBuffer || productImagePath)) {
+    const _t = Date.now();
     try {
       const sofaBuf = sofaBuffer || await fetchProductImage(productId);
       const buf = await callStepImageEdit({ roomBuffer, sofaBuffer: sofaBuf, prompt, productId });
-      if (buf && buf.length > 0) return { buffer: buf, demoType: 'step-image' };
+      if (buf && buf.length > 0) {
+        _log('step-image', { ok: true, ms: Date.now() - _t, bytes: buf.length });
+        return { buffer: buf, demoType: 'step-image', trace: T };
+      }
+      _log('step-image', { ok: false, ms: Date.now() - _t, body: 'empty buffer' });
     } catch (e) {
       console.warn('[ai] step-image-edit-2 failed: ' + e.message);
+      _log('step-image', { ok: false, ms: Date.now() - _t, body: e.message });
     }
   }
 
   // 3) Pollinations 兜底（两鱼、阶跃都失败时启用）
   if (roomBuffer) {
+    const _t = Date.now();
     try {
       const buf = await callPollinations({ productId, roomBuffer, prompt });
-      if (buf) return { buffer: buf, demoType: 'ai-composition' };
+      if (buf) {
+        _log('pollinations', { ok: true, ms: Date.now() - _t, bytes: buf.length });
+        return { buffer: buf, demoType: 'ai-composition', trace: T };
+      }
+      _log('pollinations', { ok: false, ms: Date.now() - _t, body: 'empty buffer' });
     } catch (e) {
       console.warn('[ai] gpt-image-2 via Pollinations failed: ' + e.message);
+      _log('pollinations', { ok: false, ms: Date.now() - _t, body: e.message });
     }
   }
 
   // 4) 该 productId 的历史合成图
   const cached = pickCachedCompositionForProduct(productId);
-  if (cached) return { buffer: cached.buffer, demoType: 'cached-composition' };
+  if (cached) {
+    _log('cached-composition', { ok: true, note: `productId=${productId} 命中历史合成图` });
+    return { buffer: cached.buffer, demoType: 'cached-composition', trace: T };
+  }
 
   // 5) side-by-side 预览
   const productImg = await fetchProductImage(productId);
   if (productImg && roomBuffer) {
+    const _t = Date.now();
     try {
       const sideBySide = await composeRoomAndProduct(roomBuffer, productImg);
-      return { buffer: sideBySide, demoType: 'side-by-side' };
+      _log('side-by-side', { ok: true, ms: Date.now() - _t });
+      return { buffer: sideBySide, demoType: 'side-by-side', trace: T };
     } catch (e) {
       console.warn('[fallback] composeRoomAndProduct failed: ' + e.message);
+      _log('side-by-side', { ok: false, ms: Date.now() - _t, body: e.message });
     }
   }
   // 6) 仅商品图
-  if (productImg) return { buffer: productImg, demoType: 'product-image' };
+  if (productImg) {
+    _log('product-image', { ok: true, note: '仅返回商品原图' });
+    return { buffer: productImg, demoType: 'product-image', trace: T };
+  }
+  _log('fatal', { ok: false, body: 'AI upstream failed and no fallback image available' });
   throw new Error('AI upstream failed and no fallback image available');
 }
 
@@ -1094,6 +1162,7 @@ app.get('/chat-guide', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'chat-gu
 app.get('/login', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'login.html')));
 app.get('/my-orders', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'my-orders.html')));
 app.get('/my-home', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'my-home.html')));
+app.get('/my-generations', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'my-generations.html')));
 
 // Admin 页面：/admin 直接进登录页（避免被 express.static 当成目录展示 index.html）
 app.get('/admin', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'login.html')));
@@ -2236,6 +2305,22 @@ app.get('/api/tryon/history', (req, res) => {
   }
 });
 
+// GET /api/generations/mine — 登录用户看自己的生成历史（含当时 prompt + 全链路 trace + 失败原因）
+app.get('/api/generations/mine', requireUser, (req, res) => {
+  try {
+    const phone = getSessionUserPhone(req) || '';
+    const limit = Math.min(parseInt(req.query.limit || '30', 10) || 30, 100);
+    const c = loadGenerationsContainer();
+    const list = (c.generations || [])
+      .filter(g => g.userPhone === phone)
+      .slice(0, limit)
+      .map(g => ({ ...g, compositionUrl: fixImageUrl(g.compositionUrl) }));
+    return ok(res, { generations: list, count: list.length });
+  } catch (err) {
+    return fail(res, 500, '读取生成历史失败');
+  }
+});
+
 // ---------- API: 用户系统 ----------
 
 function findUserById(id) {
@@ -2723,6 +2808,8 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
     const { finalPrompt, preset: presetHit } = buildFinalTryonPrompt(defaultPrompt, presetRaw, customPrompt);
 
     let aiBuffer = null, demoType = null, aiError = null;
+    const genTrace = [];
+    const genStartedAt = Date.now();
     try {
       const r = await callTryonAI({
         productId,
@@ -2730,6 +2817,7 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
         sofaBuffer,
         productImagePath: product.image,
         prompt: finalPrompt,
+        trace: genTrace,
       });
       aiBuffer = r.buffer;
       demoType = r.demoType;
@@ -2743,6 +2831,22 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
       const { url } = await saveImage(aiBuffer, 'compositions', filename, 'image/jpeg');
       compositionUrl = url;
     }
+    recordGeneration({
+      userPhone: getSessionUserPhone(req) || '',
+      kind: 'tryon',
+      anonymous: true,
+      endpoint: '/api/tryon/ai-anon',
+      productId,
+      productName: product?.name || '',
+      preset: presetHit,
+      prompt: finalPrompt,
+      status: genStatus(demoType, !!compositionUrl),
+      demoType,
+      compositionUrl,
+      error: aiError || null,
+      trace: genTrace,
+      totalMs: Date.now() - genStartedAt,
+    });
     return ok(res, {
       ok: true,
       product,
@@ -2783,12 +2887,15 @@ app.post('/api/tryon/ai', requireUser, async (req, res) => {
     let demoType = null;
     // 每用户每日限额（在真正打上游前拦，参数校验失败不占额度）
     if (!guardUserTryonLimit(req, res)) return;
+    const genTrace = [];
+    const genStartedAt = Date.now();
     try {
       const r = await callTryonAI({
         productId,
         roomBuffer: roomFile.data,
         sofaBuffer: sofaFile.data,
         productImagePath: product.image,
+        trace: genTrace,
       });
       aiBuffer = r.buffer;
       demoType = r.demoType;
@@ -2806,6 +2913,21 @@ app.post('/api/tryon/ai', requireUser, async (req, res) => {
       await saveImage(roomFile.data, 'compositions', filename, roomFile.contentType || 'image/jpeg');
       compositionUrl = null;
     }
+    recordGeneration({
+      userPhone: getSessionUserPhone(req) || '',
+      kind: 'tryon',
+      endpoint: '/api/tryon/ai',
+      productId,
+      productName: product?.name || '',
+      preset: '',
+      prompt: buildTryonPrompt(productId),
+      status: genStatus(demoType, !!compositionUrl),
+      demoType,
+      compositionUrl,
+      error: aiError || null,
+      trace: genTrace,
+      totalMs: Date.now() - genStartedAt,
+    });
 
     const result = {
       ok: true,
@@ -2854,6 +2976,8 @@ app.post('/api/tryon/ai-custom', requireUser, multer({ storage: multer.memorySto
     let aiBuffer = null, demoType = null, aiError = null;
     // 每用户每日限额（在真正打上游前拦，参数校验失败不占额度）
     if (!guardUserTryonLimit(req, res)) return;
+    const genTrace = [];
+    const genStartedAt = Date.now();
     try {
       const r = await callTryonAI({
         productId,
@@ -2861,6 +2985,7 @@ app.post('/api/tryon/ai-custom', requireUser, multer({ storage: multer.memorySto
         sofaBuffer: sofaFile.buffer,
         productImagePath: product.image,
         prompt: finalPrompt,
+        trace: genTrace,
       });
       aiBuffer = r.buffer;
       demoType = r.demoType;
@@ -2874,6 +2999,21 @@ app.post('/api/tryon/ai-custom', requireUser, multer({ storage: multer.memorySto
       const { url } = await saveImage(aiBuffer, 'compositions', filename, 'image/jpeg');
       compositionUrl = url;
     }
+    recordGeneration({
+      userPhone: getSessionUserPhone(req) || '',
+      kind: 'tryon',
+      endpoint: '/api/tryon/ai-custom',
+      productId,
+      productName: product?.name || '',
+      preset: presetHit,
+      prompt: finalPrompt,
+      status: genStatus(demoType, !!compositionUrl),
+      demoType,
+      compositionUrl,
+      error: aiError || null,
+      trace: genTrace,
+      totalMs: Date.now() - genStartedAt,
+    });
     return ok(res, {
       ok: true,
       product,
@@ -3313,10 +3453,13 @@ app.post('/api/tryon/ai-history', requireUser, async (req, res) => {
     // 默认 + 预设（光线/风格）+ 用户 prompt，与 ai-custom 同一套拼装规则
     const defaultPrompt = buildTryonDefaultPrompt(product);
     const { finalPrompt, preset: presetHit } = buildFinalTryonPrompt(defaultPrompt, presetRaw, customPrompt);
+    const genTrace = [];
+    const genStartedAt = Date.now();
     try {
       const r = await callTryonAI({
         productId, roomBuffer, sofaBuffer, productImagePath: product.image,
         prompt: finalPrompt,
+        trace: genTrace,
       });
       aiBuffer = r.buffer;
       demoType = r.demoType;
@@ -3343,6 +3486,21 @@ app.post('/api/tryon/ai-history', requireUser, async (req, res) => {
       });
       saveUploadsContainer(container);
     }
+    recordGeneration({
+      userPhone: phone || getSessionUserPhone(req) || '',
+      kind: 'tryon',
+      endpoint: '/api/tryon/ai-history',
+      productId,
+      productName: product?.name || '',
+      preset: presetHit,
+      prompt: finalPrompt,
+      status: genStatus(demoType, !!compositionUrl),
+      demoType,
+      compositionUrl,
+      error: aiError || null,
+      trace: genTrace,
+      totalMs: Date.now() - genStartedAt,
+    });
 
     return ok(res, {
       ok: true,
