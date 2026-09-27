@@ -1,0 +1,50 @@
+{
+  "categories": [
+    {
+      "id": "sofa",
+      "name": "沙发",
+      "room": "客厅",
+      "noun": "沙发",
+      "defaultRoom": "/images/default-room.jpg",
+      "badge": "主推",
+      "sort": 1,
+      "enabled": true
+    },
+    {
+      "id": "bed",
+      "name": "卧室 · 床",
+      "room": "卧室",
+      "noun": "床",
+      "defaultRoom": "/images/default-room-bed.jpg",
+      "sort": 2,
+      "enabled": true
+    },
+    {
+      "id": "cabinet",
+      "name": "柜类",
+      "room": "客厅",
+      "noun": "柜子",
+      "defaultRoom": "/images/default-room.jpg",
+      "sort": 3,
+      "enabled": false
+    },
+    {
+      "id": "table",
+      "name": "桌几",
+      "room": "餐厅",
+      "noun": "桌子",
+      "defaultRoom": "/images/default-room.jpg",
+      "sort": 4,
+      "enabled": false
+    },
+    {
+      "id": "other",
+      "name": "其他",
+      "room": "客厅",
+      "noun": "家具",
+      "defaultRoom": "/images/default-room.jpg",
+      "sort": 9,
+      "enabled": false
+    }
+  ]
+}

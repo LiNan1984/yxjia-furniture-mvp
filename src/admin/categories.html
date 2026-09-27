@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>品类 / 默认图管理 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);padding-bottom:80px}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.nav a{color:#fff;font-size:1.2rem;text-decoration:none}
+.wrap{max-width:880px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:8px}
+p.lead{color:#444;margin-bottom:18px;line-height:1.5}
+.list{display:flex;flex-direction:column;gap:16px}
+.row{background:#fff;border-radius:14px;padding:20px;border:2px solid var(--paper)}
+.row:hover{border-color:var(--coffee)}
+.row-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.row-top .id{font-size:.7rem;color:#888;font-family:monospace;background:var(--paper);padding:3px 8px;border-radius:6px}
+.row-top .name-input{flex:1;padding:10px 14px;font-size:1.2rem;font-weight:800;color:var(--coffee);border:2px solid #c8b89a;border-radius:8px;background:#fff}
+.row-top .enable{display:flex;align-items:center;gap:6px;font-size:.9rem;white-space:nowrap;cursor:pointer}
+.room-wrap{display:flex;gap:14px;align-items:flex-start}
+.room-thumb{flex:0 0 180px;height:130px;border:2px solid #e8dcc4;border-radius:10px;overflow:hidden;background:var(--paper);display:flex;align-items:center;justify-content:center}
+.room-thumb img{width:100%;height:100%;object-fit:contain}
+.room-side{flex:1;display:flex;flex-direction:column;gap:10px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field label{display:block;font-size:.75rem;color:#888;margin-bottom:4px;font-weight:700}
+.field input{padding:9px 12px;font-size:1rem;border:2px solid #c8b89a;border-radius:8px;background:#fff;width:100%}
+input:focus{outline:none;border-color:var(--coffee)}
+.pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pick-btn{display:inline-block;background:var(--coffee);color:#fff;padding:11px 16px;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer}
+.pick-btn input{display:none}
+.pick-status{font-size:.9rem;font-weight:700}
+.pick-status.ok{color:var(--green)}
+.pick-status.err{color:var(--red)}
+.hint{font-size:.8rem;color:#888;line-height:1.5}
+.toolbar{position:sticky;bottom:0;background:var(--coffee);padding:14px 16px;display:flex;gap:10px;justify-content:flex-end;border-radius:14px;margin-top:24px}
+.toolbar button{padding:14px 24px;border:none;border-radius:10px;font-size:1.1rem;font-weight:800;cursor:pointer}
+.btn-save{background:var(--paper);color:var(--coffee)}
+.btn-reload{background:transparent;color:var(--paper);border:1px solid var(--paper)}
+.msg{display:none;padding:14px;border-radius:10px;margin-bottom:18px;font-size:1.05rem;font-weight:700}
+.msg.ok{display:block;background:var(--green);color:#fff}
+.msg.err{display:block;background:var(--red);color:#fff}
+.empty{padding:60px 20px;text-align:center;color:#888}
+</style>
+</head>
+<body>
+<header class="nav">
+  <a href="/admin/index">← 返回</a>
+  <div style="font-size:1.3rem;font-weight:800">🖼 品类 / 默认图管理</div>
+</header>
+<main class="wrap">
+  <a href="/admin/index" style="display:inline-block;margin-bottom:14px;color:var(--coffee);font-size:1.1rem;text-decoration:none">← 返回后台首页</a>
+  <h1>🖼 品类 / 默认图管理</h1>
+  <p class="lead">顾客没传自家照片、点「用默认房间图体验」时看到的就是这儿设置的默认房间图。<strong>建议放一张空旷的房间图（别带沙发/床）</strong>，AI 才能把家具摆进去。改完记得点保存。</p>
+
+  <div id="msg" class="msg"></div>
+  <div id="list" class="list"></div>
+  <div id="empty" class="empty" style="display:none">没有品类</div>
+
+  <div class="toolbar">
+    <button class="btn-reload" id="btn-reload">↻ 重新加载</button>
+    <button class="btn-save" id="btn-save">✅ 保存所有</button>
+  </div>
+</main>
+
+<script>
+let categories=[];
+const list=document.getElementById('list');
+const empty=document.getElementById('empty');
+const msg=document.getElementById('msg');
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+function showMsg(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');setTimeout(()=>{msg.className='msg'},3200)}
+
+async function load(){
+  const r=await fetch('/api/admin/categories').then(r=>r.json());
+  categories=(r.data&&r.data.categories)||[];
+  render();
+}
+
+function render(){
+  if(categories.length===0){empty.style.display='block';list.innerHTML='';return}
+  empty.style.display='none';
+  list.innerHTML=categories.map((c,i)=>`
+    <div class="row" data-idx="${i}">
+      <div class="row-top">
+        <span class="id">${esc(c.id)}</span>
+        <input class="name-input" data-field="name" value="${esc(c.name)}" placeholder="品类名，如：沙发">
+        <label class="enable"><input type="checkbox" data-field="enabled" ${c.enabled!==false?'checked':''}> 启用</label>
+      </div>
+      <div class="room-wrap">
+        <div class="room-thumb"><img data-role="thumb" src="${esc(c.defaultRoom||'/images/default-room.jpg')}" alt="默认房间图"></div>
+        <div class="room-side">
+          <div class="fields">
+            <div class="field"><label>房间名（试摆文案用）</label><input data-field="room" value="${esc(c.room)}" placeholder="如：客厅"></div>
+            <div class="field"><label>家具名词</label><input data-field="noun" value="${esc(c.noun)}" placeholder="如：沙发"></div>
+            <div class="field"><label>角标（可空）</label><input data-field="badge" value="${esc(c.badge)}" placeholder="如：主推"></div>
+            <div class="field"><label>排序（小的在前）</label><input data-field="sort" type="number" value="${esc(c.sort==null?'':c.sort)}"></div>
+          </div>
+          <div class="pick">
+            <label class="pick-btn">📷 换默认房间图<input type="file" accept="image/*" data-role="file"></label>
+            <span class="pick-status" data-role="status"></span>
+          </div>
+          <div class="hint">点「换默认房间图」选一张新照片，会自动上传并立刻更新左侧预览；文字信息改完点底部「保存所有」。</div>
+        </div>
+      </div>
+    </div>`).join('');
+
+  list.querySelectorAll('.row').forEach(row=>{
+    const idx=parseInt(row.dataset.idx,10);
+    row.querySelector('[data-role=file]').addEventListener('change', e=>{
+      const file=e.target.files&&e.target.files[0];
+      if(file) uploadRoom(idx, file, row);
+      e.target.value='';
+    });
+  });
+}
+
+async function uploadRoom(idx, file, row){
+  const status=row.querySelector('[data-role=status]');
+  status.className='pick-status';
+  status.textContent='上传中…';
+  try{
+    const fd=new FormData();
+    fd.append('file', file);
+    const r=await fetch(`/api/admin/categories/${categories[idx].id}/room-image`, {method:'POST', body:fd}).then(r=>r.json());
+    if(!r.success){status.className='pick-status err';status.textContent=r.error||'上传失败';return}
+    const url=(r.data&&r.data.url)||'';
+    if(!url){status.className='pick-status err';status.textContent='没拿到图片地址';return}
+    categories[idx].defaultRoom=url;
+    const thumb=row.querySelector('[data-role=thumb]');
+    thumb.src=url+'?t='+Date.now();
+    status.className='pick-status ok';
+    status.textContent='✅ 已换图（别忘了点保存所有）';
+  }catch(e){status.className='pick-status err';status.textContent='网络出错'}
+}
+
+document.getElementById('btn-reload').onclick=async()=>{
+  if(!confirm('放弃当前修改并重新加载？'))return;
+  await load();
+  showMsg('已重新加载',true);
+};
+
+document.getElementById('btn-save').onclick=async()=>{
+  const rows=document.querySelectorAll('.row');
+  const out=categories.map((orig,idx)=>{
+    const row=rows[idx];
+    const val=f=>row.querySelector(`[data-field=${f}]`).value;
+    return {
+      id:orig.id,
+      name:val('name').trim()||orig.name||orig.id,
+      room:val('room').trim(),
+      noun:val('noun').trim(),
+      badge:val('badge').trim(),
+      sort:val('sort'),
+      enabled:row.querySelector('[data-field=enabled]').checked,
+      defaultRoom:orig.defaultRoom||'/images/default-room.jpg',
+    };
+  });
+  try{
+    const r=await fetch('/api/admin/categories',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({categories:out})}).then(r=>r.json());
+    if(!r.success){showMsg(r.error||'保存失败',false);return}
+    showMsg('✅ 已保存',true);
+    await load();
+  }catch(e){showMsg('网络出错',false)}
+};
+
+async function check(){
+  const r=await fetch('/api/auth/me');
+  const data=await r.json();
+  if(!data.success||!data.data||!data.data.user||data.data.user.id!=='admin'){
+    location.href='/admin/login';
+  }
+}
+check();
+load();
+</script>
+</body>
+</html>

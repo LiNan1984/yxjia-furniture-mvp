@@ -124,7 +124,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 .file-field .icon{font-size:36px}
 .file-field .label{font-size:.95rem;font-weight:600}
 .file-field .hint{font-size:.75rem;opacity:.55}
-.file-field img.preview{width:100%;max-height:160px;object-fit:cover;display:none}
+.file-field img.preview{width:100%;height:auto;max-height:260px;object-fit:contain;background:var(--paper);border-radius:8px;display:none}
 
 /* 历史照片墙 */
 .history{margin-top:16px;display:none}
@@ -212,6 +212,15 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 .product-meta h4{font-size:1rem;font-weight:700;letter-spacing:-.01em}
 .product-meta .price{font-size:.95rem;font-weight:600;color:var(--coffee)}
 .product-sell{font-size:.78rem;color:#6b5d4f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:6px}
+/* v3 品类板块卡片：详情链接 + 搬回家按钮 */
+.product{display:flex;flex-direction:column}
+.product-link{display:block;text-decoration:none;color:inherit}
+.take-home-btn{margin-top:14px;padding:14px 16px;border:1.5px solid var(--coffee);background:var(--coffee);color:var(--paper);font-weight:800;font-size:.95rem;letter-spacing:.02em;cursor:pointer;border-radius:2px}
+.take-home-btn:hover{background:var(--paper);color:var(--coffee)}
+/* v3 试摆品类 tab（全部 / 沙发 / 卧室） */
+.cat-tabs{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 14px}
+.cat-tab{padding:10px 18px;border:1.5px solid var(--coffee);background:transparent;color:var(--coffee);font-weight:700;font-size:1rem;cursor:pointer;border-radius:999px}
+.cat-tab.active{background:var(--coffee);color:var(--paper)}
 .product-cat{font-size:.7rem;font-weight:700;letter-spacing:.2em;color:var(--coffee);text-transform:uppercase;margin-top:4px}
 
 /* 联系 */
@@ -251,6 +260,8 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 }
 .default-room-btn:hover{background:var(--paper);border-style:solid}
 .default-room-btn.active{background:var(--paper);border-style:solid;border-width:2px;padding:13px}
+/* 品类没有默认房间图时（如卧室图素材未到位）：按钮禁用 + 引导上传，主路径不受影响 */
+.default-room-btn[disabled]{opacity:.55;cursor:not-allowed;border-style:dotted}
 
 /* 整屋搭配升级版入口（主页） */
 .upgrade-banner{
@@ -367,32 +378,32 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 </section>
 
 <div class="hero-image">
-  <img id="heroImg" src="/images/sofa-zhongshi.jpg" alt="主推沙发" onerror="this.style.background='#3a2818';this.style.display='block'">
+  <img id="heroImg" src="/images/sofa-tihua-real.png" alt="主推沙发" onerror="this.style.background='#3a2818';this.style.display='block'">
   <div class="label">主推 · 3.4 米</div>
 </div>
 
 <!-- ★★★ AI 试摆（核心功能 · 主页集成）★★★ -->
 <section class="tryon" id="tryon">
   <div class="section-tag">— AI 试摆</div>
-  <h2 class="section-title">照片传上去<br>沙发马上搬进你家</h2>
+  <h2 class="section-title">照片传上去<br>家具马上搬进你家</h2>
 
   <div class="tryon-grid">
     <!-- 左：表单 -->
     <div>
       <form class="tryon-form" id="tryonForm">
         <h3>📷 三步出图</h3>
-        <p class="lead">客厅照 + 选家具 → 约 60 秒出真实合成图 → 不满意换款</p>
+        <p class="lead">房间照 + 选家具 → 约 60 秒出真实合成图 → 不满意换款</p>
 
         <!-- 客厅照 -->
         <div class="field">
           <label>
-            <span><span class="req">*</span> 客厅照片</span>
+            <span><span class="req">*</span> 房间照片</span>
             <span class="hint">手机拍照直接选</span>
           </label>
           <label class="file-field" id="roomField">
             <input name="room" type="file" accept="image/*" style="display:none">
             <div class="icon">📷</div>
-            <div class="label">点击拍照 / 选择客厅照片</div>
+            <div class="label">点击拍照 / 选择房间照片</div>
             <div class="hint">支持 JPG / PNG，≤ 15MB</div>
             <img class="preview" id="roomPreview">
           </label>
@@ -405,7 +416,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 
           <!-- 没传图？用默认体验 -->
           <button type="button" class="default-room-btn" id="useDefaultBtn">
-            <span>🪄 没有照片？用默认客厅图体验一下</span>
+            <span id="defaultBtnLabel">🪄 没有照片？用默认房间图体验一下</span>
           </button>
         </div>
 
@@ -415,6 +426,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
             <span><span class="req">*</span> 想摆的家具</span>
             <span class="hint">点图片选中</span>
           </label>
+          <div class="cat-tabs" id="catTabs"></div>
           <select name="productId" id="prodSelect" style="display:none"></select>
           <div class="furn-grid" id="furnGrid"></div>
         </div>
@@ -442,7 +454,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
             <option value="family">家庭生活感</option>
             <option value="custom">自定义（下方输入）</option>
           </select>
-          <textarea id="customPrompt" placeholder="例如：沙发放在落地窗前，阳光从左边洒进来，茶几上有茶杯" rows="2" style="font-family:inherit;font-size:0.95rem;padding:12px;border:1.5px solid var(--coffee);background:var(--paper);resize:vertical;display:none"></textarea>
+          <textarea id="customPrompt" placeholder="例如：放在落地窗前，阳光从左边洒进来" rows="2" style="font-family:inherit;font-size:0.95rem;padding:12px;border:1.5px solid var(--coffee);background:var(--paper);resize:vertical;display:none"></textarea>
         </div>
 
         <button type="submit" class="submit-btn" id="submitBtn">
@@ -471,12 +483,12 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 <!-- 三步流程 -->
 <section class="steps">
   <div class="section-tag">— 如何使用</div>
-  <h2 class="section-title">三步把沙发<br>搬进您家</h2>
+  <h2 class="section-title">三步把家具<br>搬进您家</h2>
   <div class="steps-grid">
     <div class="step">
       <div class="n">01</div>
-      <h3>传客厅照</h3>
-      <p>把客厅拍一张，点上面"立即生成"</p>
+      <h3>传房间照</h3>
+      <p>把房间拍一张，点上面"立即生成"</p>
     </div>
     <div class="step">
       <div class="n">02</div>
@@ -491,12 +503,8 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
   </div>
 </section>
 
-<!-- 商品目录（动态从 API 加载，避免用错图） -->
-<section class="catalog">
-  <div class="section-tag">— 家具 · 现货</div>
-  <h2 class="section-title">六款沙发<br>家具配套</h2>
-  <div class="products" id="catalogGrid"></div>
-</section>
+<!-- 家具板块（按品类数据驱动渲染：沙发 / 卧室 …，见 renderSections） -->
+<div id="catalogSections"></div>
 
 <!-- 联系 -->
 <section class="contact">
@@ -579,6 +587,8 @@ let PRODUCTS = [];
 let SELECTED_ROOM_FILE = null;
 let SELECTED_ROOM_URL = null;
 let SELECTED_PRODUCT = null;
+let CATEGORIES = [];
+let SELECTED_CATEGORY = null;
 const ETA_SECONDS = 60;
 
 // HTML 转义：商品字段/AI 返回文本可能含 HTML，插 innerHTML 前必须过一遍
@@ -587,63 +597,134 @@ function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 async function loadProducts() {
   const r = await fetch('/api/products').then(r=>r.json());
   PRODUCTS = (r.data && r.data.products) || r.products || [];
+  try {
+    const cr = await fetch('/api/categories').then(r=>r.json());
+    CATEGORIES = (cr.data && cr.data.categories) || [];
+  } catch (_) { CATEGORIES = []; }
+  // 默认落在第一个启用品类（通常沙发）
+  if (!SELECTED_CATEGORY) {
+    const firstEnabled = CATEGORIES.find(c => c.enabled);
+    SELECTED_CATEGORY = firstEnabled ? firstEnabled.id : null;
+  }
+  renderCategoryTabs();
   renderFurnGrid();
-  renderCatalog();
+  renderSections();
   setHeroImage();
+  updateDefaultRoomLabel();
 }
 
 function setHeroImage() {
-  // 用首张在售商品的真实图作为主推；如该图加载失败回退到 /images/sofa-zhongshi.jpg
+  // 用主推沙发（sofa-1，缺省首张在售沙发）的真实图作为主推；回退到未删的实拍图
   const hero = document.getElementById('heroImg');
-  const featured = PRODUCTS.find(p => p.id === 'sofa-1') || PRODUCTS[0];
+  const featured = PRODUCTS.find(p => p.id === 'sofa-1')
+    || PRODUCTS.find(p => catOf(p) === 'sofa' && p.status !== '下架')
+    || PRODUCTS[0];
   if (!hero) return;
-  const fallback = '/images/sofa-zhongshi.jpg';
+  const fallback = '/images/sofa-tihua-real.png';
   const target = (featured && featured.image) || fallback;
-  hero.onerror = () => { if (hero.src !== fallback) hero.src = fallback; };
+  hero.onerror = () => { if (!hero.src.includes('/sofa-tihua-real.png')) hero.src = fallback; };
   hero.src = target;
 }
 
-function renderCatalog() {
-  const grid = document.getElementById('catalogGrid');
-  if (!grid) return;
-  // 按 status + 分类顺序：先 在售 的 sofa / cabinet / bed / table
-  const order = ['sofa', 'cabinet', 'bed', 'table', 'other'];
-  const sorted = [...PRODUCTS].sort((a, b) => {
-    if ((a.status === '下架') !== (b.status === '下架')) return a.status === '下架' ? 1 : -1;
-    const ai = order.indexOf(a.category), bi = order.indexOf(b.category);
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-  });
-  grid.innerHTML = sorted.slice(0, 6).map(p => `
-    <a href="/product/${esc(p.id)}" class="product">
-      <div class="product-image">
-        <img src="${esc(p.image)}" alt="${esc(p.name)}" onerror="this.style.display='none';this.parentNode.style.background='#3a2818'">
+// 品类归一（与后端一致）：英文 category 优先，缺省按 id 前缀猜，再缺省 sofa
+function catOf(p) {
+  const IDS = ['sofa', 'cabinet', 'bed', 'table', 'other'];
+  const c = String(p.category || '').toLowerCase();
+  if (IDS.includes(c)) return c;
+  const pre = String(p.id || '').toLowerCase().split('-')[0];
+  return IDS.includes(pre) ? pre : 'sofa';
+}
+
+// 按品类渲染首页"板块"：只渲染启用且有在售商品的品类，不再写死 6 款
+function renderSections() {
+  const host = document.getElementById('catalogSections');
+  if (!host) return;
+  const enabled = CATEGORIES.filter(c => c.enabled !== false);
+  const blocks = enabled.map(cat => ({
+    cat,
+    items: PRODUCTS.filter(p => p.status !== '下架' && catOf(p) === cat.id),
+  })).filter(b => b.items.length > 0);
+  host.innerHTML = blocks.map(({ cat, items }) => `
+    <section class="catalog">
+      <div class="section-tag">— ${esc([cat.badge, '现货'].filter(Boolean).join(' · '))}</div>
+      <h2 class="section-title">${esc(cat.name)}</h2>
+      <div class="products">
+        ${items.map(p => `
+          <div class="product">
+            <a href="/product/${esc(p.id)}" class="product-link">
+              <div class="product-image">
+                <img src="${esc(p.image)}" alt="${esc(p.name)}" onerror="this.style.display='none';this.parentNode.style.background='#3a2818'">
+              </div>
+              <div class="product-meta"><h4>${esc(p.name)}</h4><span class="price">${esc(p.price)}</span></div>
+              ${(p.sellingPoints && p.sellingPoints[0]) ? `<div class="product-sell">${esc(p.sellingPoints[0])}</div>` : ''}
+            </a>
+            <button type="button" class="take-home-btn" data-id="${esc(p.id)}">把这张${esc(cat.noun || '家具')}搬回家试试</button>
+          </div>`).join('')}
       </div>
-      <div class="product-cat">${esc([p.badge, p.category].filter(Boolean).join(' · '))}</div>
-      <div class="product-meta"><h4>${esc(p.name)}</h4><span class="price">${esc(p.price)}</span></div>
-      ${(p.sellingPoints && p.sellingPoints[0]) ? `<div class="product-sell">${esc(p.sellingPoints[0])}</div>` : ''}
-    </a>
-  `).join('');
+    </section>`).join('');
+}
+
+// 试摆区品类 tab：全部 + 各启用品类
+function renderCategoryTabs() {
+  const host = document.getElementById('catTabs');
+  if (!host) return;
+  const enabled = CATEGORIES.filter(c => c.enabled !== false);
+  const tabs = [{ id: '', name: '全部' }, ...enabled.map(c => ({ id: c.id, name: c.name }))];
+  host.innerHTML = tabs.map(t => `
+    <button type="button" class="cat-tab${String(SELECTED_CATEGORY || '') === t.id ? ' active' : ''}" data-cat="${esc(t.id)}">${esc(t.name)}</button>`).join('');
 }
 
 function renderFurnGrid() {
   const grid = document.getElementById('furnGrid');
   const sel = document.getElementById('prodSelect');
-  sel.innerHTML = PRODUCTS.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
-  grid.innerHTML = PRODUCTS.map(p => `
+  const list = SELECTED_CATEGORY ? PRODUCTS.filter(p => catOf(p) === SELECTED_CATEGORY) : PRODUCTS;
+  sel.innerHTML = list.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+  grid.innerHTML = list.map(p => {
+    const cat = catById(catOf(p));
+    return `
     <div class="furn-card" data-id="${esc(p.id)}">
       <div class="furn-img"><img src="${esc(p.image)}" alt="${esc(p.name)}" onerror="this.style.display='none'"></div>
       <div class="furn-meta">
-        <div class="cat">${esc(p.category)}</div>
+        <div class="cat">${esc(cat.name || p.category || '')}</div>
         <h4>${esc(p.name)}</h4>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 // 家具卡片点击：事件委托读 dataset.id，避免把 id 拼进内联 JS 字符串
 document.getElementById('furnGrid').addEventListener('click', e => {
   const card = e.target.closest('.furn-card');
   if (card) selectProduct(card.dataset.id);
+});
+
+// 品类 tab 点击：切换 SELECTED_CATEGORY 并刷新试摆选择器 + 默认房间提示
+document.getElementById('catTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.cat-tab');
+  if (!tab) return;
+  SELECTED_CATEGORY = tab.dataset.cat || null;
+  if (SELECTED_PRODUCT) {
+    const p = PRODUCTS.find(x => x.id === SELECTED_PRODUCT);
+    if (p && SELECTED_CATEGORY && catOf(p) !== SELECTED_CATEGORY) selectProduct(null);
+  }
+  renderCategoryTabs();
+  renderFurnGrid();
+  updateDefaultRoomLabel();
+});
+
+// 板块卡片「搬回家试试」：带入品类 + 商品，平滑滚到试摆
+document.getElementById('catalogSections').addEventListener('click', e => {
+  const btn = e.target.closest('.take-home-btn');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const p = PRODUCTS.find(x => x.id === id);
+  if (!p) return;
+  SELECTED_CATEGORY = catOf(p);
+  selectProduct(id);
+  renderCategoryTabs();
+  renderFurnGrid();
+  updateDefaultRoomLabel();
+  document.getElementById('tryon').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 function selectProduct(id) {
@@ -717,14 +798,51 @@ document.getElementById('presetSelect').addEventListener('change', e=>{
   const ta = document.getElementById('customPrompt');
   ta.style.display = e.target.value === 'custom' ? 'block' : 'none';
 });
-// 加载默认客厅图（无上传也能体验）
+// 默认房间图（按品类）：无上传也能体验。sofa→客厅图，bed→卧室图
 const DEFAULT_ROOM_URL = '/images/default-room.jpg';
+// 默认房间图是否真的存在（探测一次缓存，见决策 4 兜底）
+const roomImageCache = new Map();
+function catById(id) { return CATEGORIES.find(c => c.id === id) || {}; }
+function currentDefaultRoom() {
+  if (SELECTED_CATEGORY) {
+    const cat = catById(SELECTED_CATEGORY);
+    if (cat.defaultRoom) return cat.defaultRoom;
+  }
+  return DEFAULT_ROOM_URL;
+}
+function updateDefaultRoomLabel() {
+  const cat = SELECTED_CATEGORY ? catById(SELECTED_CATEGORY) : null;
+  const room = cat && cat.room ? cat.room : '房间';
+  const btn = document.getElementById('useDefaultBtn');
+  const lbl = document.getElementById('defaultBtnLabel');
+  if (!btn || !lbl) return;
+  // 决策 4 兜底：品类配了 defaultRoom 但图不在（如 default-room-bed.jpg 未到位）→
+  // 禁用"用默认图体验"，改成引导上传自家照片；上传主路径完全不受影响
+  const want = cat && cat.defaultRoom ? cat.defaultRoom : '';
+  const apply = (ok, text) => {
+    btn.disabled = !ok;
+    btn.classList.toggle('unavailable', !ok);
+    lbl.textContent = text;
+  };
+  if (!want) return apply(true, `🪄 没有照片？用默认${room}图体验一下`);
+  const labelFor = ok => ok
+    ? `🪄 没有照片？用默认${room}图体验一下`
+    : `📷 请上传您家的${room}照片（暂无默认${room}图）`;
+  const hit = roomImageCache.get(want);
+  if (hit !== undefined) return apply(hit, labelFor(hit));
+  apply(false, '正在检查默认图…');
+  const probe = new Image();
+  probe.onload = () => { roomImageCache.set(want, true); apply(true, labelFor(true)); };
+  probe.onerror = () => { roomImageCache.set(want, false); apply(false, labelFor(false)); };
+  probe.src = want;
+}
 document.getElementById('useDefaultBtn').addEventListener('click', () => {
   SELECTED_ROOM_FILE = null;
-  SELECTED_ROOM_URL = DEFAULT_ROOM_URL;
-  document.getElementById('roomPreview').src = DEFAULT_ROOM_URL;
+  SELECTED_ROOM_URL = currentDefaultRoom();
+  document.getElementById('roomPreview').src = SELECTED_ROOM_URL;
   document.getElementById('roomPreview').style.display = 'block';
-  document.getElementById('roomField').querySelector('.label').textContent = '✓ 已选默认客厅图';
+  const cat = SELECTED_CATEGORY ? catById(SELECTED_CATEGORY) : null;
+  document.getElementById('roomField').querySelector('.label').textContent = `✓ 已选默认${cat && cat.room ? cat.room : '房间'}图`;
   document.getElementById('useDefaultBtn').classList.add('active');
   document.querySelectorAll('.history-item').forEach(h=>h.classList.remove('selected'));
 });
@@ -738,9 +856,16 @@ document.querySelector('input[name="room"]').addEventListener('change', () => {
 document.getElementById('tryonForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (!SELECTED_PRODUCT) { alert('请先选一款家具'); return; }
-  // 没选图也支持用默认图
+  // 没选图也支持用默认图；但默认图本身缺失时（决策 4）不能硬发，引导顾客先上传自家照片
   if (!SELECTED_ROOM_FILE && !SELECTED_ROOM_URL) {
-    SELECTED_ROOM_URL = DEFAULT_ROOM_URL;
+    const dr = currentDefaultRoom();
+    if (roomImageCache.get(dr) === false) {
+      const room = (SELECTED_CATEGORY && catById(SELECTED_CATEGORY).room) || '房间';
+      alert(`请您先上传一张家里的${room}照片（暂时没有默认${room}图）`);
+      document.getElementById('roomField').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    SELECTED_ROOM_URL = dr;
   }
 
   const phone = document.querySelector('input[name="phone"]').value.trim();
@@ -786,7 +911,7 @@ document.getElementById('tryonForm').addEventListener('submit', async e => {
     <div class="state">
       <div class="spinner"></div>
       <div class="state-title">正在合成...</div>
-      <div class="state-time">AI 把沙发"摆"进你客厅 · 约 ${ETA_SECONDS} 秒</div>
+      <div class="state-time">AI 把家具"摆"进你家 · 约 ${ETA_SECONDS} 秒</div>
     </div>`;
 
   const bigTimer = document.getElementById('bigTimer');
@@ -807,6 +932,15 @@ document.getElementById('tryonForm').addEventListener('submit', async e => {
       // 登录用户走原路径
       if (SELECTED_ROOM_FILE) {
         fd.append('room', SELECTED_ROOM_FILE);
+        // ai-custom 需 sofa 图：补上当前选中商品主图（此前登录上传分支漏传导致必 400）
+        const prod = PRODUCTS.find(p => p.id === SELECTED_PRODUCT);
+        if (prod && prod.image) {
+          try {
+            const ir = await fetch(prod.image);
+            const ib = await ir.blob();
+            fd.append('sofa', new File([ib], 'product.jpg', { type: ib.type || 'image/jpeg' }));
+          } catch (e) { /* 交给后端明确报错 */ }
+        }
         resp = await fetch('/api/tryon/ai-custom', { method: 'POST', body: fd });
       } else {
         resp = await fetch('/api/tryon/ai-history', {

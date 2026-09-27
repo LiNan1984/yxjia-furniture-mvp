@@ -304,7 +304,8 @@ async function loadProduct(productId){
   }
   product=r.data.product;
   store=r.data.store||{};
-  document.getElementById('p-img').src=product.image||'/images/sofa-zhongshi.jpg';
+  // sofa-zhongshi.jpg 已随 imgfix 删除，兜底改用未删图（X2 残留：无 sofa-zhongshi 引用）
+  document.getElementById('p-img').src=product.image||'/images/sofa-tihua-real.png';
   document.getElementById('p-name').textContent=product.name||'(无名)';
   document.getElementById('p-price').textContent=product.price||'面议';
   document.getElementById('p-sub').textContent=[product.subtitle,product.size].filter(Boolean).join(' · ');
@@ -319,7 +320,7 @@ async function showPicker(){
   document.getElementById('picker').style.display='block';
   document.getElementById('pick-list').innerHTML=products.map(p=>`
     <a class="pick-item" href="/admin/scene?productId=${encodeURIComponent(p.id)}">
-      <img src="${esc(p.image||'/images/sofa-zhongshi.jpg')}" alt="" onerror="this.style.visibility='hidden'">
+      <img src="${esc(p.image||'/images/sofa-tihua-real.png')}" alt="" onerror="this.style.visibility='hidden'">
       <div>
         <div class="n">${esc(p.name||'(无名)')}</div>
         <div>${esc(p.price||'')} ${p.status==='下架'?'<span style="color:#d94f3e">（已下架）</span>':''}</div>

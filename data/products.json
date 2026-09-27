@@ -9,32 +9,6 @@
   },
   "products": [
     {
-      "id": "sofa-1",
-      "name": "新中式三人沙发",
-      "subtitle": "雾霾蓝亚麻+真皮 · 金色竹节",
-      "price": "¥3xxx 起",
-      "size": "3.4 米大尺寸",
-      "stock": "现货",
-      "badge": "主推",
-      "emoji": "🛋️",
-      "color": "#3a2818",
-      "description": "新中式轻奢三人沙发。雾霾蓝亚麻布料 + 藏蓝真皮拼接 + 金色竹节金属装饰条。3.4 米大尺寸气场足，适合中大户型客厅。时光不负此行。",
-      "highlights": [
-        "雾霾蓝亚麻布料（粗犷纹理）",
-        "藏蓝真皮拼接（细腻光泽）",
-        "金色竹节金属装饰",
-        "3.4 米大尺寸气场",
-        "现货 · 当天发货"
-      ],
-      "image": "/uploads/products/sofa-1-mua2qoq7.jpg",
-      "status": "在售",
-      "images": [
-        "/uploads/products/sofa-1-msdc33ob.png",
-        "/uploads/products/sofa-1-mua2qoq7.jpg"
-      ],
-      "sceneImages": []
-    },
-    {
       "id": "sofa-2",
       "name": "轻奢 L 形转角沙发",
       "subtitle": "雾霾蓝天鹅绒 · 大户型贵妃位",
@@ -52,9 +26,10 @@
         "宽大扶手 + 厚实坐垫",
         "现货"
       ],
-      "image": "/images/sofa-corner.jpg",
+      "image": "/images/sofa-corner-real.png",
       "status": "在售",
-      "sceneImages": []
+      "sceneImages": [],
+      "category": "sofa"
     },
     {
       "id": "sofa-3",
@@ -74,9 +49,10 @@
         "圆润饱满造型",
         "现货"
       ],
-      "image": "/images/sofa-tihua.jpg",
+      "image": "/images/sofa-tihua-real.png",
       "status": "在售",
-      "sceneImages": []
+      "sceneImages": [],
+      "category": "sofa"
     },
     {
       "id": "cabinet-1",
@@ -98,7 +74,8 @@
       ],
       "image": "/images/cabinet-tv.jpg",
       "status": "在售",
-      "sceneImages": []
+      "sceneImages": [],
+      "category": "cabinet"
     },
     {
       "id": "bed-1",
@@ -120,29 +97,8 @@
       ],
       "image": "/images/bed-double.jpg",
       "status": "在售",
-      "sceneImages": []
-    },
-    {
-      "id": "table-1",
-      "name": "深色实木餐桌椅",
-      "subtitle": "客餐厅一体化 · 6 人位",
-      "price": "¥2xxx 起",
-      "size": "1.6 米 × 0.85 米",
-      "stock": "现货",
-      "badge": "",
-      "emoji": "🍽️",
-      "color": "#3a2818",
-      "description": "深色实木餐桌椅（6 人位：1 桌 + 6 椅）。圆形餐桌 + 米色软包餐椅。客餐厅一体化首选。",
-      "highlights": [
-        "深色实木台面",
-        "米色软包餐椅",
-        "6 人位",
-        "圆形餐桌",
-        "现货"
-      ],
-      "image": "/images/cabinet-wardrobe.jpg",
-      "status": "在售",
-      "sceneImages": []
+      "sceneImages": [],
+      "category": "bed"
     },
     {
       "id": "p-msbx2zg6-6zv",
@@ -160,7 +116,8 @@
       ],
       "image": "/uploads/products/48db3d44429607ca.png",
       "status": "在售",
-      "sceneImages": []
+      "sceneImages": [],
+      "category": "sofa"
     },
     {
       "id": "p-msbx4qb0-s2i",
@@ -177,7 +134,8 @@
         "科技布高弹海绵填充"
       ],
       "image": "/uploads/products/6643b82f2118379b.png",
-      "status": "在售"
+      "status": "在售",
+      "category": "sofa"
     },
     {
       "id": "p-msbx5rxs-2xl",
@@ -194,109 +152,629 @@
         "竹节外架皮麻结合"
       ],
       "image": "/uploads/products/4f6500a04ef0e16a.png",
-      "status": "在售"
+      "status": "在售",
+      "category": "sofa"
     },
     {
-      "id": "p-mu6yfeg0-1pp",
-      "name": "测试新沙发 pytest",
-      "subtitle": "沙发",
-      "price": "¥2xxx 起",
-      "size": "2.0 米",
+      "id": "p-mugozquj-wv0",
+      "name": "现代简约软包双人床",
+      "subtitle": "软包床头针织床垫",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "约2.02米宽×2.14米深",
       "stock": "现货",
-      "badge": "",
-      "emoji": "📦",
-      "color": "#5a4030",
-      "description": "测试新沙发 pytest",
-      "highlights": [
-        "沙发",
-        "上传时间：2026/9/18 20:48:22"
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#EDE6DC",
+      "description": "这款床采用米色软包床头，触感柔软舒适。床垫选用针织面料，透气性佳。整体设计简约时尚，适合现代家居风格。",
+      "sellingPoints": [
+        "床头软包拉扣设计，倚靠舒适",
+        "床垫针织面料，透气亲肤",
+        "米白配色简约，适配多风格"
       ],
-      "image": "/uploads/products/c5572413c827b667.jpg"
+      "suitableFor": "适合现代简约风格的主卧，追求舒适睡眠体验的家庭",
+      "placementTip": "建议靠墙摆放，两侧留出60cm以上通行空间，搭配同色床头柜效果更佳",
+      "highlights": [
+        "床头软包拉扣设计，倚靠舒适",
+        "床垫针织面料，透气亲肤",
+        "米白配色简约，适配多风格"
+      ],
+      "image": "/uploads/products/06f5780ce02d0dce.jpg",
+      "status": "下架"
     },
     {
-      "id": "p-mu6yfie3-ura",
-      "name": "测试新沙发 pytest",
-      "subtitle": "沙发",
-      "price": "¥2xxx 起",
-      "size": "2.0 米",
+      "id": "p-mugp0cif-me9",
+      "name": "大象灰杏色生态真皮软床",
+      "subtitle": "生态真皮软包床",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "可到店量尺",
       "stock": "现货",
-      "badge": "",
-      "emoji": "📦",
-      "color": "#5a4030",
-      "description": "测试新沙发 pytest",
-      "highlights": [
-        "沙发",
-        "上传时间：2026/9/18 20:48:27"
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#E8DFD0",
+      "description": "这款大象灰杏色软床，采用生态真皮软包床头，倚靠起来特别舒服。简约方格绗缝工艺搭配金属床脚，显得大气又时尚。摆在卧室里瞬间提升空间质感，是打造温馨家园的好选择。",
+      "sellingPoints": [
+        "床头软包真皮，方格绗缝纹理，质感柔软",
+        "实心金属床脚，高挑离地，稳固支撑",
+        "简约线条设计，浅色系软包，百搭耐看"
       ],
-      "image": "/uploads/products/d12336be6d1b6cca.jpg"
+      "suitableFor": "适合现代简约风卧室，年轻夫妇或追求品质生活的家庭使用。",
+      "placementTip": "建议靠窗或侧墙摆放，避免床头正对房门。搭配简约床头柜与吊灯，营造温馨睡眠氛围。",
+      "highlights": [
+        "床头软包真皮，方格绗缝纹理，质感柔软",
+        "实心金属床脚，高挑离地，稳固支撑",
+        "简约线条设计，浅色系软包，百搭耐看"
+      ],
+      "image": "/uploads/products/8269af5f7bca86ee.jpg",
+      "status": "下架"
     },
     {
-      "id": "p-mu6yfwgd-iaz",
-      "name": "测试新沙发 pytest",
-      "subtitle": "沙发",
-      "price": "¥2xxx 起",
-      "size": "2.0 米",
+      "id": "p-mugp0myt-wdl",
+      "name": "MT51#现代软包真皮床",
+      "subtitle": "生态真皮防刮耐磨",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "约2.2米宽×1.9米深",
       "stock": "现货",
-      "badge": "",
-      "emoji": "📦",
-      "color": "#5a4030",
-      "description": "测试新沙发 pytest",
-      "highlights": [
-        "沙发",
-        "上传时间：2026/9/18 20:48:46"
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#E5E1D8",
+      "description": "这款真皮软包床采用生态真皮材质，表面防刮耐磨，日常清洁方便。内置3公分松木铺板，结构稳固耐用。轻奢软包床头设计，为您提供舒适靠坐体验，是打造现代简约卧室的理想选择。",
+      "sellingPoints": [
+        "生态真皮床头，防刮耐磨易打理",
+        "3公分松木铺板，坚固耐用承重强",
+        "软包拉扣设计，舒适靠背支撑"
       ],
-      "image": "/uploads/products/ec7602420bccb593.jpg"
+      "suitableFor": "适合现代简约风格卧室，追求品质生活的家庭使用",
+      "placementTip": "建议靠窗或靠墙摆放，搭配简约床头柜和柔和吊灯，营造温馨睡眠氛围",
+      "highlights": [
+        "生态真皮床头，防刮耐磨易打理",
+        "3公分松木铺板，坚固耐用承重强",
+        "软包拉扣设计，舒适靠背支撑"
+      ],
+      "image": "/uploads/products/15639d12a5b7df47.jpg",
+      "status": "下架"
     },
     {
-      "id": "p-mu6ygc1l-n7o",
-      "name": "测试新沙发 pytest",
-      "subtitle": "沙发",
-      "price": "¥2xxx 起",
-      "size": "2.0 米",
+      "id": "p-mugp0xix-2rk",
+      "name": "轻奢软包双人床",
+      "subtitle": "软包床头+透气床垫",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "可到店量尺",
       "stock": "现货",
-      "badge": "",
-      "emoji": "📦",
-      "color": "#5a4030",
-      "description": "测试新沙发 pytest",
-      "highlights": [
-        "沙发",
-        "上传时间：2026/9/18 20:49:06"
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#8FA3B0",
+      "description": "这款床的床头做了饱满的软包和金属扣装饰，靠着看书玩手机特别舒服。床垫是全新的还包着保护膜，干净卫生。床边也做了软包处理，晚上起夜不怕磕碰，很贴心。",
+      "sellingPoints": [
+        "床头软包饱满，带金属扣装饰",
+        "床垫带塑料膜防尘保护",
+        "床边软包设计防磕碰"
       ],
-      "image": "/uploads/products/8fa1d6480684cc1d.jpg"
+      "suitableFor": "适合追求舒适靠背的年轻家庭，现代简约风格卧室皆宜",
+      "placementTip": "建议靠墙摆放节省空间，两侧可配床头柜，适合主卧或客房使用",
+      "highlights": [
+        "床头软包饱满，带金属扣装饰",
+        "床垫带塑料膜防尘保护",
+        "床边软包设计防磕碰"
+      ],
+      "image": "/uploads/products/a8fa6d501bf4c487.jpg",
+      "status": "下架"
     },
     {
-      "id": "p-mu9w2b34-hto",
-      "name": "测试新沙发 pytest",
-      "subtitle": "沙发",
-      "price": "¥2xxx 起",
-      "size": "2.0 米",
+      "id": "p-mugp1alk-k4m",
+      "name": "奶油白杏色真皮软床",
+      "subtitle": "生态真皮软包床头",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "约1.9米宽×2.6米长",
       "stock": "现货",
-      "badge": "",
-      "emoji": "📦",
-      "color": "#5a4030",
-      "description": "测试新沙发 pytest",
-      "highlights": [
-        "沙发",
-        "上传时间：2026/9/20 22:05:31"
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#F2E5D5",
+      "description": "这款软床采用优质生态真皮打造，奶油白杏色调温柔雅致。床头软包设计倚靠舒适，搭配同色系双抽床头柜，适合打造简约温馨的现代睡眠空间。",
+      "sellingPoints": [
+        "生态真皮面料，奶油白杏色",
+        "拉线软包床头，倚靠舒适",
+        "配双抽床头柜，收纳便捷"
       ],
-      "image": "/uploads/products/9f6423e57c732ff6.jpg"
+      "suitableFor": "适合追求现代简约风格的家庭，主卧使用更佳，奶油风装修适配度高",
+      "placementTip": "建议靠窗摆放利用采光，或靠墙放置节省空间；搭配同色系床头柜，与浅色系墙面协调统一",
+      "highlights": [
+        "生态真皮面料，奶油白杏色",
+        "拉线软包床头，倚靠舒适",
+        "配双抽床头柜，收纳便捷"
+      ],
+      "image": "/uploads/products/e017bba5259387b9.jpg",
+      "status": "下架"
     },
     {
-      "id": "p-mu9w4rp6-u48",
-      "name": "测试新沙发 pytest",
-      "subtitle": "沙发",
-      "price": "¥2xxx 起",
-      "size": "2.0 米",
+      "id": "p-mugp1w3z-1kp",
+      "name": "现代简约软包双人床",
+      "subtitle": "米色柔肤软包床头",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "约1.9米宽×2.3米长",
       "stock": "现货",
-      "badge": "",
-      "emoji": "📦",
-      "color": "#5a4030",
-      "description": "测试新沙发 pytest",
-      "highlights": [
-        "沙发",
-        "上传时间：2026/9/20 22:07:26"
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#E5DCD5",
+      "description": "这款软包床采用米色柔肤面料，床头饱满填充倚靠舒适。高脚设计方便扫地机器人进入，日常清洁无死角。线条简洁流畅，搭配同款床头柜，轻松打造温馨时尚的卧室空间。",
+      "sellingPoints": [
+        "米色软包床头，触感细腻柔软",
+        "高脚离地设计，扫地机可自由进出",
+        "简约分体靠背，倚靠舒适放松"
       ],
-      "image": "/uploads/products/70e5bb2472373fbe.jpg"
+      "suitableFor": "适合现代简约风卧室，年轻夫妻或单身贵族，追求温馨舒适睡眠环境。",
+      "placementTip": "建议床体靠墙摆放，左右各留80cm以上过道，可搭配同色系床头柜。",
+      "highlights": [
+        "米色软包床头，触感细腻柔软",
+        "高脚离地设计，扫地机可自由进出",
+        "简约分体靠背，倚靠舒适放松"
+      ],
+      "image": "/uploads/products/e9a74586a1f476e6.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp25o0-lwk",
+      "name": "焦糖色软包真皮床",
+      "subtitle": "生态真皮软包床头",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "约2.16米宽×1.88米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#A0785A",
+      "description": "这款现代软床采用生态真皮打造焦糖色软包床头，触感细腻温馨。高靠背设计提供舒适倚靠支撑，搭配米白色床品柔和雅致。高脚床架设计方便扫地机器人进出，打造舒适整洁的休憩空间。",
+      "sellingPoints": [
+        "生态真皮床头，柔软亲肤透气",
+        "高靠背软包设计，倚靠舒适",
+        "黑色高脚床架，扫地机可自由进出"
+      ],
+      "suitableFor": "适合现代简约风格主卧，年轻夫妻或追求品质的单身贵族",
+      "placementTip": "建议靠墙摆放，利用左侧飘窗空间，搭配同色床头柜更协调",
+      "highlights": [
+        "生态真皮床头，柔软亲肤透气",
+        "高靠背软包设计，倚靠舒适",
+        "黑色高脚床架，扫地机可自由进出"
+      ],
+      "image": "/uploads/products/cba8b15bb7ff79da.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp2jab-vvt",
+      "name": "现代简约生态真皮软包床",
+      "subtitle": "生态真皮软包",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "约1.8米宽×2.25米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#F5F5F0",
+      "description": "这款真皮软包床采用生态真皮材质，防刮耐磨易打理，床头软包设计倚靠舒适。搭配3公分松木排骨架，稳固承重，是现代简约风卧室的理想选择。",
+      "sellingPoints": [
+        "生态真皮面料，防刮耐磨",
+        "3公分松木铺板，稳固耐用",
+        "软包床头设计，倚靠舒适"
+      ],
+      "suitableFor": "适合喜欢奶油风、现代简约装修的年轻家庭，主卧或次卧使用。",
+      "placementTip": "建议床尾距离墙面留出80cm通道，两侧各留60cm活动空间，搭配同色系床头柜更协调。",
+      "highlights": [
+        "生态真皮面料，防刮耐磨",
+        "3公分松木铺板，稳固耐用",
+        "软包床头设计，倚靠舒适"
+      ],
+      "image": "/uploads/products/62a6363a9b2c3464.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp2wrk-e0g",
+      "name": "T56#生态真皮软床",
+      "subtitle": "生态真皮软包材质",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "约2.2米宽×1.9米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#6D4C41",
+      "description": "这款软床床头采用生态真皮软包，触感细腻亲肤。实心拉扣设计让床头立体饱满，倚靠舒适。黑色金属床脚设计，视觉轻盈稳固，适配现代简约卧室风格。",
+      "sellingPoints": [
+        "床头生态真皮软包",
+        "实心拉扣设计立体饱满",
+        "黑色金属细腿支撑"
+      ],
+      "suitableFor": "适合注重质感的中小户型卧室，轻奢简约风装修家庭使用。",
+      "placementTip": "建议床头紧贴墙面放置，两侧留出过道，避免阳光直晒皮质表面。",
+      "highlights": [
+        "床头生态真皮软包",
+        "实心拉扣设计立体饱满",
+        "黑色金属细腿支撑"
+      ],
+      "image": "/uploads/products/7ec9d0a2fa56697f.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp371a-psw",
+      "name": "意式轻奢软包双人床",
+      "subtitle": "科技布软包床头",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "约1.96米宽×2.18米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#3E2723",
+      "description": "这是一张意式轻奢风格的软包双人床，深色床头板质感沉稳，搭配饱满床垫，为您提供舒适的睡眠支撑。床体线条简洁流畅，高脚设计方便打扫，适合搭配现代简约装修风格的主卧或客房。",
+      "sellingPoints": [
+        "床头软包拉扣设计，触感柔软",
+        "床架高脚设计，防潮易打扫",
+        "床垫厚度饱满，双人尺寸宽敞"
+      ],
+      "suitableFor": "适合新婚夫妇或年轻家庭主卧使用，适配现代简约、意式轻奢装修风格",
+      "placementTip": "建议靠墙放置，两侧各留80厘米以上活动空间，避免阳光直射床头，定期擦拭保养",
+      "highlights": [
+        "床头软包拉扣设计，触感柔软",
+        "床架高脚设计，防潮易打扫",
+        "床垫厚度饱满，双人尺寸宽敞"
+      ],
+      "image": "/uploads/products/9a0e6778d7ffba08.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp3j4b-3y6",
+      "name": "现代简约软包双人床",
+      "subtitle": "软包皮艺床头",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "约1.95米宽×2.23米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#E8DFD5",
+      "description": "这款床采用软包床头设计，触感柔软能缓解背部压力。床垫厚度适中，看起来支撑性良好。整体简约大方，适合现代家居风格。",
+      "sellingPoints": [
+        "软包床头靠背，触感柔软",
+        "床架带实木支撑脚，稳固承重",
+        "搭配同色系床头柜，风格统一"
+      ],
+      "suitableFor": "适合追求舒适睡眠的年轻家庭，适配现代简约卧室装修",
+      "placementTip": "建议靠墙摆放，两侧留出至少60cm过道方便上下床。可选购配套床头柜统一风格。",
+      "highlights": [
+        "软包床头靠背，触感柔软",
+        "床架带实木支撑脚，稳固承重",
+        "搭配同色系床头柜，风格统一"
+      ],
+      "image": "/uploads/products/a4af6461a443a19d.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp3tmq-18s",
+      "name": "现代简约软包双人床",
+      "subtitle": "科技布软包床架",
+      "category": "bed",
+      "price": "到店询价",
+      "size": "可到店量尺",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛏️",
+      "color": "#F0EBE5",
+      "description": "这款双人床采用浅色软包床头板，分区线条设计提供舒适倚靠。床架为软包材质搭配深色床脚，整体简约现代。床垫可见独立包装标识，支持卷包发货，方便入户安装。",
+      "sellingPoints": [
+        "软包床头板带分区，靠背舒适",
+        "床垫带独立标签，品质可追溯",
+        "深色金属床脚，稳固承托"
+      ],
+      "suitableFor": "适合现代简约卧室，追求舒适靠背体验的家庭",
+      "placementTip": "建议床头靠墙摆放，两侧可配床头柜，避免潮湿墙面接触床体",
+      "highlights": [
+        "软包床头板带分区，靠背舒适",
+        "床垫带独立标签，品质可追溯",
+        "深色金属床脚，稳固承托"
+      ],
+      "image": "/uploads/products/da21e120d0858159.png",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp45sj-5xu",
+      "name": "现代简约全拆洗L型沙发",
+      "subtitle": "全拆洗布艺面料",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约4.1米宽×约1米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#B5BAC3",
+      "description": "这款浅灰色L型布艺沙发采用全拆洗设计，清洁打理很省心。总长4.1米带独立脚踏，且不分方向可左右调换，适合现代客厅使用。",
+      "sellingPoints": [
+        "全拆洗设计清洁方便",
+        "不分方向左右通用",
+        "带独立脚踏舒适实用"
+      ],
+      "suitableFor": "适合注重清洁打理的大客厅家庭，喜欢现代简约风格",
+      "placementTip": "靠墙摆放节省空间，脚踏可左右调换，根据客厅布局灵活调整",
+      "highlights": [
+        "全拆洗设计清洁方便",
+        "不分方向左右通用",
+        "带独立脚踏舒适实用"
+      ],
+      "image": "/uploads/products/f708313a4209c35a.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp4oxb-7gg",
+      "name": "奶油风生态皮三人沙发",
+      "subtitle": "生态皮面料 触感细腻",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约3米宽×约0.96米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#EFEBE3",
+      "description": "这款奶油色生态皮沙发，外观简约温馨，适合现代简约风格客厅。分区式靠背设计贴合身体曲线，久坐舒适。生态皮面料触感细腻，日常清洁打理轻松。",
+      "sellingPoints": [
+        "生态皮面料，耐脏耐磨易打理",
+        "分区式坐垫设计，支撑力均匀",
+        "短腿设计，扫地机器人可轻松进入"
+      ],
+      "suitableFor": "适合喜欢奶油风的小户型家庭，现代简约装修风格，日常休闲使用。",
+      "placementTip": "建议靠墙摆放，前方留出1米通道。搭配圆形地毯，与茶几保持40-50cm距离。",
+      "highlights": [
+        "生态皮面料，耐脏耐磨易打理",
+        "分区式坐垫设计，支撑力均匀",
+        "短腿设计，扫地机器人可轻松进入"
+      ],
+      "image": "/uploads/products/864458f22589859c.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp4yi3-hon",
+      "name": "雪尼尔布艺三人沙发",
+      "subtitle": "雪尼尔亲肤布艺",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约2.87米宽×约0.95米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#E8E4E0",
+      "description": "这款沙发采用雪尼尔面料，触感柔软舒适。三人位大空间设计，搭配几何图案抱枕，简约时尚。黑色金属腿稳固支撑，轻松融入现代家居环境。",
+      "sellingPoints": [
+        "雪尼尔面料，触感柔软亲肤",
+        "三人位大空间，配几何图案抱枕",
+        "黑色金属腿架，稳固耐用"
+      ],
+      "suitableFor": "适合现代简约风格客厅，中小户型家庭日常使用",
+      "placementTip": "建议靠墙或靠窗摆放，搭配低矮茶几，留出充足通行空间",
+      "highlights": [
+        "雪尼尔面料，触感柔软亲肤",
+        "三人位大空间，配几何图案抱枕",
+        "黑色金属腿架，稳固耐用"
+      ],
+      "image": "/uploads/products/4f9dbae1c1f73d23.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp5h4z-dje",
+      "name": "539#生态皮三人沙发",
+      "subtitle": "生态皮面料 舒适座包",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约3.1米宽×约0.98米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#8B5A2B",
+      "description": "这款意式轻奢沙发采用生态皮面料，触感柔软易打理。蛇形弹簧底座搭配高密度海绵，坐感舒适不易变形。总长3.1米，配合同系列脚踏，适合大空间客厅。",
+      "sellingPoints": [
+        "生态皮面料，触感细腻亲肤",
+        "蛇形弹簧底座，承托性强",
+        "海绵座包，久坐不塌"
+      ],
+      "suitableFor": "适合追求品质的都市家庭，现代简约或意式轻奢风格，大客厅使用更佳",
+      "placementTip": "建议靠大理石背景墙摆放，搭配圆形地毯，脚踏置于侧边，留出活动空间",
+      "highlights": [
+        "生态皮面料，触感细腻亲肤",
+        "蛇形弹簧底座，承托性强",
+        "海绵座包，久坐不塌"
+      ],
+      "image": "/uploads/products/229ff556c3b2a185.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp5qzf-1r5",
+      "name": "意式简约生态皮沙发",
+      "subtitle": "生态皮面料 触感亲肤",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约3米宽×0.95米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#EAE5DC",
+      "description": "这款浅灰色生态皮沙发，线条圆润流畅，自带简约高级感。宽大的坐深和饱满的填充，让躺坐都特别放松。搭配同色系脚凳，轻松打造温馨惬意的客厅角落。",
+      "sellingPoints": [
+        "生态皮面料，柔软耐磨易打理",
+        "分体式组合设计，适配不同客厅",
+        "饱满海绵填充，坐感Q弹支撑足"
+      ],
+      "suitableFor": "适合小户型公寓或现代简约风客厅，追求舒适日常的家庭使用。",
+      "placementTip": "建议靠墙或居中摆放，搭配圆形茶几，两侧预留过道方便通行。",
+      "highlights": [
+        "生态皮面料，柔软耐磨易打理",
+        "分体式组合设计，适配不同客厅",
+        "饱满海绵填充，坐感Q弹支撑足"
+      ],
+      "image": "/uploads/products/65b786b5aba63e11.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp6403-wgr",
+      "name": "现代简约布艺三人沙发",
+      "subtitle": "亲肤科技布艺面料",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约3.2米宽×0.9米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#B5B6B8",
+      "description": "这款布艺沙发采用亲肤科技布面料，触感柔软且透气性好。饱满的高回弹填充设计，久坐不塌陷，倚靠更舒适。简约现代的外形设计，轻松融入各类家居风格。",
+      "sellingPoints": [
+        "亲肤透气布艺面料，纹理清晰可见",
+        "高回弹填充靠包，饱满柔软倚靠",
+        "宽大实木扶手设计，稳固承重"
+      ],
+      "suitableFor": "适合现代简约装修风格的家庭，中小户型客厅使用，提升居家格调。",
+      "placementTip": "建议靠墙摆放，预留充足前方活动空间；搭配圆形茶几与脚踏，营造温馨会客氛围。",
+      "highlights": [
+        "亲肤透气布艺面料，纹理清晰可见",
+        "高回弹填充靠包，饱满柔软倚靠",
+        "宽大实木扶手设计，稳固承重"
+      ],
+      "image": "/uploads/products/52ee4a5cbdd67c02.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp6lws-hsn",
+      "name": "2563#全拆洗麻布沙发",
+      "subtitle": "全拆洗麻布面料",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约3.6米宽×约1.0米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#8C9A9F",
+      "description": "这款沙发采用可全拆洗的麻布面料，清洁打理非常省心。L型组合设计总长3.6米，能轻松容纳多人同时就坐。浅灰色调搭配橙色抱枕点缀，现代简约风格适合各类客厅装修。",
+      "sellingPoints": [
+        "沙发套可全拆洗，清洁打理方便",
+        "选用麻布材质，透气亲肤舒适",
+        "L型组合设计，多人可坐"
+      ],
+      "suitableFor": "适合注重清洁便利、喜欢布艺质感的家庭，尤其适合开间较大的客厅",
+      "placementTip": "建议靠墙摆放，贵妃位可向客厅中心延伸，前方留出活动空间",
+      "highlights": [
+        "沙发套可全拆洗，清洁打理方便",
+        "选用麻布材质，透气亲肤舒适",
+        "L型组合设计，多人可坐"
+      ],
+      "image": "/uploads/products/2fa6abb21918caff.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp6xru-k9j",
+      "name": "灰色麻布L型沙发",
+      "subtitle": "麻布面料 可拆洗",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约3.6米宽×1.1米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#C0C0C0",
+      "description": "这是一款3.6米长的L型布艺沙发，灰色调简约百搭。采用麻布面料，透气性好且可拆洗打理。大坐深设计配高回弹海绵，久坐不塌陷。",
+      "sellingPoints": [
+        "3.6米L型大布局",
+        "麻布面料透气亲肤",
+        "可拆洗设计易打理"
+      ],
+      "suitableFor": "适合中小户型家庭，适合追剧休闲的客厅使用",
+      "placementTip": "建议靠墙摆放，贵妃榻可作为临时床铺，预留过道空间",
+      "highlights": [
+        "3.6米L型大布局",
+        "麻布面料透气亲肤",
+        "可拆洗设计易打理"
+      ],
+      "image": "/uploads/products/8469c3775f8c9bcc.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp7m0e-f3p",
+      "name": "意式极简生态皮沙发",
+      "subtitle": "生态皮拼接莱布",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "可到店量尺",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#F0EBE3",
+      "description": "这款浅米色意式沙发线条简洁利落，搭配橙色抱枕点缀，清新又温馨。生态皮面料触感细腻，日常打理轻松，是打造现代简约舒适客厅的理想选择。",
+      "sellingPoints": [
+        "生态皮面料，亲肤透气易打理",
+        "饱满分段靠包，倚靠舒适放松",
+        "高脚离地设计，扫地机可自由进入"
+      ],
+      "suitableFor": "适合现代简约客厅、大平层或观景房使用，提升空间格调",
+      "placementTip": "建议靠窗或整墙摆放，搭配同系列脚凳，两侧预留1米左右过道方便通行",
+      "highlights": [
+        "生态皮面料，亲肤透气易打理",
+        "饱满分段靠包，倚靠舒适放松",
+        "高脚离地设计，扫地机可自由进入"
+      ],
+      "image": "/uploads/products/d020d12a8ba9ee2c.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp80q9-9g1",
+      "name": "冰花绒L型转角沙发",
+      "subtitle": "冰花绒面料高密度海绵",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约3.3米长×约1米深（可到店量尺）",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#2C2C2C",
+      "description": "这款沙发采用冰花绒面料，触感柔软亲肤。内置高密度粗孔海绵和蛇形弹簧底座，坐感舒适且回弹性好。总长3.3米，适合大户型家庭客厅使用。",
+      "sellingPoints": [
+        "冰花绒面料，触感柔软亲肤",
+        "高密度粗孔海绵，久坐不塌陷",
+        "蛇形弹簧底座，承重稳固耐用"
+      ],
+      "suitableFor": "适合大户型客厅，喜欢躺卧放松的家庭",
+      "placementTip": "建议靠墙摆放，L型贵妃榻朝向客厅中心，前方留出约80厘米通道",
+      "highlights": [
+        "冰花绒面料，触感柔软亲肤",
+        "高密度粗孔海绵，久坐不塌陷",
+        "蛇形弹簧底座，承重稳固耐用"
+      ],
+      "image": "/uploads/products/992bad6a4a60e2fb.jpg",
+      "status": "下架"
+    },
+    {
+      "id": "p-mugp8hca-pse",
+      "name": "灰色绒布L型沙发",
+      "subtitle": "绒布面料可拆洗",
+      "category": "sofa",
+      "price": "到店询价",
+      "size": "约3.6米长×约1.9米深",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#B8B0A8",
+      "description": "这款L型转角沙发采用灰色绒布面料，触感柔软亲肤。三人位加贵妃榻的布局，满足家庭日常休闲需求。可拆洗设计方便日常清洁打理。",
+      "sellingPoints": [
+        "绒布面料柔软亲肤",
+        "L型转角带贵妃榻",
+        "贵妃榻带编织垫面"
+      ],
+      "suitableFor": "适合中小户型客厅，满足一家三口日常休闲需求",
+      "placementTip": "建议靠墙摆放，贵妃榻朝向客厅中央，前方预留活动空间",
+      "highlights": [
+        "绒布面料柔软亲肤",
+        "L型转角带贵妃榻",
+        "贵妃榻带编织垫面"
+      ],
+      "image": "/uploads/products/233d32f3e2f17b44.jpg",
+      "status": "下架"
     }
   ]
 }

@@ -32,6 +32,7 @@ const PRESETS_FILE = path.join(DATA_DIR, 'presets.json');
 const FEATURE_FLAGS_FILE = path.join(DATA_DIR, 'feature-flags.json');
 const WHOLE_HOME_STYLES_FILE = path.join(DATA_DIR, 'whole-home-styles.json');
 const SCENE_STYLES_FILE = path.join(DATA_DIR, 'scene-styles.json');
+const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
 const PUBLIC_DIR = __dirname;
 const IMAGES_DIR = path.join(ROOT, 'public', 'images');
 const UPLOADS_DIR = path.join(ROOT, 'uploads');
@@ -41,6 +42,7 @@ const UPLOAD_DIRS = {
   products: path.join(UPLOADS_DIR, 'products'),
   rooms: path.join(UPLOADS_DIR, 'rooms'),
   compositions: path.join(UPLOADS_DIR, 'compositions'),
+  'default-rooms': path.join(UPLOADS_DIR, 'default-rooms'),
 };
 
 // TwoFish / gpt-image-2 端点（必须从环境变量读，不能在源码里硬编码）
@@ -122,10 +124,10 @@ function ensureDirs() {
     const defaults = {
       presets: [
         { id: 'default', name: '自然摆放', prompt: '' },
-        { id: 'sunlight', name: '暖光氛围', prompt: '强调午后暖阳光从窗户洒进客厅的效果，沙发表面有金色光斑' },
-        { id: 'night', name: '夜晚温馨', prompt: '夜晚场景，客厅开暖色台灯，沙发在柔和灯光下显得温馨' },
-        { id: 'minimal', name: '极简留白', prompt: '客厅保持极简风，沙发居中，周围大量留白' },
-        { id: 'family', name: '家庭生活', prompt: '客厅有家庭生活感，茶几上有茶杯和书本，沙发有使用痕迹' },
+        { id: 'sunlight', name: '暖光氛围', prompt: '强调午后暖阳光洒入室内，家具表面有温柔金色光斑，氛围温暖' },
+        { id: 'night', name: '夜晚温馨', prompt: '夜晚场景，室内开暖色灯光，家具在柔和光线下显得安稳温馨' },
+        { id: 'minimal', name: '极简留白', prompt: '空间保持极简风，家具居中突出，周围大量留白，背景干净整洁' },
+        { id: 'family', name: '家庭生活', prompt: '有生活气息的家庭环境，家具自然摆放，地面有地毯，真实住家的样子' },
       ],
     };
     fs.writeFileSync(PRESETS_FILE, JSON.stringify(defaults, null, 2), 'utf-8');
@@ -142,6 +144,19 @@ function ensureDirs() {
       ],
     };
     fs.writeFileSync(SCENE_STYLES_FILE, JSON.stringify(sceneDefaults, null, 2), 'utf-8');
+  }
+  if (!fs.existsSync(CATEGORIES_FILE)) {
+    // v3 品类/板块配置：英文 id 对齐 upload-and-identify 白名单；room/noun 驱动试摆默认 prompt；defaultRoom 前端默认图
+    const categoryDefaults = {
+      categories: [
+        { id: 'sofa', name: '沙发', room: '客厅', noun: '沙发', defaultRoom: '/images/default-room.jpg', badge: '主推', sort: 1, enabled: true },
+        { id: 'bed', name: '卧室 · 床', room: '卧室', noun: '床', defaultRoom: '/images/default-room-bed.jpg', sort: 2, enabled: true },
+        { id: 'cabinet', name: '柜类', room: '客厅', noun: '柜子', defaultRoom: '/images/default-room.jpg', sort: 3, enabled: false },
+        { id: 'table', name: '桌几', room: '餐厅', noun: '桌子', defaultRoom: '/images/default-room.jpg', sort: 4, enabled: false },
+        { id: 'other', name: '其他', room: '客厅', noun: '家具', defaultRoom: '/images/default-room.jpg', sort: 9, enabled: false },
+      ],
+    };
+    fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categoryDefaults, null, 2), 'utf-8');
   }
   if (!fs.existsSync(FEATURE_FLAGS_FILE)) {
     // 默认配置：试摆必须填手机号（无后端验证，仅前端 + 开关文件）
@@ -264,6 +279,53 @@ function loadSceneStyles() {
 
 function findSceneStyle(id) {
   return loadSceneStyles().find(s => s.id === id);
+}
+
+// ---------- 品类 / 板块配置（v3 多品类地基）----------
+// data/categories.json：首页"板块"渲染 + 试摆品类化的唯一数据源。英文 id 对齐 upload-and-identify 白名单。
+const CATEGORY_IDS = ['sofa', 'cabinet', 'bed', 'table', 'other'];
+
+function loadCategories() {
+  try {
+    const data = readJSON(CATEGORIES_FILE);
+    const list = Array.isArray(data) ? data : (data.categories || []);
+    return list
+      .filter(Boolean)
+      .slice()
+      .sort((a, b) => (a.sort || 999) - (b.sort || 999));
+  } catch (err) {
+    return [];
+  }
+}
+
+// 写回 data/categories.json（容器形态 { categories: [...] }，与 loadCategories 对应）
+function saveCategories(categories) {
+  writeJSON(CATEGORIES_FILE, { categories });
+}
+
+// 商品品类归一：优先商品自带 category（英文 id）；缺省按 id 前缀猜；再缺省 'sofa'（旧商品向后兼容）
+function categoryForProduct(product) {
+  const cat = String(product?.category || '').toLowerCase();
+  if (CATEGORY_IDS.includes(cat)) return cat;
+  const prefix = String(product?.id || '').toLowerCase().split('-')[0];
+  if (CATEGORY_IDS.includes(prefix)) return prefix;
+  return 'sofa';
+}
+
+// 品类上下文：房间名 / 名词 / 默认房间图。驱动试摆默认 prompt（后端）与默认图（前端）。
+function tryonCategoryContext(product) {
+  const id = categoryForProduct(product);
+  const cat = loadCategories().find(c => c.id === id) || {};
+  const room = cat.room || (id === 'bed' ? '卧室' : id === 'table' ? '餐厅' : '客厅');
+  const noun = cat.noun || (id === 'bed' ? '床' : id === 'table' ? '桌子' : id === 'cabinet' ? '柜子' : '沙发');
+  const defaultRoom = cat.defaultRoom || '/images/default-room.jpg';
+  return { id, room, noun, defaultRoom };
+}
+
+// 品类感知的试摆默认摆放指令。sofa 分支与原写死串逐字一致（零回归），bed/table 自动换房间/名词。
+function buildTryonDefaultPrompt(product) {
+  const { room, noun } = tryonCategoryContext(product);
+  return `把第二张图里的「${product.name}」自然摆放到第一张图的${room}场景，保持${room}光线、墙面、地板、家具风格不变。${noun}按透视与光影融入，整体看起来像实拍照片，高清、温馨。`;
 }
 
 // ---------- 试摆「光线/风格预设」解析 ----------
@@ -1048,6 +1110,7 @@ app.get('/admin/rooms', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin'
 app.get('/admin/presets', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'presets.html')));
 app.get('/admin/tryon-results', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'tryon-results.html')));
 app.get('/admin/feature-flags', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'feature-flags.html')));
+app.get('/admin/categories', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'categories.html')));
 
 // Static: HTML pages served from src/ (兜底：直接访问 .html 时)
 app.use(express.static(PUBLIC_DIR, { extensions: ['html'] }));
@@ -1483,7 +1546,7 @@ async function stepTts(text) {
   const body = {
     model: process.env.STEP_TTS_MODEL || 'stepaudio-2.5-tts',
     input: String(text).slice(0, 800),
-    voice: process.env.STEP_TTS_VOICE || 'cixingnansheng',
+    voice: process.env.STEP_TTS_VOICE || 'elegantgentle-female',
     instruction: process.env.STEP_TTS_INSTRUCTION || '语气亲切热情，像家具店导购向顾客介绍商品，语速适中偏慢',
     response_format: 'mp3',
   };
@@ -1509,7 +1572,7 @@ app.get('/api/voice/status', (req, res) => {
     ready: Boolean(STEP_API_KEY),
     asrModel: process.env.STEP_ASR_MODEL || 'stepaudio-2.5-asr',
     ttsModel: process.env.STEP_TTS_MODEL || 'stepaudio-2.5-tts',
-    voice: process.env.STEP_TTS_VOICE || 'cixingnansheng',
+    voice: process.env.STEP_TTS_VOICE || 'elegantgentle-female',
     guideModel: STEP_VISION_MODEL,
     rtModel: VOICE_RT_MODEL,
     rtBase: VOICE_RT_BASE,
@@ -1578,6 +1641,18 @@ app.get('/api/products/:id', (req, res) => {
     return ok(res, { store, product });
   } catch (err) {
     return fail(res, 500, '读取产品失败');
+  }
+});
+
+// GET /api/admin/products/:id — 取单个商品（含下架）；CLAUDE.md §4 已文档化，此处补实现
+// admin 要能看到下架品，所以不走 /api/products 的"默认仅在售"过滤
+app.get('/api/admin/products/:id', requireAdmin, (req, res) => {
+  try {
+    const product = findProduct(req.params.id);
+    if (!product) return fail(res, 404, '商品不存在');
+    return ok(res, product);
+  } catch (err) {
+    return fail(res, 500, '读取商品失败');
   }
 });
 
@@ -2628,7 +2703,7 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
     const product = findProduct(productId);
     if (!product) return fail(res, 404, '商品不存在');
 
-    // 拉取商品参考图（优先当前 host 的相对 URL；失败兜底到 /images/sofa-zhongshi.jpg）
+    // 拉取商品参考图（用当前 host 解析商品主图的相对 URL）
     let sofaBuffer = null;
     let productFetchError = null;
     if (product.image) {
@@ -2640,13 +2715,11 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
       } catch (e) { productFetchError = e.message; }
     }
     if (!sofaBuffer) {
-      // 兜底：用内置的沙发图
-      const fallback = await fetch(`${SELF_BASE}/images/sofa-zhongshi.jpg`);
-      if (!fallback.ok) return fail(res, 502, `拉取商品图失败（${productFetchError}）且无内置兜底图`);
-      sofaBuffer = Buffer.from(await fallback.arrayBuffer());
+      // 兜底图 sofa-zhongshi.jpg 已随 imgfix 删除；不用错误品类的图硬拼，明确报错让用户重选（诚实性）
+      return fail(res, 502, `拉取商品图失败（${productFetchError || '商品暂无主图'}），请重新选择商品或到店体验`);
     }
 
-    const defaultPrompt = `把第二张图里的「${product.name}」自然摆放到第一张图的客厅场景，保持客厅光线、墙面、地板、家具风格不变。沙发按透视与光影融入，整体看起来像实拍照片，高清、温馨。`;
+    const defaultPrompt = buildTryonDefaultPrompt(product);
     const { finalPrompt, preset: presetHit } = buildFinalTryonPrompt(defaultPrompt, presetRaw, customPrompt);
 
     let aiBuffer = null, demoType = null, aiError = null;
@@ -2775,7 +2848,7 @@ app.post('/api/tryon/ai-custom', requireUser, multer({ storage: multer.memorySto
     if (!product) return fail(res, 404, '商品不存在');
 
     // 默认 + 预设（光线/风格）+ 用户 prompt
-    const defaultPrompt = `把第二张图里的「${product.name}」自然摆放到第一张图的客厅场景，保持客厅光线、墙面、地板、家具风格不变。沙发按透视与光影融入，整体看起来像实拍照片，高清、温馨。`;
+    const defaultPrompt = buildTryonDefaultPrompt(product);
     const { finalPrompt, preset: presetHit } = buildFinalTryonPrompt(defaultPrompt, presetRaw, customPrompt);
 
     let aiBuffer = null, demoType = null, aiError = null;
@@ -2829,6 +2902,25 @@ app.get('/api/tryon/presets', (req, res) => {
 // GET /api/feature-flags — 公开端点，前端用来控制 UI 行为（如强制填手机号）
 app.get('/api/feature-flags', (req, res) => {
   return ok(res, loadFeatureFlags());
+});
+
+// GET /api/categories — v3 首页"板块"数据源。含 enabled 标志，前端按 enabled + 有在售商品渲染板块。
+app.get('/api/categories', (req, res) => {
+  try {
+    const categories = loadCategories().map(c => ({
+      id: c.id,
+      name: c.name || c.id,
+      room: c.room || '',
+      noun: c.noun || '',
+      defaultRoom: c.defaultRoom || '/images/default-room.jpg',
+      badge: c.badge || '',
+      enabled: c.enabled !== false,
+      sort: c.sort || 999,
+    }));
+    return ok(res, { categories });
+  } catch (err) {
+    return fail(res, 500, '读取品类配置失败');
+  }
 });
 
 // ---------- API: 全屋定制（Phase 1） ----------
@@ -3103,6 +3195,78 @@ app.put('/api/admin/presets', requireAdmin, (req, res) => {
   }
 });
 
+// GET /api/admin/categories — 后台读取品类（含 defaultRoom 图片 URL）
+app.get('/api/admin/categories', requireAdmin, (req, res) => {
+  try {
+    return ok(res, { categories: loadCategories() });
+  } catch (err) {
+    return fail(res, 500, '读取品类配置失败');
+  }
+});
+
+// PUT /api/admin/categories — 后台保存品类文字字段（name/room/noun/badge/sort/enabled）。
+// 不动 defaultRoom 图片本身——换图走 POST /api/admin/categories/:id/room-image。
+app.put('/api/admin/categories', requireAdmin, (req, res) => {
+  try {
+    const body = req.body || {};
+    if (!Array.isArray(body.categories) || body.categories.length === 0) {
+      return fail(res, 400, 'categories 不能为空');
+    }
+    const prevById = new Map(loadCategories().map(c => [c.id, c]));
+    const cleaned = body.categories.map(c => {
+      const id = String(c?.id || '').trim();
+      if (!id) return null;
+      const prev = prevById.get(id) || {};
+      const num = parseInt(c.sort, 10);
+      return {
+        id,
+        name: String(c.name || '').trim().slice(0, 30) || (prev.name || id),
+        room: String(c.room || '').trim().slice(0, 20),
+        noun: String(c.noun || '').trim().slice(0, 20),
+        defaultRoom: prev.defaultRoom || '/images/default-room.jpg',
+        badge: String(c.badge || '').trim().slice(0, 10),
+        sort: Number.isFinite(num) ? num : (prev.sort || 999),
+        enabled: c.enabled !== false,
+      };
+    }).filter(Boolean);
+    if (cleaned.length === 0) return fail(res, 400, '没有有效的品类');
+    saveCategories(cleaned);
+    return ok(res, { categories: cleaned });
+  } catch (err) {
+    return fail(res, 500, '保存品类配置失败');
+  }
+});
+
+// POST /api/admin/categories/:id/room-image — 更换某品类默认房间图（multer 单文件 + sharp 压缩）。
+// 顾客没上传自家照片时，试摆用这个默认房间图，故要一张空旷房间图（别带沙发）。
+app.post('/api/admin/categories/:id/room-image', requireAdmin,
+  multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } }).single('file'),
+  async (req, res) => {
+    try {
+      if (!req.file) return fail(res, 400, '请选择一张房间照片');
+      const fileErr = checkUploadFile(req.file);
+      if (fileErr) return fail(res, 400, fileErr);
+      const id = String(req.params.id || '').trim();
+      const categories = loadCategories();
+      const cat = categories.find(c => c.id === id);
+      if (!cat) return fail(res, 404, '品类不存在');
+      // 压成 JPEG：房间图不需要原图尺寸，控制体积利于前端加载
+      const { default: sharp } = await import('sharp');
+      const jpeg = await sharp(req.file.buffer)
+        .resize({ width: 1280, withoutEnlargement: true })
+        .jpeg({ quality: 82 })
+        .toBuffer();
+      const filename = `default-${id}-${Date.now().toString(36)}.jpg`;
+      const { url } = await saveImage(jpeg, 'default-rooms', filename, 'image/jpeg');
+      cat.defaultRoom = url;
+      saveCategories(categories);
+      return ok(res, { categories, url });
+    } catch (err) {
+      return fail(res, 500, `换图失败: ${err.message}`);
+    }
+  }
+);
+
 // POST /api/tryon/ai-history — 历史图场景：JSON 入参 {productId, roomUrl, phone?, prompt?, preset?}
 app.post('/api/tryon/ai-history', requireUser, async (req, res) => {
   try {
@@ -3138,10 +3302,8 @@ app.post('/api/tryon/ai-history', requireUser, async (req, res) => {
     const roomBuffer = Buffer.from(await roomResp.arrayBuffer());
 
     // 拉取商品图
-    const productUrl = product.image
-      ? new URL(product.image, `http://127.0.0.1:${PORT}`)
-      : new URL('/images/sofa-zhongshi.jpg', `http://127.0.0.1:${PORT}`);
-    const productResp = await fetch(productUrl);
+    if (!product.image) return fail(res, 502, '商品暂无主图，请重新选择商品或到店体验');
+    const productResp = await fetch(new URL(product.image, `http://127.0.0.1:${PORT}`));
     if (!productResp.ok) return fail(res, 502, '拉取商品图失败');
     const sofaBuffer = Buffer.from(await productResp.arrayBuffer());
 
@@ -3149,7 +3311,7 @@ app.post('/api/tryon/ai-history', requireUser, async (req, res) => {
     // 每用户每日限额（在真正打上游前拦，参数校验失败不占额度）
     if (!guardUserTryonLimit(req, res)) return;
     // 默认 + 预设（光线/风格）+ 用户 prompt，与 ai-custom 同一套拼装规则
-    const defaultPrompt = `把第二张图里的「${product.name}」自然摆放到第一张图的客厅场景，保持客厅光线、墙面、地板、家具风格不变。沙发按透视与光影融入，整体看起来像实拍照片，高清、温馨。`;
+    const defaultPrompt = buildTryonDefaultPrompt(product);
     const { finalPrompt, preset: presetHit } = buildFinalTryonPrompt(defaultPrompt, presetRaw, customPrompt);
     try {
       const r = await callTryonAI({
@@ -3701,7 +3863,7 @@ function handleVoiceRealtimeUpgrade(req, socket, head) {
         session: {
           modalities: ['text', 'audio'],
           instructions: buildVoiceGuideInstructions(),
-          voice: process.env.STEP_TTS_VOICE || 'cixingnansheng',
+          voice: process.env.STEP_TTS_VOICE || 'elegantgentle-female',
           input_audio_format: 'pcm16',
           output_audio_format: 'pcm16',
         },

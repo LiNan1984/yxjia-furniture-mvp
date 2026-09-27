@@ -90,6 +90,14 @@ button[disabled]{opacity:.5;cursor:not-allowed}
     <input id="m-subtitle">
     <label>尺寸</label>
     <input id="m-size">
+    <label>品类</label>
+    <select id="m-category">
+      <option value="sofa">沙发</option>
+      <option value="bed">卧室 · 床</option>
+      <option value="cabinet">柜类</option>
+      <option value="table">桌几</option>
+      <option value="other">其他</option>
+    </select>
     <label>适合谁（大白话，一句话）</label>
     <input id="m-suitable" placeholder="例：适合客厅开间 3.5 米以上的家庭">
     <label>摆放建议（一句话）</label>
@@ -114,6 +122,8 @@ const modal=document.getElementById('modal');
 
 // HTML 转义：商品名/价格/图片等来自商品库，拼 innerHTML 前必须转义，防存储型 XSS
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+const CAT_LABEL={sofa:'沙发',bed:'卧室 · 床',cabinet:'柜类',table:'桌几',other:'其他'};
+function catLabel(c){return CAT_LABEL[c]||c||'家具'}
 
 function showMsg(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');setTimeout(()=>{msg.className='msg'},3000)}
 
@@ -129,9 +139,9 @@ function render(filter=''){
   empty.style.display='none';
   grid.innerHTML=list.map(p=>`
     <div class="card ${p.status==='下架'?'off-shelf':''}" data-id="${esc(p.id)}">
-      <div class="img"><img src="${esc(p.image||'/images/sofa-zhongshi.jpg')}" alt="${esc(p.name)}" onerror="this.style.display='none'"></div>
+      <div class="img"><img src="${esc(p.image||'/images/sofa-tihua-real.png')}" alt="${esc(p.name)}" onerror="this.style.display='none'"></div>
       <div class="meta">
-        <div class="badge ${p.status==='下架'?'off':''}">${esc(p.status||'在售')} · ${esc(p.category||'家具')}</div>
+        <div class="badge ${p.status==='下架'?'off':''}">${esc(p.status||'在售')} · ${esc(catLabel(p.category))}</div>
         <h3>${esc(p.name||'(无名)')}</h3>
         <div class="price">${esc(p.price||'')}</div>
         ${(Array.isArray(p.sceneImages)&&p.sceneImages.length)?`<div class="scene-count">🖼 ${esc(p.sceneImages.length)} 张场景图</div>`:''}
@@ -167,6 +177,7 @@ function openEdit(id){
   document.getElementById('m-suitable').value=p.suitableFor||'';
   document.getElementById('m-placement').value=p.placementTip||'';
   document.getElementById('m-points').value=(p.sellingPoints||[]).join('\n');
+  document.getElementById('m-category').value=p.category||'sofa';
   modal.classList.add('show');
 }
 document.getElementById('m-cancel').onclick=()=>{modal.classList.remove('show');editingId=null};
@@ -197,6 +208,7 @@ document.getElementById('m-save').onclick=async()=>{
     size:document.getElementById('m-size').value.trim(),
     suitableFor:document.getElementById('m-suitable').value.trim(),
     placementTip:document.getElementById('m-placement').value.trim(),
+    category:document.getElementById('m-category').value,
     sellingPoints:document.getElementById('m-points').value.split('\n').map(s=>s.trim()).filter(Boolean),
   };
   try{
