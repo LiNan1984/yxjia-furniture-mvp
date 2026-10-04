@@ -1163,6 +1163,9 @@ app.get('/login', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'login.html')
 app.get('/my-orders', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'my-orders.html')));
 app.get('/my-home', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'my-home.html')));
 app.get('/my-generations', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'my-generations.html')));
+// 阿杏 AI 家居助手（新端口同一套后端，前端单页壳在 src/axing/）
+app.get('/axing', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'axing', 'index.html')));
+app.get('/axing/', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'axing', 'index.html')));
 
 // Admin 页面：/admin 直接进登录页（避免被 express.static 当成目录展示 index.html）
 app.get('/admin', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'login.html')));
@@ -2234,6 +2237,177 @@ app.post('/api/orders', (req, res) => {
     return ok(res, { ok: true, order });
   } catch (err) {
     return fail(res, 500, '保存订单失败');
+  }
+});
+
+// ================= 阿杏 AI 助手（/axing）专用轻量接口 =================
+// 到店预约 + 保存方案：都写本地 JSON（沿用现有 ok/fail + 容器模式），零新依赖。
+// 隐私：两个文件都含手机号，已加 .gitignore。
+
+const APPOINTMENTS_FILE = path.join(DATA_DIR, 'appointments.json');
+const SCENES_FILE = path.join(DATA_DIR, 'scenes.json');
+
+function loadAppointmentsContainer() {
+  return loadContainer(APPOINTMENTS_FILE, 'appointments');
+}
+function saveAppointmentsContainer(container) {
+  saveContainer(APPOINTMENTS_FILE, container);
+}
+function loadScenesContainer() {
+  return loadContainer(SCENES_FILE, 'scenes');
+}
+function saveScenesContainer(container) {
+  saveContainer(SCENES_FILE, container);
+}
+
+// 预约时段固定三档（门店 9:00-20:00，老人友好：不让用户自己输时间）
+const APPOINTMENT_SLOTS = ['上午 9:00-12:00', '下午 12:00-18:00', '晚上 18:00-20:00'];
+
+// 按手机号查预约的 IP 限额（未登录也要让老人查，但防枚举拖库）
+const APPT_QUERY_LIMIT = 20;
+const APPT_QUERY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const apptQueryHits = new Map();
+function checkApptQueryLimit(ip) {
+  const now = Date.now();
+  const cutoff = now - APPT_QUERY_WINDOW_MS;
+  pruneHitsMap(apptQueryHits, APPT_QUERY_WINDOW_MS);
+  const arr = (apptQueryHits.get(ip) || []).filter(t => t >= cutoff);
+  apptQueryHits.set(ip, arr);
+  if (arr.length >= APPT_QUERY_LIMIT) return false;
+  arr.push(now);
+  return true;
+}
+
+// POST /api/appointments — body: { name, phone, date(YYYY-MM-DD), slot, productIds?: [], note? }
+app.post('/api/appointments', (req, res) => {
+  const name = (req.body?.name || '').trim();
+  const phone = (req.body?.phone || '').trim();
+  const date = (req.body?.date || '').trim();
+  const slot = (req.body?.slot || '').trim();
+  const note = (req.body?.note || '').trim();
+  const productIds = Array.isArray(req.body?.productIds)
+    ? req.body.productIds.filter(id => typeof id === 'string' && id.trim()).map(id => id.trim())
+    : [];
+
+  if (!name) return fail(res, 400, '怎么称呼您？');
+  if (!isValidPhone(phone)) return fail(res, 400, '手机号格式不对');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail(res, 400, '请选择到店日期');
+  const today = new Date().toISOString().slice(0, 10);
+  if (date < today) return fail(res, 400, '到店日期不能早于今天');
+  if (!APPOINTMENT_SLOTS.includes(slot)) return fail(res, 400, '请选择到店时段');
+
+  const productNames = [];
+  for (const pid of productIds) {
+    const p = findProduct(pid);
+    if (!p) return fail(res, 404, `商品不存在：${pid}`);
+    productNames.push(p.name);
+  }
+
+  try {
+    const container = loadAppointmentsContainer();
+    const appointment = {
+      id: 'A' + Date.now().toString().slice(-8) + Math.random().toString(36).slice(2, 5).toUpperCase(),
+      name,
+      phone,
+      date,
+      slot,
+      productIds,
+      productNames,
+      note: note.slice(0, 500),
+      status: '待到店',
+      createdAt: new Date().toISOString(),
+    };
+    container.appointments.unshift(appointment);
+    saveAppointmentsContainer(container);
+    console.log(`[axing] appointment ${appointment.id} ${name} ${phone} ${date} ${slot} products=${productIds.join(',') || '-'}`);
+    return ok(res, { ok: true, appointment });
+  } catch (err) {
+    console.error('[axing][appointments]', err);
+    return fail(res, 500, '保存预约失败，请改用电话 13359140982');
+  }
+});
+
+// GET /api/appointments/by-phone/:phone — 查自己的预约（未登录可查，IP 限额；登录用户只能查自己）
+app.get('/api/appointments/by-phone/:phone', (req, res) => {
+  const phone = (req.params.phone || '').trim();
+  if (!isValidPhone(phone)) return fail(res, 400, '手机号格式不对');
+  const myPhone = getSessionUserPhone(req);
+  if (myPhone && myPhone !== phone) return fail(res, 403, '只能查询自己手机号的预约');
+  if (!myPhone && !checkApptQueryLimit(getClientIp(req))) {
+    return fail(res, 429, '今天查询次数已用完，请登录后再查');
+  }
+  try {
+    const container = loadAppointmentsContainer();
+    const list = container.appointments.filter(a => a.phone === phone).slice(0, 30);
+    return ok(res, { appointments: list });
+  } catch (err) {
+    console.error('[axing][appointments-query]', err);
+    return fail(res, 500, '读取预约失败');
+  }
+});
+
+// POST /api/scenes — 保存「我家的方案」body: { name?, phone?, items: [{ productId, color?, materialId?, transform?, dims? }] }
+app.post('/api/scenes', (req, res) => {
+  const name = (req.body?.name || '').trim().slice(0, 40);
+  const phone = (req.body?.phone || '').trim();
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  if (!items.length) return fail(res, 400, '方案里还没有家具');
+  if (items.length > 20) return fail(res, 400, '一个方案最多放 20 件家具');
+  if (phone && !isValidPhone(phone)) return fail(res, 400, '手机号格式不对');
+
+  const resolved = [];
+  for (const item of items) {
+    const pid = typeof item?.productId === 'string' ? item.productId.trim() : '';
+    if (!pid) return fail(res, 400, '有家具没有选具体商品');
+    const product = findProduct(pid);
+    if (!product) return fail(res, 404, `商品不存在：${pid}`);
+    resolved.push({
+      productId: pid,
+      productName: product.name,
+      productImage: product.image || null,
+      color: typeof item.color === 'string' ? item.color.slice(0, 20) : null,
+      materialId: typeof item.materialId === 'string' ? item.materialId.slice(0, 20) : null,
+      transform: item.transform && typeof item.transform === 'object' ? item.transform : null,
+      dims: item.dims && typeof item.dims === 'object' ? item.dims : null,
+    });
+  }
+
+  try {
+    const container = loadScenesContainer();
+    const scene = {
+      id: 'S' + Date.now().toString().slice(-8) + Math.random().toString(36).slice(2, 5).toUpperCase(),
+      name: name || `我的家 · ${new Date().toLocaleDateString('zh-CN')}`,
+      userPhone: phone,
+      items: resolved,
+      createdAt: new Date().toISOString(),
+    };
+    container.scenes.unshift(scene);
+    if (container.scenes.length > 1000) container.scenes.length = 1000;
+    saveScenesContainer(container);
+    console.log(`[axing] scene ${scene.id} saved phone=${phone || '-'} items=${resolved.length}`);
+    return ok(res, { ok: true, scene });
+  } catch (err) {
+    console.error('[axing][scenes]', err);
+    return fail(res, 500, '保存方案失败');
+  }
+});
+
+// GET /api/scenes/by-phone/:phone — 我的方案（未登录可查，IP 限额；登录用户只能查自己）
+app.get('/api/scenes/by-phone/:phone', (req, res) => {
+  const phone = (req.params.phone || '').trim();
+  if (!isValidPhone(phone)) return fail(res, 400, '手机号格式不对');
+  const myPhone = getSessionUserPhone(req);
+  if (myPhone && myPhone !== phone) return fail(res, 403, '只能查询自己手机号的方案');
+  if (!myPhone && !checkApptQueryLimit(getClientIp(req))) {
+    return fail(res, 429, '今天查询次数已用完，请登录后再查');
+  }
+  try {
+    const container = loadScenesContainer();
+    const list = container.scenes.filter(s => s.userPhone === phone).slice(0, 30);
+    return ok(res, { scenes: list });
+  } catch (err) {
+    console.error('[axing][scenes-query]', err);
+    return fail(res, 500, '读取方案失败');
   }
 });
 

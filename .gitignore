@@ -89,3 +89,7 @@ tools/.ingested.json
 .env.bak*
 *.bak-*
 *.v3-bak-*
+
+# ---- 阿杏 AI 助手运行时数据（含手机号）----
+data/appointments.json
+data/scenes.json

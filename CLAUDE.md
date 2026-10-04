@@ -395,4 +395,63 @@ curl -X POST http://127.0.0.1:3000/api/auth/login \
 
 ---
 
-*最后更新：2026-09-18 · 语音导购修复迭代版（打招呼 + 文字记录 + 6 款核心商品找回 + 71 测试全绿）*
+## 16. 阿杏 AI 家居助手（`/axing`，分支 `feat/axing-ai-assistant`）
+
+> 产品定位：**「我是提前把家具搬到你家的 AI 助手，阿杏～」**
+> 完整产品/技术 Spec：`docs/阿杏_AI家居导购助手_完整Spec_开发方案_v1.1_技术资料完善版.md`（Spec 里的 Next.js/R3F 是远期形态；本仓库铁律「不引前端框架」→ **落地版用原生 ES module + three.js，跑在现有 Express 后端上**）。
+
+### 入口与端口
+
+| 入口 | 说明 |
+|---|---|
+| `/axing`、`/axing/` | 阿杏单页壳（`src/axing/index.html`），与主站 `/` 并存同一进程 |
+| `PORT=3400 node src/server.js` | 阿杏独立端口实例（同一套代码 + 同一份 `data/`，主站继续跑 3300/3000） |
+
+### 结构
+
+```
+src/axing/
+├── index.html        # importmap(three) + 10 个 <section class="view"> 容器 + 底部 Tab 壳
+├── css/axing.css     # 设计语言对齐 docs/index.html：炭黑#2C2C2C/奶白#F7F4EF/石灰#D9D4CD/灰#77726C + 杏色#E8B27D
+└── js/
+    ├── app.js        # 路由壳：按需 import view-*.js；ctx = { api, ui, state, go, pickProduct… }
+    ├── api.js        # 现有后端封装（products/chat/guide/voice/upload/tryon-anon/orders/appointments/scenes）
+    ├── ui.js         # el()/productCard/axingSay/mdToNodes(防XSS)/parsePrice 等共享件
+    ├── three-viewer.js  # three.js 舞台（OrbitControls 360°/换色/换材质/缩放/尺寸标注/截图）
+    ├── furniture.js     # 程序化家具库（sofa3/sofaL/sofaSingle/coffee/tvCabinet/bed + 色板 + 材质）
+    └── view-*.js     # 10 个 view：home/voice/upload/products/tryon/3d/material/booking/plans/me
+```
+
+**view 契约**：每个 `view-*.js` 导出 `mount(root, ctx)`，首次进入该 view 时调用；跨页状态走 `ctx.state`（localStorage 持久化：productId/roomUrl/phone…），跨页事件 `ctx.emit/on('product:selected'|'scene:style'|'plan:changed')`。
+
+### three.js（本地 vendor，不依赖 CDN / 不新增运行时依赖）
+
+- `src/vendor/three/three.module.js` + `three.core.js` + `addons/controls/OrbitControls.js`（npm 包 `three` 的构建产物拷贝；版本记录在 package.json）
+- 裸导入 `import * as THREE from 'three'`、`'three/addons/controls/OrbitControls.js'`，由 index.html 的 **importmap** 解析 → 生产 rsync `src/` 即可用，无需在服务器 `npm install`
+- WebGL 失败自动降级为商品图片预览（view-3d 的 `onError` 兜底）
+
+### 复用现有后端 + 新增轻量接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/products`、`/api/tryon/presets`、`/api/categories` | 真实商品/预设/示例房间 |
+| POST | `/api/chat/guide` | 阿杏文字导购（Markdown） |
+| POST | `/api/voice/ask` | 录音 → ASR → 导购 → TTS |
+| POST | `/api/upload/room` | 客厅照 → MinIO |
+| POST | `/api/tryon/ai-anon` | 2D AI 试摆（每 IP 每天 3 次） |
+| POST | `/api/appointments` / GET `/api/appointments/by-phone/:phone` | **新增**：到店预约 → `data/appointments.json` |
+| POST | `/api/scenes` / GET `/api/scenes/by-phone/:phone` | **新增**：保存方案 → `data/scenes.json` |
+
+`data/appointments.json`、`data/scenes.json` 含手机号，已加 .gitignore；写入沿用现有 `loadContainer/saveContainer` + `ok/fail` 模式，未登录按手机号可查但加 IP 限额（仿 `/api/tryon/history`）。
+
+### 测试
+
+```bash
+./node_modules/.bin/playwright test tests/axing.test.js
+```
+
+`tests/axing.test.js` 自带 **3100 端口**实例（不碰 3000 上的旧服务），覆盖：`/axing` 页面、vendor 资源、预约/方案接口校验、10 个 view 浏览器挂载冒烟 + three.js 舞台 canvas/降级断言 + 无 pageerror。
+
+---
+
+*最后更新：2026-10-04 · 阿杏 AI 家居助手分支（three.js 3D 试摆台 + 现有后端改造 + 新端口）*
