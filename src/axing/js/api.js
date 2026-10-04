@@ -15,7 +15,9 @@ async function parse(res) {
   if (!res.ok || !body || body.success === false) {
     throw new ApiError(body && body.error, res.status);
   }
-  return body.data;
+  // 多数端点走 ok() 包 { success, data }；少数公开端点（如 /api/tryon/presets）
+  // 直接返回业务对象，没有 data 层，这里回退成 body 本身
+  return body.data !== undefined ? body.data : body;
 }
 
 async function req(path, options = {}) {

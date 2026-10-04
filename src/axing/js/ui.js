@@ -120,7 +120,7 @@ export function humanError(err) {
   return (err && err.message) || '出了点小问题，请再试一次';
 }
 
-/** 把常见 Markdown（**加粗**/列表/标题）安全地转成文本节点混排，防 XSS */
+/** 把常见 Markdown（加粗 / 列表 / 标题）安全地转成文本节点混排，防 XSS */
 export function mdToNodes(md) {
   const frag = document.createDocumentFragment();
   if (!md) return frag;
@@ -136,7 +136,7 @@ export function mdToNodes(md) {
     return span;
   };
   lines.forEach((line) => {
-    const t = line.trim();
+    const t = line.trim().replace(/^#{1,6}\s*/, ''); // 剥 Markdown 标题符，纯展示
     if (/^[-*·]\s+/.test(t)) {
       if (!list) list = el('div', { style: 'padding-left:14px;' });
       list.appendChild(el('div', { text: `· ${t.replace(/^[-*·]\s+/, '')}` }));

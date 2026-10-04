@@ -1,9 +1,9 @@
 // 阿杏 App 壳：view 路由（按需 import view-*.js）+ 跨 view 状态 + Tab/返回 + 全局 ctx。
 // 每个 view 模块约定：export function mount(root, ctx) { ...; return optional cleanup }
-import * as api from './api.js';
+import * as apiModule from './api.js';
 import * as ui from './ui.js';
 
-const { $, el, toast, humanError, on, emit } = ui;
+const { $, $$, el, toast, humanError, on, emit } = ui;
 
 const STATE_KEY = 'axing-state-v1';
 const defaultState = {
@@ -47,7 +47,7 @@ const history = [];
 let current = null;
 
 const ctx = {
-  api, ui, state, setState, on, emit,
+  api: apiModule.api, ui, state, setState, on, emit,
   go, back, toast,
   humanError,
   pickProduct(product) {
@@ -92,7 +92,6 @@ async function show(viewId, { push = true } = {}) {
 
 function go(viewId) {
   if (viewId === current) return;
-  history.length = 0; // Tab 切换清历史
   return show(viewId);
 }
 
