@@ -426,7 +426,7 @@ src/axing/
 
 ### three.js（本地 vendor，不依赖 CDN / 不新增运行时依赖）
 
-- `src/vendor/three/three.module.js` + `three.core.js` + `addons/controls/OrbitControls.js`（npm 包 `three` 的构建产物拷贝；版本记录在 package.json）
+- `src/vendor/three/three.module.min.js` + `three.core.min.js` + `addons/controls/OrbitControls.js`（npm 包 `three` 的构建产物拷贝；版本记录在 package.json。注意 min 构建内部引用兄弟文件 `./three.core.min.js`，**别改成不带 .min 的名字**）
 - 裸导入 `import * as THREE from 'three'`、`'three/addons/controls/OrbitControls.js'`，由 index.html 的 **importmap** 解析 → 生产 rsync `src/` 即可用，无需在服务器 `npm install`
 - WebGL 失败自动降级为商品图片预览（view-3d 的 `onError` 兜底）
 
