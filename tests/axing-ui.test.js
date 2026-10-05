@@ -154,9 +154,19 @@ test.describe('A · 首页视觉结构（§70 / 视觉基准）', () => {
     expect(info.h).toBeGreaterThan(0);
   });
 
-  test('A2 聊天时间线有用户+AI 消息，且 AI 消息头像绑定了真图', async ({ page }) => {
-    await expect(page.locator('.ax-msg--user'), '时间线应有至少 1 条用户消息（打招呼/示例提问）').not.toHaveCount(0);
-    await expect(page.locator('.ax-msg--ai'), '时间线应有至少 1 条阿杏回复').not.toHaveCount(0);
+  test('A2 时间线不放预置假对话；真实发言后用户+AI 消息成对出现且 AI 带头像真图', async ({ page }) => {
+    test.slow();
+    // 意图：首页不再摆「示例话术」。空时间线是本该有的初始状态，
+    // 头像绑定改为在真实发送之后验证（比断言静态文案更能说明链路通）。
+    await expect(page.locator('#view-home .ax-timeline')).toHaveCount(1);
+    expect(await page.locator('.ax-msg').count(), '初始时间线应为空：不摆预置的假对话').toBe(0);
+
+    const ask = '现代简约沙发有吗';
+    await page.fill('#composerInput', ask);
+    await page.click('#composerSend');
+
+    await expect(page.locator('.ax-msg--user', { hasText: ask }), '发送后应立即出现用户消息').toHaveCount(1);
+    await page.waitForFunction(() => document.querySelectorAll('#view-home .ax-msg--ai').length > 0, null, { timeout: 45000 });
 
     // §70.1「阿杏头像必须与 AI 消息绑定」
     const avas = page.locator('.ax-msg--ai .ax-msg__ava img');
