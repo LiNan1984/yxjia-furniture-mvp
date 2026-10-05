@@ -91,55 +91,19 @@ function probeImage(url) {
 }
 
 /** 上传客厅照卡（首页第一 CTA）：整卡进上传页，示例缩略图带品类直达。
- *  返回 { card, finalize }：card 用「声明的示例图」先渲染，finalize 在后台探测真实可用性后就地修正。
- *  之所以拆开：图片探测要真的去网络加载图，若 await 它，首页剩下的内容（四大功能等）会被一起拖住。 */
-async function uploadCard(ctx, goView) {
+ *  同步建壳、异步填图：卡本身不依赖任何请求，立即可点；图片和示例列由 fill() 回来后补。
+ *  这样生产网络慢时首屏也不会缺第一 CTA，更不会把后面的 chips/四宫格一起堵住。 */
+function uploadCard(ctx, goView) {
   const { el, icon } = ctx.ui;
-  let cats = [];
-  let products = [];
-  try {
-    const [catData, prodData] = await Promise.all([
-      ctx.api.categories(),
-      ctx.api.products().catch(() => []),
-    ]);
-    const list = (catData && catData.categories) || (Array.isArray(catData) ? catData : []);
-    products = (prodData && prodData.products) || (Array.isArray(prodData) ? prodData : []);
-    cats = list.filter((c) => c && c.enabled !== false).slice(0, 4);
-  } catch (err) {
-    ctx.toast(ctx.humanError(err));
-  }
 
-  // 每个品类的候选图链：声明房间图 → 该品类在售商品图 → 通用客厅图。
-  // 数据债：categories.json 里 bed 的 defaultRoom 指向不存在的 default-room-bed.jpg，
-  // 所以不能只认声明图，否则示例列会空掉；也不能无脑退到通用图，否则会和主预览撞成同一张。
-  const imageChain = (c) => {
-    const hit = products.find((p) => p && p.category === c.id && p.image);
-    return [c.defaultRoom, hit && hit.image, ROOM_FALLBACK].filter(Boolean);
-  };
-  // 先渲染用链上第一个（多数情况就是声明图，能立刻显示）
-  const firstImage = (c) => imageChain(c)[0] || ROOM_FALLBACK;
-
-  const mainCat = cats[0];
-  const mainImg = roomImg(ctx, mainCat ? firstImage(mainCat) : ROOM_FALLBACK, '示例客厅', mainCat ? mainCat.name : '示例客厅');
+  const mainImg = roomImg(ctx, ROOM_FALLBACK, '示例客厅', '示例客厅');
   const main = el('figure.ax-ucard__main', {}, [
     mainImg,
     el('figcaption', { text: '示例客厅' }),
   ]);
 
-  // 右侧示例列：先按链上第一个摆上，finalize 里再按探测结果逐个替换或撤掉
-  const sampleCats = cats.slice(1, 4).map((c) => ({ c, chain: imageChain(c), url: firstImage(c) }));
-  const grid = el('div.ax-samples__grid', {}, sampleCats.map(({ c, url }) => {
-    const btn = el('button.ax-sample', {
-      type: 'button',
-      'aria-label': `用${c.room || ''}示例：${c.name || c.id}`,
-      onclick: () => {
-        ctx.setState({ sampleRoom: url, sampleCategoryId: c.id });
-        goView('view-upload');
-      },
-    }, [roomImg(ctx, url, c.name || c.id, c.name || c.id)]);
-    return btn;
-  }));
-  const samples = el('div.ax-samples', { hidden: sampleCats.length === 0 }, [
+  const grid = el('div.ax-samples__grid');
+  const samples = el('div.ax-samples', { hidden: true }, [
     el('div.ax-samples__label', { text: '或者试试示例客厅' }),
     grid,
   ]);
@@ -176,26 +140,56 @@ async function uploadCard(ctx, goView) {
     }
   });
 
-  // 挂载后在后台探测：把主预览和每个示例格换成链上第一个真能加载的图；
-  // 和主预览撞成同一张的示例格撤掉（没有第二张就别摆两张一样的）。
-  // 不 await 它，首屏不被图片加载拖住。
-  const finalize = async () => {
-    const btns = Array.from(grid.children);
+  // 后台填图：取品类与商品，按「声明房间图 → 该品类在售商品图 → 通用客厅图」逐级探测，
+  // 把主预览和示例格换成链上第一个真能加载的；和主预览撞成同一张的示例格撤掉。
+  const fill = async () => {
+    let cats = [];
+    let products = [];
+    try {
+      const [catData, prodData] = await Promise.all([
+        ctx.api.categories(),
+        ctx.api.products().catch(() => []),
+      ]);
+      const list = (catData && catData.categories) || (Array.isArray(catData) ? catData : []);
+      products = (prodData && prodData.products) || (Array.isArray(prodData) ? prodData : []);
+      cats = list.filter((c) => c && c.enabled !== false).slice(0, 4);
+    } catch { /* 接口挂就维持兜底图，卡照样能点 */ }
+
+    // 数据债：categories.json 里 bed 的 defaultRoom 指向不存在的 default-room-bed.jpg，
+    // 所以不能只认声明图；也不能无脑退到通用图，否则会和主预览撞成同一张。
+    const chainOf = (c) => {
+      const hit = products.find((p) => p && p.category === c.id && p.image);
+      return [c.defaultRoom, hit && hit.image, ROOM_FALLBACK].filter(Boolean);
+    };
     const pickFirstOk = async (chain) => {
       for (const u of chain) if (await probeImage(u)) return u;
       return null;
     };
 
-    const finalMain = (await pickFirstOk(mainCat ? imageChain(mainCat) : [ROOM_FALLBACK])) || ROOM_FALLBACK;
+    const finalMain = (await pickFirstOk(cats.length ? chainOf(cats[0]) : [ROOM_FALLBACK])) || ROOM_FALLBACK;
     if (mainImg.getAttribute('src') !== finalMain) mainImg.src = finalMain;
 
-    for (let i = 0; i < btns.length; i++) {
-      const { c, chain } = sampleCats[i];
+    const sampleCats = cats.slice(1, 4);
+    const btns = sampleCats.map((c) => {
+      const url = (chainOf(c)[0]) || ROOM_FALLBACK;
+      const btn = el('button.ax-sample', {
+        type: 'button',
+        'aria-label': `用${c.room || ''}示例：${c.name || c.id}`,
+        onclick: () => {
+          ctx.setState({ sampleRoom: url, sampleCategoryId: c.id });
+          goView('view-upload');
+        },
+      }, [roomImg(ctx, url, c.name || c.id, c.name || c.id)]);
+      return { c, btn, chain: chainOf(c) };
+    });
+    grid.replaceChildren(...btns.map((x) => x.btn));
+
+    for (const { c, btn, chain } of btns) {
       const ok = await pickFirstOk(chain);
-      if (!ok || ok === finalMain) { btns[i].remove(); continue; }
-      const img = btns[i].querySelector('img');
+      if (!ok || ok === finalMain) { btn.remove(); continue; }
+      const img = btn.querySelector('img');
       if (img) img.src = ok;
-      btns[i].onclick = () => {
+      btn.onclick = () => {
         ctx.setState({ sampleRoom: ok, sampleCategoryId: c.id });
         goView('view-upload');
       };
@@ -203,8 +197,9 @@ async function uploadCard(ctx, goView) {
     samples.hidden = grid.children.length === 0;
   };
 
-  return { card, finalize };
+  return { card, fill };
 }
+
 
 // ---------------------------------------------------------------- 你可以这样问 / 四大功能
 
@@ -332,11 +327,15 @@ export async function mount(root, ctx) {
     scrollToEnd();
   }));
 
-  // ---------- 上传客厅照卡（第一 CTA）：先渲染，示例图探测在后台补 ----------
-  const { card: ucard, finalize: finalizeSamples } = await uploadCard(ctx, goView);
+  // ---------- 上传客厅照卡（第一 CTA）----------
+  // uploadCard 同步建壳、异步填图：卡本身不依赖任何请求，立即可点；
+  // 图片和示例列由 fill() 回来后补。这样生产 API 慢时首屏也不会缺这一块，
+  // 更不会把后面的 chips / 四宫格一起堵住（曾经 await 它，首屏要等两个请求）。
+  const { card: ucard, fill: fillUcard } = uploadCard(ctx, goView);
   stack.appendChild(ucard);
+  fillUcard().catch(() => {});
 
-  // ---------- 你可以这样问 + 四大功能 ----------
+  // ---------- 你可以这样问 + 四大功能（不依赖任何数据，立即渲染）----------
   stack.appendChild(askBlock(ctx));
   stack.appendChild(quickBlock(ctx, goView));
 
@@ -367,9 +366,6 @@ export async function mount(root, ctx) {
       style: 'line-height:1.8;',
     }),
   ]));
-
-  // 示例图探测放到最后，且不占首屏时间（探测要真的去加载图）
-  finalizeSamples().catch(() => {});
 
   return () => cleanups.forEach((fn) => {
     try {
