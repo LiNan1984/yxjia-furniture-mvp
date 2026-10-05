@@ -279,6 +279,11 @@ img{display:block;max-width:100%;}
 .stack{display:flex;flex-direction:column;gap:16px;}
 .stack--sm{gap:10px;}
 .row{display:flex;gap:10px;align-items:center;}
+/* 和 .ax-composer__btn / img 同一类坑（CLAUDE.md §9）：作者规则 display:flex 会盖掉
+   UA 的 [hidden]{display:none}。sheet-upload 的「重新拍照 / 直接去试摆」行靠
+   hidden=true 收起，没这条规则时按钮照样显示——顾客没选房间就看到「直接去试摆」。
+   .stack 是 flex-direction:column，同理也要兜。 */
+.row[hidden],.stack[hidden],.chip-row[hidden]{display:none;}
 .row--between{justify-content:space-between;}
 .grow{flex:1;}
 .muted{color:var(--c-gray);}
