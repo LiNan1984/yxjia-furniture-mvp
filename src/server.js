@@ -1699,7 +1699,14 @@ app.get('/api/products', (req, res) => {
   try {
     const store = loadStore();
     const all = getProducts();
+    // ?all=1 是后台用的旁路，会把「下架」商品连库存、价格一起返回。它原先没有任何鉴权，
+    // 顾客或竞品一条 curl 就能看到你压着不卖的货和底价（G 组实测出来的信息泄露）。
+    // 只有 admin 会话能拿全量；未登录走这条等同前台，只给在售。
     const showAll = req.query.all === '1';
+    if (showAll) {
+      const session = getSession(req);
+      if (!session || session.userId !== 'admin') return fail(res, 401, '请先登录后台');
+    }
     const products = showAll ? all : all.filter(p => p.status !== '下架');
     return ok(res, { store, products });
   } catch (err) {
@@ -3008,7 +3015,7 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
 ]), async (req, res) => {
   const ip = getClientIp(req);
   if (!checkAnonTryonLimit(ip)) {
-    return fail(res, 429, `免费体验已用完（每天 ${TRYON_ANON_LIMIT} 次），请明天再试，或拨打门店电话 13359140982 让阿杏帮您留一个`);
+    return fail(res, 429, `免费体验已用完（每天 ${ANON_TRYON_LIMIT} 次），请明天再试，或拨打门店电话 13359140982 让阿杏帮您留一个`);
   }
   try {
     const roomFile = req.files?.room?.[0];
