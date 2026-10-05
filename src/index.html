@@ -382,7 +382,10 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 </section>
 
 <div class="hero-image">
-  <img id="heroImg" src="/images/sofa-tihua-real.png" alt="主推沙发" onerror="this.style.background='#3a2818';this.style.display='block'">
+  <!-- 生产出口只有约 16KB/s：原来这张是 1.4MB 的透明底 PNG，hero 要一分半才出来。
+     已把透明背景合成到 .hero-image 的纯色咖啡底上、压成 103KB 的 JPEG，画质无差。
+     onerror 的兜底同步换成同目录下更小的 sofa-tihua.jpg。 -->
+    <img id="heroImg" src="/images/sofa-tihua-hero.jpg" alt="主推沙发" onerror="this.style.background='#3a2818';this.style.display='block'">
   <div class="label">主推 · 3.4 米</div>
 </div>
 
@@ -624,9 +627,9 @@ function setHeroImage() {
     || PRODUCTS.find(p => catOf(p) === 'sofa' && p.status !== '下架')
     || PRODUCTS[0];
   if (!hero) return;
-  const fallback = '/images/sofa-tihua-real.png';
+  const fallback = '/images/sofa-tihua.jpg';
   const target = (featured && featured.image) || fallback;
-  hero.onerror = () => { if (!hero.src.includes('/sofa-tihua-real.png')) hero.src = fallback; };
+  hero.onerror = () => { if (!hero.src.includes('/sofa-tihua.jpg')) hero.src = fallback; };
   hero.src = target;
 }
 

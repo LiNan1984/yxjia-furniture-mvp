@@ -162,7 +162,7 @@ function render(filter=''){
   empty.style.display='none';
   grid.innerHTML=list.map(p=>`
     <div class="card ${p.status==='下架'?'off-shelf':''}" data-id="${esc(p.id)}">
-      <div class="img"><img src="${esc(p.image||'/images/sofa-tihua-real.png')}" alt="${esc(p.name)}" onerror="imgBroken(this)"></div>
+      <div class="img"><img src="${esc(p.image||'/images/sofa-tihua.jpg')}" alt="${esc(p.name)}" onerror="imgBroken(this)"></div>
       <div class="meta">
         <div class="badge ${p.status==='下架'?'off':''}">${esc(p.status||'在售')} · ${esc(catLabel(p.category))}</div>
         <h3>${esc(p.name||'(无名)')}</h3>
