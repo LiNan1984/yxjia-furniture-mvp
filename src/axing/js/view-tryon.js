@@ -57,8 +57,11 @@ export async function mount(root, ctx) {
   // ---------- 页面骨架 ----------
   root.appendChild(el('p.sec-eyebrow', { text: 'STEP 03 · 摆进你家看看' }));
   root.appendChild(el('h2.sec-title', { text: 'AI 试摆' }));
+  // 只留一句：按钮已经紧跟在下面，再把「选好家具和氛围/不满意再试」复述一遍是浪费
+  // 首屏。实测这段 3 行吃掉 320px 宽屏 42px，正是主按钮掉出折叠线的原因之一。
   root.appendChild(el('p.sec-desc', {
-    text: '选好家具和氛围，点「立即生成」。约 20-40 秒出图，不满意就换个氛围再来。',
+    text: '点「立即生成」，约 20-40 秒出图。',
+    style: 'margin-bottom:12px;',
   }));
 
   // 上游状态卡：房间图 + 当前商品
@@ -83,6 +86,19 @@ export async function mount(root, ctx) {
   const upRow = el('div.row', { style: 'margin-top:10px;flex-wrap:wrap;' });
   root.appendChild(upRow);
 
+  // 生成按钮 + 秒表：紧跟状态行，放在家具/氛围 chips 之前。
+  // 原来它排在所有 chips 和自定义输入之后，实测 390×844 上 top=905（视口只有 844、
+  // tabbar 占 780–844），黄金路径「房间→直接去试摆→立即生成」落地后还得再滑一下
+  // 才看见主按钮。顾客来这一页的目的是「看效果」，精修项是生成之后的事。
+  const genBtn = el('button.btn.btn--apricot.btn--lg.btn--block', {
+    text: '✨ 立即生成',
+    style: 'margin-top:14px;',
+  });
+  genBtn.addEventListener('click', generate);
+  root.appendChild(genBtn);
+  const timerLine = el('div.loading-line', { text: '', style: 'margin-top:10px;' });
+  root.appendChild(timerLine);
+
   // 家具 chips
   const prodRow = el('div.chip-scroll', { style: 'margin-top:4px;' });
   root.appendChild(el('p.tiny.muted', { text: '换一件家具试试', style: 'margin:18px 0 8px;' }));
@@ -100,16 +116,6 @@ export async function mount(root, ctx) {
   root.appendChild(el('label.field', { style: 'margin-top:14px;' }, [
     el('span', { text: '还有别的要求' }), promptInput,
   ]));
-
-  // 生成按钮 + 秒表
-  const genBtn = el('button.btn.btn--apricot.btn--lg.btn--block', {
-    text: '✨ 立即生成',
-    style: 'margin-top:6px;',
-  });
-  genBtn.addEventListener('click', generate);
-  root.appendChild(genBtn);
-  const timerLine = el('div.loading-line', { text: '', style: 'margin-top:10px;' });
-  root.appendChild(timerLine);
 
   // 阿杏提示区（loading / 成功 / 失败 / 限额都在这说话）
   const sayBox = el('div', { style: 'margin-top:16px;' });

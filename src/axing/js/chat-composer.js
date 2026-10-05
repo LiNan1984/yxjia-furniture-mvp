@@ -6,8 +6,8 @@
 // 「点了 chip 只有用户气泡、没有 AI 回复」这种半截对话（P3）。
 //
 // DOM 与样式由 index.html + axing.css/chat.css 提供；本文件不引三方依赖、不 import three。
-
-const MAX_IMG_BYTES = 10 * 1024 * 1024;   // 照片上限 10MB，与 upload 端限制对齐
+// 照片大小/类型的校验归 sheet-upload.js（浮窗自己那套 15MB），这里不再重复一道——
+// 同一条链路两处上限不一致，顾客只会看到「同一张照片有时能传有时不能」。
 
 export function initComposer(ctx) {
   const input = document.getElementById('composerInput');
@@ -60,34 +60,12 @@ export function initComposer(ctx) {
   // 「语音不离开 Chat」是远期目标。
   if (voiceBtn) on(voiceBtn, 'click', () => ctx.go('view-voice'));
 
-  // ---------- 图片：选一张客厅照，带去上传浮窗（不再是独立全屏页） ----------
-  let fileInput = null;
-  if (imgBtn) on(imgBtn, 'click', () => {
-    if (fileInput) fileInput.remove();
-    const fi = document.createElement('input');
-    fi.type = 'file';
-    fi.accept = 'image/*';
-    fi.hidden = true;
-    fi.addEventListener('change', () => {
-      const file = fi.files && fi.files[0];
-      if (file) {
-        if (!file.type.startsWith('image/')) ctx.toast('只能选照片哦');
-        else if (file.size > MAX_IMG_BYTES) ctx.toast('照片太大了，换一张小一点的');
-        else {
-          // 顾客已经在系统相册里挑好照片了，别让他进浮窗再挑一遍。
-          // 原先这里只 setState({ pendingRoomFile }) 记了个文件名，而 sheet-upload
-          // 从来没读它——照片就这么丢了，实测顾客要在浮窗里重新选一次。
-          ctx.roomFile = file;
-          ctx.openUpload();
-        }
-      }
-      fi.remove();                                // 用完即焚，保证下次能重复选同一张
-      fileInput = null;
-    });
-    document.body.appendChild(fi);
-    fileInput = fi;
-    fi.click();
-  });
+  // ---------- 图片：直接开上传浮窗，不自己弹系统相册 ----------
+  // 交互规范 §1-2：上传客厅照的三个入口（首页上传卡 / Composer 相册键 / AI 回复的「拍照试摆」）
+  // 统一进同一个浮窗，由浮窗提供「拍一张 / 从相册选择 / 示例房间」。
+  // 曾经这里自己弹系统相册，有两个后果：① 顾客取消选择就是一次完全没反馈的空点
+  // （老人会以为手机坏了）；② 看不到示例房间——没照片的顾客被直接堵死。
+  if (imgBtn) on(imgBtn, 'click', () => ctx.openUpload());
 
   // ---------- ＋：更多功能占位 ----------
   if (plusBtn) on(plusBtn, 'click', () => ctx.toast('更多功能还在来的路上～'));
@@ -106,7 +84,6 @@ export function initComposer(ctx) {
   syncSendVisibility();
 
   return function cleanup() {
-    if (fileInput) fileInput.remove();
     cleanups.forEach((fn) => { try { fn(); } catch { /* 忽略单个解绑异常 */ } });
   };
 }

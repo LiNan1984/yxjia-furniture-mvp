@@ -58,22 +58,39 @@ function bindShell() {
     }
   });
 
-  // 下拉把手取消：pointerdown 记起点，pointermove 上滑超过 60px 即关
+  // 下拉把手取消：pointerdown 记起点，上滑超过 60px 即关。
+  // 必须 setPointerCapture：监听器挂在 panel 上，而手指一旦拖到浮窗顶边之外，
+  // pointermove 的 target 就变成蒙版了——触屏有隐式捕获所以看着是好的，
+  // 笔记本触控板/鼠标拖拽全程收不到事件，把手完全失效（实测 Y5）。
+  // setPointerCapture 让同一个 pointerId 的后续事件固定送回把手，鼠标和触屏才一致。
   if (panel) {
     let startY = null;
+    let activePointer = null;
     panel.addEventListener('pointerdown', (e) => {
       const grip = e.target.closest && e.target.closest('.ax-sheet__grip');
-      if (grip) startY = e.clientY;
+      if (!grip) return;
+      startY = e.clientY;
+      activePointer = e.pointerId;
+      if (typeof grip.setPointerCapture === 'function' && activePointer != null) {
+        try { grip.setPointerCapture(activePointer); } catch { /* 捕获失败也不影响按下 */ }
+      }
     });
     panel.addEventListener('pointermove', (e) => {
-      if (startY == null) return;
+      if (startY == null || (activePointer != null && e.pointerId !== activePointer)) return;
       if (startY - e.clientY > 60) {
         startY = null;
         closeUploadSheet();
       }
     });
-    panel.addEventListener('pointerup', () => { startY = null; });
-    panel.addEventListener('pointercancel', () => { startY = null; });
+    const endDrag = (e) => {
+      if (startY == null) return;
+      if (activePointer != null && e.pointerId !== activePointer) return;
+      startY = null;
+      activePointer = null;
+    };
+    panel.addEventListener('pointerup', endDrag);
+    panel.addEventListener('pointercancel', endDrag);
+    panel.addEventListener('lostpointercapture', endDrag);
   }
 }
 
@@ -195,7 +212,14 @@ export function mountUploadSheetBody(panel, ctx, opts = {}) {
     panel.appendChild(el('h2.sec-title', { text: '把家具搬进你家', style: 'font-size:21px;' }));
     panel.appendChild(el('p.sec-desc', {
       text: '拍一张完整的客厅，尽量把地面和墙面都拍进去，这样摆进去更准。',
-      style: 'margin-bottom:14px;',
+      style: 'margin-bottom:6px;',
+    }));
+    // 「怎么关掉这个窗口」必须是看得见的。浮窗开着时底部 Tab 被 pointer-events:none
+    // 挡着（chat.css #phone[data-sheet=on]），顾客的出口只剩顶部小横条、蒙版那一条、
+    // 和 Esc——这三样对老人都是隐形的。写一句话，比让他猜强。
+    panel.appendChild(el('p.tiny.muted', {
+      text: '↑ 上滑顶部小横条，或点旁边变暗的地方，就能收起这个窗口',
+      style: 'text-align:center;margin:0 0 14px;letter-spacing:.02em;line-height:1.6;',
     }));
   }
 
@@ -368,8 +392,10 @@ export function mountUploadSheetBody(panel, ctx, opts = {}) {
     if (cats.length) paintCats();
     else catWrap.hidden = true;
 
-    // Composer 相册键带来的照片：顾客已经在系统相册里挑好了，直接上传，
-    // 不能让他在浮窗里再挑一遍。这是 ctx.roomFile 的真正消费点。
+    // 上游提前挑好的照片：顾客已经在系统相册里选过了，直接上传，
+    // 不能让他在浮窗里再挑一遍。上传入口统一走 ctx.openUpload() 后，
+    // 这条路径目前没有生产者，但浮窗是「相册/拍照」的唯一落点，
+    // 保留消费端比让照片静默丢失安全（db24052 之前正是丢过一次）。
     const pre = ctx.roomFile;
     if (pre && !ctx.state.roomUrl) {
       ctx.roomFile = null;

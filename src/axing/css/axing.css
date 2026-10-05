@@ -241,6 +241,11 @@ img{display:block;max-width:100%;}
   overflow:hidden;aspect-ratio:4/3;box-shadow:var(--shadow-lux);
 }
 .stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;}
+/* 试摆页的舞台按视口高度封顶：老人旧机 320×568 / 360×640 上 4/3 的舞台有 219px，
+   加上页头和状态行就把「立即生成」顶到固定栏下面 100px。这里压到 22vh，宽度不变、
+   aspect-ratio 让位（图本来就是 object-fit:contain，不会裁）。
+   只作用于 view-tryon——view-3d 的 canvas 要留够操作空间，不能被压缩。 */
+#view-tryon .stage{max-height:22vh;}
 .stage__hint{
   position:absolute;inset:0;display:flex;flex-direction:column;gap:10px;
   align-items:center;justify-content:center;text-align:center;padding:22px;
@@ -306,9 +311,23 @@ img{display:block;max-width:100%;}
   transform:translateY(100%);transition:transform .15s var(--ease);
 }
 .ax-sheet-root.is-open .ax-sheet{transform:translateY(0);}
+/* 把手：看得见的是 4px 一条，可点区域是 44px。
+   为什么必须撑高：这是顾客拖掉浮窗的手势出口（蒙版只在顶部露一条，
+   Tab 在浮窗开着时被 pointer-events:none 挡着），4px 对粗手指/手抖的老人等于没有。
+   项目铁律「老人友好」的 44px 下限（见 tests/axing-ui.test.js F1）本来只量 button/tile，
+   漏了这类 div 手柄，这里补上。
+   实现：::after 画 4px 可见条，本体撑 44px 命中区，再用 -24px 下 margin 把占位高度
+   压回原来的 20px（4+4+12），标题位置一点也不动。
+   注意 *{box-sizing:border-box}，padding 撑不了命中区，必须直接给 height。
+   touch-action:none：否则在把手上拖动会同时滚动浮窗内容，又滚又拽。 */
 .ax-sheet__grip{
-  width:38px;height:4px;border-radius:999px;background:var(--c-stone);
-  margin:4px auto 12px;flex:0 0 auto;
+  position:relative;width:38px;height:44px;
+  margin:0 auto -24px;padding:0;border:0;background:none;
+  touch-action:none;
+}
+.ax-sheet__grip::after{
+  content:'';position:absolute;left:0;right:0;top:4px;height:4px;
+  border-radius:999px;background:var(--c-stone);
 }
 
 /* ============================================================

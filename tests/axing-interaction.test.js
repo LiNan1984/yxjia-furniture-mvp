@@ -13,6 +13,17 @@
 //   A9  首屏无 404、无 pageerror
 //   A10 十个 view 都能挂载
 //
+// 第二波（2026-10-05 真实顾客实测补的洞）见文件末尾 describe('B · …')：
+//   B1 Composer 相册键直达上传浮窗，不自己弹系统相册
+//   B2 把手命中区 ≥44px（原来是 4px，粗手指点不到）
+//   B3 鼠标/触控板也能拖把手收起（触屏有隐式捕获，遮住了这个问题）
+//   B4 浮窗里写明「怎么收起」
+//   B5 试摆页「立即生成」在固定栏（Composer）以上，黄金路径不用滑
+//
+// ⚠️ 量坐标前必须等浮窗动画真的播完：is-open 是「先加 class 再播 0.15s 过渡」，
+//    class 一加上那一帧面板还在屏幕外（panelTop=634/844）。等 transform 收敛到
+//    translateY(0) 才动 mouse，否则起始点落在没升上来的面板上，手势静默失效。
+//
 // 端口：3430（独立 spawn，不复用 playwright.config.js 的 3000，也不碰
 //       3100/3412/3420 的阿杏其他测试文件）
 // 单独跑：./node_modules/.bin/playwright test tests/axing-interaction.test.js --reporter=line
@@ -460,4 +471,142 @@ test('S1 真实链路：Agents SDK 流式跑通，回复含表格/标题', async
     // 模型这次没出表格也接受，但绝不能漏出裸 Markdown 表格行
     expect(aiText).not.toMatch(/\|\s*---/);
   }
+});
+
+// ============================================================================
+// B · 第二次真实顾客实测的回归守门员（2026-10-05，Playwright 探针发现的洞）
+// ============================================================================
+// 这几条各自对应一次「改了会静默烂掉」的修复，没有测试守着就会复发：
+//   B1 Composer 相册键直达上传浮窗，不自己弹系统相册
+//      —— 原实现自己弹 OS 选图框，顾客取消就是一次零反馈的空点；且看不到示例房间。
+//   B2 把手命中区 ≥44px
+//      —— 原来只有 4px 高。这是顾客拖掉浮窗的手势出口（蒙版只露顶部一条、Tab 被
+//         pointer-events:none 挡着），4px 对粗手指等于没有，而 F1 的 44px 检查只量
+//         button/tile，漏了这类 div 手柄。
+//   B3 鼠标/触控板也能拖把手收起
+//      —— pointermove 监听在 panel 上，手指拖出浮窗体后事件不再到达；触屏有隐式
+//         捕获所以看着是好的，笔记本触控板下完全失效。修法是 setPointerCapture。
+//         Playwright 的 mouse 就是无隐式捕获的那条路径，正好当回归用。
+//   B4 浮窗里有「怎么收起」的一句话
+//      —— 三个出口对老人都是隐形的，必须写出来。
+//   B5 试摆页「立即生成」在固定栏（Composer）以上
+//      —— 按钮原来排在所有 chips 后面，390×844 上 top=905，黄金路径落地还得再滑一下。
+// ============================================================================
+test.describe('B · 上传浮窗与试摆主按钮（第二波实测洞）', () => {
+  test.beforeEach(async ({ page }) => { await openHome(page); });
+
+  test('B1 Composer 相册键直达上传浮窗（不自己弹系统相册）', async ({ page }) => {
+    await page.locator('#composerImage').click();
+    await page.waitForFunction(
+      () => document.getElementById('sheetRoot')?.classList.contains('is-open'),
+      null, { timeout: 8000 },
+    );
+    // 不能自己弹 file chooser：一弹就意味着「取消 = 空点」+「看不到示例房间」
+    const panel = page.locator('#sheetPanel');
+    await expect(panel).toContainText('拍一张客厅照');
+    await expect(panel).toContainText('从相册选择');
+    // 浮窗开着时人不离开对话页
+    expect(await page.evaluate(() => document.querySelector('.view.active')?.id)).toBe('view-home');
+  });
+
+  test('B2 把手命中区 ≥44px（老人手指）', async ({ page }) => {
+    await page.evaluate(() => window.AXING.openUpload());
+    await page.waitForFunction(
+      () => document.getElementById('sheetRoot')?.classList.contains('is-open'),
+      null, { timeout: 8000 },
+    );
+    const h = await page.evaluate(() => {
+      const g = document.querySelector('#sheetPanel .ax-sheet__grip');
+      return g ? g.getBoundingClientRect().height : 0;
+    });
+    expect(h, `把手只有 ${h}px 高，粗手指点不到`).toBeGreaterThanOrEqual(44);
+  });
+
+  test('B3 用鼠标拖把手也能收起浮窗（触屏以外的手势）', async ({ page }) => {
+    await page.evaluate(() => window.AXING.openUpload());
+    await page.waitForFunction(
+      () => document.getElementById('sheetRoot')?.classList.contains('is-open'),
+      null, { timeout: 8000 },
+    );
+    // 必须等推入动画真的播完再量坐标。is-open 是「先加 class、再播 0.15s 过渡」，
+    // class 一加上那一帧面板还在屏幕外（实测 panelTop=634/844，把手 y=642）。
+    // 所以判据不能是「把手在视口内」——滑行途中它就有一刻是满足的，随后 mouse
+    // 起始点落在还没升上来的面板上，整条手势静默失效（首次写这条就这么假失败）。
+    // 直接等 transform 收敛到 translateY(0)：只有动画结束才成立，确定性强。
+    await page.waitForFunction(() => {
+      const pn = document.getElementById('sheetPanel');
+      if (!pn) return false;
+      const tr = getComputedStyle(pn).transform;
+      return tr === 'none' || tr === 'matrix(1, 0, 0, 1, 0, 0)';
+    }, null, { timeout: 5000 });
+
+    // page.mouse 走的是无隐式指针捕获的那条路：拖出浮窗体后事件若不到把手，就关不掉。
+    // 这正是 setPointerCapture 修的那条路径（触屏有隐式捕获，测不出来）。
+    const grip = await page.locator('#sheetPanel .ax-sheet__grip').boundingBox();
+    expect(grip, '量不到把手').not.toBeNull();
+    const cy = grip.y + grip.height / 2;
+    await page.mouse.move(grip.x + grip.width / 2, cy);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2, cy - 90, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForFunction(
+      () => !document.getElementById('sheetRoot')?.classList.contains('is-open'),
+      null, { timeout: 5000 },
+    );
+  });
+
+  test('B4 浮窗里写明「怎么收起」', async ({ page }) => {
+    await page.evaluate(() => window.AXING.openUpload());
+    await page.waitForFunction(
+      () => document.getElementById('sheetRoot')?.classList.contains('is-open'),
+      null, { timeout: 8000 },
+    );
+    await expect(page.locator('#sheetPanel')).toContainText(/上滑|收起/);
+  });
+
+  test('B5 试摆页「立即生成」在固定栏以上（黄金路径不用滑）', async ({ page }) => {
+    test.slow();
+    // 走真实黄金路径：浮窗 → 示例房间 → 直接去试摆
+    await page.evaluate(() => window.AXING.openUpload());
+    await page.waitForSelector('#sheetPanel .chip-scroll button.chip', { timeout: 15000 });
+    await page.locator('#sheetPanel .chip-scroll button.chip').first().click();
+    await page.waitForFunction(() => Boolean(window.AXING.state.roomUrl), null, { timeout: 30000 });
+    await page.locator('#sheetPanel button', { hasText: '直接去试摆' }).click();
+    await page.waitForFunction(
+      () => document.querySelector('.view.active')?.id === 'view-tryon', null, { timeout: 10000 },
+    );
+    // 等浮窗真的收干净再量：closeUploadSheet 是「先去掉 is-open，等 0.15s 推退动画播完
+    // 再 hidden=true」。动画还没播完时 #sheetPanel 仍然盖在屏幕上，elementFromPoint
+    // 命中的是浮窗而不是主按钮（实测首次写这条时就这样假失败）。
+    await page.waitForFunction(() => {
+      const r = document.getElementById('sheetRoot');
+      return !!r && (r.hidden || getComputedStyle(r).display === 'none');
+    }, null, { timeout: 5000 });
+    // 再等 viewIn 过渡结束，transform 会带走命中点
+    await page.waitForFunction(
+      () => (document.querySelector('.view.active')?.getAnimations?.().length || 0) === 0,
+      null, { timeout: 5000 },
+    ).catch(() => { /* 老浏览器没有 getAnimations，不等也行 */ });
+    await page.waitForFunction(() => Boolean(
+      Array.from(document.querySelectorAll('#view-tryon button'))
+        .find((x) => x.textContent.includes('立即生成')),
+    ), null, { timeout: 10000 });
+
+    const m = await page.evaluate(() => {
+      const gen = Array.from(document.querySelectorAll('#view-tryon button'))
+        .find((x) => x.textContent.includes('立即生成'));
+      const comp = document.getElementById('composer');
+      // 挡住底部的是固定 Composer（72px，紧贴 Tab 上面），不是 Tab 本身
+      const chrome = comp && comp.offsetParent !== null ? comp : document.getElementById('tabbar');
+      const g = gen.getBoundingClientRect();
+      const c = chrome.getBoundingClientRect();
+      const mid = document.elementFromPoint(g.left + g.width / 2, g.top + g.height / 2);
+      return {
+        genBottom: g.bottom, chromeTop: c.top,
+        hitSelf: !!mid && (gen === mid || gen.contains(mid)),
+      };
+    });
+    expect(m.genBottom, `主按钮 bottom=${Math.round(m.genBottom)} 落到固定栏 top=${Math.round(m.chromeTop)} 下面了`).toBeLessThanOrEqual(m.chromeTop);
+    expect(m.hitSelf, '主按钮首屏点不到（被固定栏或蒙版盖住）').toBe(true);
+  });
 });
