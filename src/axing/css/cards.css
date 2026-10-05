@@ -86,6 +86,13 @@
   padding:7px 9px;font-size:10.5px;letter-spacing:.02em;
   min-height:44px;display:inline-flex;align-items:center;flex:0 0 auto;
 }
+/* 小屏（老人旧机 320/360px）放不下 4 条一行，改成换行全露出来。
+   不靠横滑：chip-row 的横向滚动对老人基本是隐形的，滑一下只动两个像素，
+   他们会以为「就这两条」。换行只是多占一行，信息是全的。 */
+@media (max-width: 379px){
+  .ax-ask--bottom .ax-ask__chips{flex-wrap:wrap;overflow-x:visible;}
+  .ax-ask--bottom .ax-ask__chips .chip{flex:0 1 auto;}
+}
 
 /* ---- 四大功能四宫格 ---- */
 .ax-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}

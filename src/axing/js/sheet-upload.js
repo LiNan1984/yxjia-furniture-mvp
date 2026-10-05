@@ -367,6 +367,16 @@ export function mountUploadSheetBody(panel, ctx, opts = {}) {
     }
     if (cats.length) paintCats();
     else catWrap.hidden = true;
+
+    // Composer 相册键带来的照片：顾客已经在系统相册里挑好了，直接上传，
+    // 不能让他在浮窗里再挑一遍。这是 ctx.roomFile 的真正消费点。
+    const pre = ctx.roomFile;
+    if (pre && !ctx.state.roomUrl) {
+      ctx.roomFile = null;
+      handleFile(pre);
+      return;
+    }
+
     // 首页示例缩略图带过来的品类：直接替用户选中，少一次点击
     // （原 view-upload.js 存了 sampleCategoryId 却从没用它 auto-select，这里补上）
     const want = ctx.state && ctx.state.sampleCategoryId;

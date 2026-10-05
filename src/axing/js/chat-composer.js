@@ -74,7 +74,10 @@ export function initComposer(ctx) {
         if (!file.type.startsWith('image/')) ctx.toast('只能选照片哦');
         else if (file.size > MAX_IMG_BYTES) ctx.toast('照片太大了，换一张小一点的');
         else {
-          ctx.setState({ pendingRoomFile: file.name });
+          // 顾客已经在系统相册里挑好照片了，别让他进浮窗再挑一遍。
+          // 原先这里只 setState({ pendingRoomFile }) 记了个文件名，而 sheet-upload
+          // 从来没读它——照片就这么丢了，实测顾客要在浮窗里重新选一次。
+          ctx.roomFile = file;
           ctx.openUpload();
         }
       }
