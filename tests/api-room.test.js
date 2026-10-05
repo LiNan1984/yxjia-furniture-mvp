@@ -41,7 +41,7 @@ test('GET /api/categories：sofa/bed 启用、柜/桌/其他停用，带 room/no
   expect([byId.sofa.room, byId.sofa.noun]).toEqual(['客厅', '沙发']);
   expect(byId.bed.enabled).toBe(true);
   expect([byId.bed.room, byId.bed.noun]).toEqual(['卧室', '床']);
-  expect(String(byId.bed.defaultRoom)).toContain('default-room-bed');
+  expect(String(byId.bed.defaultRoom)).toContain('bed-double.jpg');
   expect(byId.cabinet.enabled).toBe(false);
   expect(byId.table.enabled).toBe(false);
 });

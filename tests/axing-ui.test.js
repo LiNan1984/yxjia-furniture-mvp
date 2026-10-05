@@ -154,19 +154,22 @@ test.describe('A · 首页视觉结构（§70 / 视觉基准）', () => {
     expect(info.h).toBeGreaterThan(0);
   });
 
-  test('A2 时间线不放预置假对话；真实发言后用户+AI 消息成对出现且 AI 带头像真图', async ({ page }) => {
+  test('A2 时间线只放一条 AI 问候，不摆预置的假对话；真实发言后用户+AI 消息成对出现且 AI 带头像真图', async ({ page }) => {
     test.slow();
-    // 意图：首页不再摆「示例话术」。空时间线是本该有的初始状态，
-    // 头像绑定改为在真实发送之后验证（比断言静态文案更能说明链路通）。
+    // 意图：commit 438d831 删的是「预置的多轮假对话」（让顾客以为已经有人在聊）；
+    // 但 docs/最新首页图.png 的视觉基准里，09:41 那条**单句 AI 问候**是在的，
+    // 老人也需要这一句才知道该干什么。所以铁律是：恰好 1 条 AI、0 条 user。
     await expect(page.locator('#view-home .ax-timeline')).toHaveCount(1);
-    expect(await page.locator('.ax-msg').count(), '初始时间线应为空：不摆预置的假对话').toBe(0);
+    expect(await page.locator('.ax-msg--user').count(), '不允许预置任何用户消息').toBe(0);
+    expect(await page.locator('.ax-msg--ai').count(), '应恰好有 1 条阿杏问候').toBe(1);
+    expect(await page.locator('.ax-msg').count(), '初始时间线只应有那一句问候').toBe(1);
 
     const ask = '现代简约沙发有吗';
     await page.fill('#composerInput', ask);
     await page.click('#composerSend');
 
     await expect(page.locator('.ax-msg--user', { hasText: ask }), '发送后应立即出现用户消息').toHaveCount(1);
-    await page.waitForFunction(() => document.querySelectorAll('#view-home .ax-msg--ai').length > 0, null, { timeout: 45000 });
+    await page.waitForFunction(() => document.querySelectorAll('#view-home .ax-msg--ai').length > 1, null, { timeout: 45000 });
 
     // §70.1「阿杏头像必须与 AI 消息绑定」
     const avas = page.locator('.ax-msg--ai .ax-msg__ava img');
@@ -251,30 +254,58 @@ test.describe('B · 核心不变式（§70.1）', () => {
     expect(state.display, '语音页是全屏收音，Composer 应收起（不是 flex）').not.toBe('flex');
   });
 
-  test('B2 功能按钮位于 Chat 之后、Input 之前（timeline → quick → composer）', async ({ page }) => {
+  test('B2 对话流贴在输入框上方（quick → timeline → ask → composer），滚到底最新消息必须在屏内', async ({ page }) => {
     const r = await rectsOf(page, ORDER_SELECTORS);
     for (const s of ORDER_SELECTORS) {
       expect(r[s], `布局顺序断言需要 ${s} 存在（axing.css 已定义该类）`).not.toBeNull();
     }
-    // (1) 文档顺序：时间线 → 四大功能 → Composer。这是与「首页是否可以滚动」无关的铁律。
+    // (1) 文档顺序铁律：上传卡/四大功能在上 → 对话时间线 → 「你可以这样问」→ Composer。
+    // 依据已换成 docs/最新首页图.png：参考图里对话气泡是沉在底部、贴着输入框的，
+    // 不是 hero 下面那一小段（v2.1 §70.1 的 timeline→quick 顺序已作废）。
+    // 为什么必须是这个顺序：chat-core 每次新消息都执行 views.scrollTop = scrollHeight。
+    // 时间线若排在 hero 旁边，滚到底看到的是最底部的「拨打按钮 + chips」，
+    // 最新那条气泡反而在屏幕外——「我发的 query 看不到」（P2）就是这么漏的。
     const domOrder = await page.evaluate(() => {
-      const t = document.querySelector('.ax-timeline');
       const q = document.querySelector('.ax-quick');
+      const t = document.querySelector('.ax-timeline');
+      const a = document.querySelector('.ax-ask--bottom');
       const c = document.getElementById('composer');
-      const before = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-      return { timelineFirst: before(t, q), quickBeforeComposer: before(q, c) };
+      const before = (x, y) => Boolean(x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return {
+        quickBeforeTimeline: !!(q && before(q, t)),
+        timelineBeforeAsk: !!(t && before(t, a)),
+        askBeforeComposer: !!(a && before(a, c)),
+      };
     });
-    expect(domOrder.timelineFirst, '聊天时间线应排在四大功能按钮之前（§70.1「功能按钮位于 Chat 之后」）').toBe(true);
-    expect(domOrder.quickBeforeComposer, '四大功能按钮应排在输入框之前（§70.1「…、Input 之前」）').toBe(true);
+    expect(domOrder.quickBeforeTimeline, '四大功能按钮应排在对话时间线之前（第一 CTA 与功能入口在折叠线以上）').toBe(true);
+    expect(domOrder.timelineBeforeAsk, '对话时间线应排在「你可以这样问」之前').toBe(true);
+    expect(domOrder.askBeforeComposer, '「你可以这样问」应沉底但不被 Composer 盖住').toBe(true);
 
-    // (2) 视口几何：时间线整体在四大功能上方（首页不滚动时即可验证）。
-    expect(r['.ax-timeline'].bottom, '聊天时间线应整体落在四大功能按钮上方')
-      .toBeLessThanOrEqual(r['.ax-quick'].top + 1);
-    // (3) 滚到首页最底后，四大功能必须整体落在输入框上方、不被 Composer 盖住。
-    // 注：§2.3「用户向下滚动后不再反复显示大头像」明确允许首页滚动，所以不能用「首屏不滚动」
-    //     来卡这条；这里滚到底再看按钮与固定输入框的关系。
+    // (2) 几何：时间线整体落在「你可以这样问」上方。
+    const askRect = await rectsOf(page, ['.ax-ask--bottom']);
+    expect(r['.ax-timeline'].bottom, '聊天时间线应整体落在「你可以这样问」上方')
+      .toBeLessThanOrEqual(askRect['.ax-ask--bottom'].top + 1);
+
+    // (3) 发一条真消息、滚到底后，最新气泡必须落在 #views 视口内（P2 的验收点）。
+    await page.fill('#composerInput', '小户型沙发');
+    await page.click('#composerSend');
+    await page.waitForFunction(
+      () => document.querySelectorAll('#view-home .ax-msg--user').length >= 1,
+      null, { timeout: 15000 },
+    );
     await page.evaluate(() => { const v = document.getElementById('views'); v.scrollTop = v.scrollHeight; });
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(200);
+    const vis = await page.evaluate(() => {
+      const v = document.getElementById('views');
+      const vb = v.getBoundingClientRect();
+      const rows = [...document.querySelectorAll('#view-home .ax-msg')];
+      const last = rows[rows.length - 1];
+      const b = last.getBoundingClientRect();
+      return { lastTop: b.top, viewTop: vb.top, viewBottom: vb.bottom, inView: b.top >= vb.top - 1 && b.top < vb.bottom };
+    });
+    expect(vis.inView, `滚到底后最新气泡应在 #views 视口内（last.top=${vis.lastTop.toFixed(0)} / views=${vis.viewTop.toFixed(0)}..${vis.viewBottom.toFixed(0)}）`).toBe(true);
+
+    // (4) 滚到底后四大功能仍整体落在 Composer 上方、不被盖住。
     const bottom = await rectsOf(page, ORDER_SELECTORS);
     expect(bottom['.ax-quick'].bottom, `滚到底后四大功能按钮仍被输入框压住/落在其下（quick.bottom=${bottom['.ax-quick'].bottom.toFixed(0)} / composer.top=${bottom['#composer'].top.toFixed(0)}）`)
       .toBeLessThanOrEqual(bottom['#composer'].top + 1);
@@ -535,7 +566,7 @@ test.describe('G · 首屏不阻塞', () => {
     expect(paint.callBtn, '打给店里兜底按钮应立即渲染').toBe(1);
   });
 
-  test('G2 上传卡立即可点：API 还没回来时点它能进上传页', async ({ page }) => {
+  test('G2 上传卡立即可点：API 还没回来时点它能打开上传', async ({ page }) => {
     test.slow();
     await page.route('**/api/categories', async (route) => {
       await new Promise((r) => setTimeout(r, 6000));
@@ -543,10 +574,15 @@ test.describe('G · 首屏不阻塞', () => {
     });
     await openHome(page);
     await page.waitForSelector('#view-home.active .ax-ucard', { timeout: 15000 });
-    // API 仍在飞的窗口内点击（不等 fill 回来）
-    await page.locator('#view-home .ax-ucard__head').click({ timeout: 5000 });
-    await page.waitForFunction(() => document.getElementById('view-upload')?.classList.contains('active'), null, { timeout: 10000 });
-    await expect(page.locator('#view-upload.active')).toHaveCount(1);
+    // API 仍在飞的窗口内点击（不等 fill 回来）。
+    // §2-4 起这张卡住进 axingCard 的头像卡里，标题行改由 axingCard 画，
+    // 可点元素是外层 .card[role=button]；点 .ax-ucard 靠事件冒泡同样命中。
+    await page.locator('#view-home .ax-ucard').click({ timeout: 5000 });
+    // 阿杏交互规范 §1-2：上传不再是独立全屏页，改从底部浮窗进。
+    // 断言浮窗进入 is-open 态，且首页仍在场（上传不该把人带离对话流）。
+    await page.waitForFunction(() => document.getElementById('sheetRoot')?.classList.contains('is-open'), null, { timeout: 10000 });
+    await expect(page.locator('#sheetRoot.is-open')).toHaveCount(1);
+    await expect(page.locator('#view-home.active')).toHaveCount(1);
   });
 
   test('G3 示例缩略图探测后才建格：不出现先渲染再换 src 的破图瞬态', async ({ page }) => {

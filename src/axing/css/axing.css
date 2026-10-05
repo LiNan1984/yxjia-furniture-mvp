@@ -76,7 +76,20 @@ img{display:block;max-width:100%;}
 /* display:flex 会盖掉 UA 的 [hidden]{display:none}，无历史时返回键必须真的消失 */
 .topbar__back[hidden]{display:none;}
 .topbar__title{flex:1;font-size:15px;letter-spacing:.2em;font-weight:400;}
-.topbar__right{display:flex;gap:8px;align-items:center;}
+.topbar__right{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:0;max-width:58%;}
+/* §6 R6：右上角极小字。门店电话是老人卡住时的最终解法，必須常驻可见但不抢首屏 */
+.topbar__call{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;letter-spacing:.06em;color:var(--c-apricot-ink);
+  text-decoration:none;white-space:nowrap;min-height:24px;
+}
+.topbar__call .ico{width:11px;height:11px;flex:0 0 auto;}
+.topbar__call:active{opacity:.65;}
+/* 门店地址允许折两行——折掉不如看清，老人看不清等于没写 */
+.topbar__addr{
+  font-size:9px;line-height:1.3;letter-spacing:.02em;color:var(--c-gray);
+  text-align:right;word-break:break-all;max-width:100%;
+}
 
 /* ---------------- view 容器（唯一滚动区） ---------------- */
 #views{flex:1;position:relative;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;}
@@ -272,9 +285,29 @@ img{display:block;max-width:100%;}
 .tiny{font-size:11px;letter-spacing:.1em;}
 .center{text-align:center;}
 
+/* ---- 底部浮窗壳（§1-2）：壳样式归 axing.css，浮窗内的内容样式归 cards.css ---- */
+.ax-sheet-root{position:absolute;inset:0;z-index:120;display:flex;flex-direction:column;justify-content:flex-end;}
+.ax-sheet-root[hidden]{display:none;}
+.ax-sheet__mask{
+  position:absolute;inset:0;background:rgba(44,44,44,.34);
+  opacity:0;transition:opacity .15s var(--ease);
+}
+.ax-sheet-root.is-open .ax-sheet__mask{opacity:1;}
+.ax-sheet{
+  position:relative;max-height:724px;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--c-cream);border-radius:20px 20px 0 0;
+  padding:8px 16px calc(20px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 32px rgba(44,44,44,.16);
+  transform:translateY(100%);transition:transform .15s var(--ease);
+}
+.ax-sheet-root.is-open .ax-sheet{transform:translateY(0);}
+.ax-sheet__grip{
+  width:38px;height:4px;border-radius:999px;background:var(--c-stone);
+  margin:4px auto 12px;flex:0 0 auto;
+}
+
 /* ============================================================
-   v2.1 首页视觉还原（基准：docs/阿杏AI家居导购界面.png）
-   Hero 阿杏 → 聊天时间线 → 上传客厅照卡 → 你可以这样问 → 四大功能 → Composer
+   阿杏 IP / 通用（.ax-avatar / .ax-row / .ax-bubble 见下方「阿杏头像 + 气泡」）
    ============================================================ */
 
 /* ---- Hero：阿杏半身 + 问候 ---- */
@@ -324,13 +357,11 @@ img{display:block;max-width:100%;}
 .ax-msg__ava--user{background:var(--c-stone);color:var(--c-charcoal);}
 .ax-msg--typing .ax-msg__bubble{color:var(--c-gray);letter-spacing:.24em;}
 
-/* ---- 上传客厅照卡（首页第一 CTA） ---- */
-.ax-ucard{
-  background:#fff;border:1px solid rgba(217,212,205,.7);border-radius:var(--radius);
-  box-shadow:var(--shadow-card);padding:11px;width:100%;text-align:left;display:block;
-  transition:transform .3s var(--ease);
-}
-.ax-ucard:active{transform:scale(.99);}
+/* ---- 上传客厅照卡（首页第一 CTA） ----
+   §2-4 起这张卡住进 ui.axingCard() 的头像卡里（.ax-card-ava > .card），
+   所以 .ax-ucard 只剩「这是什么」的语义钩子，不再自带白底/描边/内边距——
+   否则会变成一张卡套一张卡。视觉全交给外层 .card 与 cards.css 的 .ax-ucard__*。 */
+.ax-ucard{display:block;width:100%;text-align:left;}
 .ax-ucard__head{display:flex;align-items:center;gap:10px;}
 .ax-ucard__ico{
   width:38px;height:38px;border-radius:50%;flex:0 0 auto;

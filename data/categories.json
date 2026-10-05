@@ -15,7 +15,7 @@
       "name": "卧室 · 床",
       "room": "卧室",
       "noun": "床",
-      "defaultRoom": "/images/default-room-bed.jpg",
+      "defaultRoom": "/images/bed-double.jpg",
       "sort": 2,
       "enabled": true
     },
