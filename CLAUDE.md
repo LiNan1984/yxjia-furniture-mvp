@@ -440,17 +440,25 @@ src/axing/
 | POST | `/api/upload/room` | 客厅照 → MinIO |
 | POST | `/api/tryon/ai-anon` | 2D AI 试摆（每 IP 每天 3 次） |
 | POST | `/api/appointments` / GET `/api/appointments/by-phone/:phone` | **新增**：到店预约 → `data/appointments.json` |
-| POST | `/api/scenes` / GET `/api/scenes/by-phone/:phone` | **新增**：保存方案 → `data/scenes.json` |
+| POST | `/api/scenes` / GET `/api/scenes/by-phone/:phone` | **新增**：保存方案 → `data/scenes.json`（items 含 `compositionUrl`/`roomUrl`） |
+| GET | `/api/admin/appointments` / PATCH `/api/admin/appointments/:id` | **新增**：店主看预约 + 改状态（`requireAdmin`）。顾客约了店主要能看见，否则闭环是断的 |
 
 `data/appointments.json`、`data/scenes.json` 含手机号，已加 .gitignore；写入沿用现有 `loadContainer/saveContainer` + `ok/fail` 模式，未登录按手机号可查但加 IP 限额（仿 `/api/tryon/history`）。
 
 ### 测试
 
 ```bash
-./node_modules/.bin/playwright test tests/axing.test.js
+./node_modules/.bin/playwright test tests/axing.test.js        # 8 个（自带 3100 端口实例）
+./node_modules/.bin/playwright test tests/axing-ui.test.js     # 20 个（3412）：首页视觉结构 + §70.1 不变式 + 降级 + 老人友好
+./node_modules/.bin/playwright test tests/axing-admin.test.js  # 11 个（3420）：店主预约后台 + 方案补图
+./node_modules/.bin/playwright test                            # 全量 136 passed
 ```
 
 `tests/axing.test.js` 自带 **3100 端口**实例（不碰 3000 上的旧服务），覆盖：`/axing` 页面、vendor 资源、预约/方案接口校验、10 个 view 浏览器挂载冒烟 + three.js 舞台 canvas/降级断言 + 无 pageerror。
+
+**首页是「聊天优先」单屏**（v2.1 spec §70，视觉基准 `docs/阿杏AI家居导购界面.png`）：阿杏 hero → 一问一答气泡 → 「上传客厅照片」卡（第一 CTA）→ 你可以这样问 → 四大功能 → 打给店里。`#views` 是唯一滚动区，**Composer + Tab 是固定底栏**；Composer 只在 `view-voice` 让位（语音本身就是另一种聊天模态），把「任何状态都不能让用户失去 Chat」落实到上传/试摆/预约等全屏页。CSS 里给会互相切换显隐的元素必须显式写 `[hidden]{display:none}`——`display:flex` 会盖掉 UA 规则（返回键常显、发送/图片按钮同显都踩过）。
+
+**产品经理批判**：`docs/pm-critique-20261005-阿杏v2.1.md`（17 条 / 5 个 🔴）。最重要的一条：店主原先在后台**看不见任何预约**，闭环是断的——已补 `/api/admin/appointments` + `/admin/appointments.html`。剩下的排在 `docs/handoff-20261005-阿杏AI助手.md` §8.6。
 
 ---
 

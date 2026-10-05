@@ -168,8 +168,11 @@ ctx = { api, ui, state, setState, on, emit, go, back, toast, humanError, pickPro
 ./node_modules/.bin/playwright test tests/axing.test.js
 
 # 全量回归
-./node_modules/.bin/playwright test        # 107 passed（本次跑过，54.2s）
+./node_modules/.bin/playwright test        # 136 passed（v2.1 还原轮后实测，1.1m）
 ```
+
+> v2.1 还原轮新增 `tests/axing-ui.test.js`（端口 3412，20 例）和 `tests/axing-admin.test.js`
+> （端口 3420，11 例），细节见 §8.4。
 
 `tests/axing.test.js` 覆盖：① 壳/静态资源（importmap + 10 个 view 容器 + three vendor 可达）；
 ② appointments CRUD + 全部 400/404 校验分支；③ scenes CRUD + 空/坏商品校验；
@@ -197,7 +200,7 @@ ctx = { api, ui, state, setState, on, emit, go, back, toast, humanError, pickPro
 | # | 问题 | 状态 / 下一步 |
 |---|---|---|
 | 1 | **本地 `.env` 的 TWO_FISH_API_KEY 失效**（twofish 502） | 本地仅影响体验，走兜底出图。**上线前查生产 `/root/yxjia-mvp/.env` 的 key**：失效时上游回 `403 {"code":"GROUP_DELETED"}`，试摆会静默退化成侧边预览（CLAUDE.md §9 同款坑） |
-| 2 | `data/categories.json` 引用了不存在的 `/images/default-room-bed.jpg`（卧室示例房间图） | 数据债。上传页已会自动隐藏坏缩略图；补齐方式：后台上传一张卧室图作品类示例图 |
+| 2 | `data/categories.json` 引用了不存在的 `/images/default-room-bed.jpg`（卧室示例房间图） | 数据债。首页示例客厅现在会探测图片、塌不了的品类改挂该品类商品图（bed → `bed-double.jpg`），所以卧室示例能显示、只是不是房间图；上传页会自动隐藏坏缩略图。补齐方式：后台上传一张卧室图作品类示例图 |
 | 3 | 阿杏**尚未部署到生产**（72.60.193.189:3300） | 需要时按 CLAUDE.md §8：**rsync 只同步 `src/`**（不碰 `data/` `.env`，别加 `--delete`）+ `systemctl restart yxjia`。SSH 必须 `dangerouslyDisableSandbox: true` + sshpass 密码认证（沙箱会拦数据流）。部署后 `curl -s -o /dev/null -w "%{http_code}" http://72.60.193.189:3300/axing` 应为 200 |
 | 4 | 登录仍是「任意手机号 + 123456」（CLAUDE.md §7 / 安全记忆里的固有弱点） | 阿杏的预约/方案查询靠登录态 + IP 限额缓解；根本解是 v2.2 真短信验证码，未做 |
 
@@ -206,3 +209,105 @@ ctx = { api, ui, state, setState, on, emit, go, back, toast, humanError, pickPro
 1. 本地 `PORT=3400 node src/server.js` 打开 `/axing`，按 5 个 Tab 走一遍（重点试 3D 换装 + 存方案）。
 2. 若要上线：先按 §7-1 确认生产 twofish key，再按 §7-3 部署 `src/`。
 3. 若要继续加 view：照 §3.1 契约（`mount(root, ctx)`）+ §3.5 vendor 注意事项 + 派 agent 并行（文件边界不重叠）。
+
+---
+
+## 8. v2.1 视觉还原轮（2026-10-05 晚，agent team 5 路并行）
+
+> 起点：`docs/阿杏_AI家居导购助手_完整PRD_Spec_开发方案_v2.1_WebGL_UI还原版.md`（下称 v2.1 spec）
+> 视觉基准：`docs/阿杏AI家居导购界面.png`；IP 素材：`docs/开心挥手的银杏女孩.png`
+> 4 笔 commit：`7a6c1bf`（骨架）→ `ae30dad`（PM 批判）→ `0210b99`（壳接入）→ `60b1347`（还原 + 后台）
+
+### 8.1 产品经理批判（必读，决定后面该做什么）
+
+`docs/pm-critique-20261005-阿杏v2.1.md` —— 17 条，5 个 🔴。每条都带章节号 + 原文片段 + 建议改法。
+结论摘要：**v2.1 里 90% 的篇幅在给一家县城小店和一个维护者做加法。**
+5 个 🔴：① 「聊天优先」对不打字的老人是负资产且一行未实现；
+② 「任何状态都不能让用户失去 Chat」与 3D/试摆全屏工作流直接冲突；
+③ **店主看不见任何预约，转化闭环是断的**（唯一直接影响成交）；
+④ spec 最终结论仍是 Next.js/PostgreSQL，与铁律和已有原生实现正面打架；
+⑤ MVP 范围/七周排期与「一人 + 已有 4120 行」严重失配。
+文档另含 Spec↔实现对照表、外部依赖单点故障表、2 周 1 人排期、6 条可 Playwright 化的验收口径。
+**本轮只落了 🔴③ 和首页还原**，①②④⑤ 是 spec 文档层面的事，未改 spec。
+
+### 8.2 首页从「卡片堆叠」改成 v2.1 spec §70 的形态
+
+```
+阿杏 hero（真身） → 一问一答气泡 → 「上传客厅照片」卡（第一 CTA）
+ → 你可以这样问 chips → 四大功能 → 上次试摆 → 打给店里主按钮
+ ─────────────────────────────────────────────────────────────
+ Composer（常驻）｜  Tab：首页 / 商品 / 3D / 方案 / 我的
+```
+
+| 改动 | 文件 | 说明 |
+|---|---|---|
+| app shell | `css/axing.css` + `index.html` | `#views` 改唯一滚动区，Composer + Tab 变固定底栏。Composer **只在 `view-voice` 让位**（语音本身是另一种聊天模态），上传/试摆/预约等全屏页都在场——这是 §70.1 那条不变式的落地方式 |
+| Composer | `js/chat-composer.js`（新） | 文字问答打 `/api/chat/guide`；用户消息**立即上屏**不等网络；失败给兜底话术（时间线不出现问了没答的空洞）；20s 竞速超时；请求中禁连发；选照片跳上传页 |
+| 时间线 | `js/view-home.js` | 监听 `chat:message` / `chat:thinking`；AI 侧阿杏头像 + 「阿杏正在想」三抖点 |
+| 图标 | `index.html` | 新增 SVG 图标库（`<use href="#i-camera">`），tab 从文字字形 `⌂ ▦ ◍ ✧ ☺` 换成真图标；四宫格零 emoji |
+| IP 素材 | `src/axing/images/` | `axing-hero.jpg` 720×624（半身挥手）+ `axing-avatar.jpg` 192，另出 48/64/96 三档对齐 spec §38.2。PNG→JPEG：**800K→100K** |
+| 示例客厅 | `js/view-home.js` | 房间图缺失时按「房间图 → 该品类在售商品图」逐级探测解析，**与主预览同图的格子不放**（否则并排两张一样的，像 bug） |
+
+**量测过的首屏密度**（390×844，`#views` 可见 655px）：上传卡 192px、四宫格 87px、chip 44px。
+主 CTA「上传客厅照片」完整落在首屏内；chips 差 6px、四宫格差 115px 到折线，需轻滚。
+再压就开始伤「细字重 + 大留白」的设计语言，故收在这里。
+
+**已知允许偏差**（PM 批判 §2.13 裁定：布局/间距/字号/圆角以参考图为准，色板按两色调收敛）：
+
+| 参考图 | 落地 | 原因 |
+|---|---|---|
+| 用户气泡浅蓝 `#D7E4F9` | 杏色浅底 `rgba(232,178,125,.22)` | 蓝是原色，违反 CLAUDE.md §7 两色调铁律 |
+| 入口图标 橙/橙/**蓝**/**黄** | 杏色 / 石灰两档 | 同上 |
+| 用户头像真实照片 | 石灰底「我」字圆 | 阿杏没有用户身份体系，画不了 |
+| 4 张示例房间 | 1 张（bed 那格） | 数据债：只 2 个 enabled 品类、只有 1 张真实房间图 |
+
+另：首页多了 spec §7 要求的「尽量拍到完整的墙面、地面和主要空间」提示行（参考图没有，spec 有）。
+
+### 8.3 店主闭环补齐（PM 批判 🔴③）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/admin/appointments` | `requireAdmin`；date 升序（最近要到店的排最前）+ 同日 createdAt 倒序；`?status=` 过滤（非法值 400）；上限 200 |
+| PATCH | `/api/admin/appointments/:id` | `{status}`，白名单 `待到店/已到店/已成单/已取消`；400/404 |
+| GET | `/admin/appointments` | 新后台页：日期分组（今天/明天标记 + 各时段人数）、手机号大号 `tel:` 直拨、四状态一键改、状态筛选 |
+
+`/api/scenes` 的 items 同时增收 `compositionUrl` / `roomUrl`（只收 http(s)、≤1000，否则忽略不打断保存）——方案终于能存试摆图，店主回看时不再只有一行商品名。
+`src/server.js` 本轮改动**纯新增**（59 增 1 删，唯一删除行是一条注释），未动任何旧路由。
+
+### 8.4 测试（136/136 绿）
+
+```bash
+./node_modules/.bin/playwright test                                  # 136 passed（1.1m）
+./node_modules/.bin/playwright test tests/axing-ui.test.js           # 20 例，端口 3412
+./node_modules/.bin/playwright test tests/axing-admin.test.js        # 11 例，端口 3420
+./node_modules/.bin/playwright test tests/axing.test.js              # 8 例，端口 3100
+./node_modules/.bin/playwright test tests/api.test.js                # 42 例（主站回归）
+```
+
+- `tests/axing-ui.test.js`（新，20 例）：首页视觉结构、§70.1 三条核心不变式、app shell 布局、
+  Composer 交互、示例图 404 降级不阻塞购买、3D WebGL 失败兜底、老人友好（≥44px 命中区 + 无障碍标签）。
+- `tests/axing-admin.test.js`（新，11 例）：预约后台 CRUD + **未登录/顾客会话必须 401/403** + 排序 + 状态过滤 +
+  `compositionUrl/roomUrl` 存取与向后兼容 + 后台页面 `tel:` 链接与跳登录。
+- Python 老人视角：起 3000 服务后 **21 过 3 败**；那 3 个（下单 ×2 + 真实试摆 ×1）在改动前的提交上
+  用 worktree 复跑**同样失败**（依赖 MinIO / 真实 twofish key），不是本轮回归。
+
+### 8.5 本轮踩到并修掉的坑（都是自己的源码）
+
+1. **`display:flex` 会盖掉 UA 的 `[hidden]{display:none}`** —— `.topbar__back`（返回键无历史时常显）、
+   `.ax-composer__btn`（发送/图片按钮同时出现）都中招。CSS 里必须显式写 `[hidden]{display:none}`。
+2. **图片 onerror 逐级兜底会把多个品类塌成同一张图** —— 并排两张一样的缩略图看起来就是 bug。
+   要在选图阶段探测（`new Image()` onload），而不是等渲染后再换 src。
+3. `api.js` 的 `fetch` 不接受 `signal` —— Composer 的 20s 超时只能用 `AbortController`
+   做 UI 层竞速（底层请求自行结束）， cancel 不掉请求本身。
+
+### 8.6 下一步（按 PM 批判 §4.1 排，本轮未做）
+
+| 优先级 | 事项 | 出处 |
+|---|---|---|
+| P0 | spec 顶部加「落地偏差声明」+ 章节→实际文件映射表，把 Next.js/PostgreSQL/Rodin/RoomPlan 全部标成远期形态 | 🔴④ |
+| P0 | 试摆 `tryonEnabled` feature flag：AI 整体不可用时全站切到店引导，而不是逐次向用户报错 | 🟠2.10 |
+| P0 | 数据补干净：8-10 个在售商品填真实价格文案与尺寸，确认 23 个下架 SKU 的真实状态 | 🟡2.14 |
+| P1 | 补卧室示例房间图（还掉 `default-room-bed.jpg` 的数据债，示例客厅就能出 4 张） | §7-2 |
+| P1 | 429 话术改成「约到店 / 打电话」，不要把「登录后继续」当唯一出路 | 🟠2.10 |
+| P1 | `/api/admin/scenes` 或 rooms 列表接上已有的 `DELETE /api/admin/rooms/:id`，让「可删除」的隐私承诺真的可执行 | 🟡2.17 |
+| P1 | 试摆结果 / 方案生成一张可保存、可发微信的长图（客群传播路径） | 🟠2.7 |
