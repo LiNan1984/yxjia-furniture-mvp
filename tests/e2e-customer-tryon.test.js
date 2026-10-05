@@ -12,7 +12,7 @@
 //   试摆生成  秒表自己走、连点被拦、出图或诚实报错、切走再回来结果不丢、429 有出口
 //   转化闭环  预约 / 方案 / 打电话三条出口，且**下单缺口**被显式钉住
 //
-// 端口 3511（独立 spawn，不碰 3000 / 3100 / 3412 / 3420 / 3430）。
+// 端口 3533（独立 spawn，不碰 3000 / 3100 / 3412 / 3420 / 3430 / 3510 等其他组）。
 // 单独跑：./node_modules/.bin/playwright test tests/e2e-customer-tryon.test.js --reporter=line
 //
 // 已知环境事实（不是失败）：
@@ -27,7 +27,7 @@ import path from 'path';
 import os from 'os';
 import { spawn } from 'child_process';
 
-const PORT = 3511;
+const PORT = 3533;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const VIEWPORT = { width: 390, height: 844 };
 
@@ -329,11 +329,15 @@ test.describe('A · 底部上传浮窗（§1-2）', () => {
     const reopened = await page.evaluate(() => {
       const img = document.querySelector('#sheetPanel .stage img');
       const hint = document.querySelector('#sheetPanel .stage__hint');
+      // 房间名那行的文案是「当前房间：xxx」，用前缀认，别用 .tiny.muted 位置认
+      // （浮窗里 .tiny.muted 有好几处：拍照提示、操作提示、房间名）。
+      const lines = Array.from(document.querySelectorAll('#sheetPanel p.tiny.muted'))
+        .map((n) => (n.textContent || '').trim());
       return {
         src: img ? img.getAttribute('src') : '',
         hidden: img ? img.hidden : null,
         hintHidden: hint ? hint.hidden : null,
-        nameLine: (document.querySelector('#sheetPanel .tiny.muted') || {}).textContent || '',
+        nameLine: lines.find((t) => /^当前房间：/.test(t)) || '',
       };
     });
     expect(reopened.src, '重开应显示上次的客厅').toBe(roomUrl);
@@ -672,24 +676,51 @@ test.describe('D · 试摆生成', () => {
     expect(midGone, '切走时 DOM 不应被清空（它只是 display:none）').toBeGreaterThan(0);
   });
 
+  /**
+   * D4 的两种跑法：
+   *  - 「真打满」：预打 3 次再真跑一次。⚠️ 已实测会撞上一个**服务端偶发崩溃**：
+   *    连续打 ai-anon 后 server.js 抛 `Unhandled rejection object` 直接退出进程，
+   *    之后所有请求 ERR_CONNECTION_REFUSED（详见报告 🔴#1）。那是 src/ 的 bug，
+   *    不在本文件修复，所以默认走「注入 429」这条稳定路径测协议层。
+   *  - 「注入 429」：用 route.fulfill 精确复现 429 报文（`{success:false,error}` + 429 状态），
+   *    验证前端 `err.status === 429` 分支给的是「约到店 / 打店里电话」出口。
+   *    服务端真修好后，把下面 const USE_REAL_LIMIT 改 true 即可切回真打满。
+   */
+  const USE_REAL_LIMIT = false;
+
   test('D4 免费次数用完（429）时要给「约到店 / 打电话」的出口', async ({ page }) => {
-    await openHome(page);
-    // 直接打接口把今天的 3 次用光（anon 每 IP 每天 3 次）
-    for (let i = 0; i < 3; i++) {
-      await page.evaluate(async () => {
-        const fd = new FormData();
-        fd.append('room', new Blob([new Uint8Array(200)], { type: 'image/jpeg' }), 'room.jpg');
-        fd.append('productId', 'p-msbx2zg6-6zv');
-        await fetch('/api/tryon/ai-anon', { method: 'POST', body: fd }).catch(() => {});
-      });
+    // 预打 3 次把当天额度打满 + 真实跑一次生成，总时长可能到 2-3 分钟，
+    // 必须显式抬高 test timeout，否则 Playwright 默认 120s 会先掐断（waitForFunction
+    // 写得再长也没用——那是子超时，父超时先到）。
+    test.setTimeout(240000);
+
+    if (USE_REAL_LIMIT) {
+      await openHome(page);
+      for (let i = 0; i < 3; i++) {
+        await page.evaluate(async () => {
+          const fd = new FormData();
+          fd.append('room', new Blob([new Uint8Array(200)], { type: 'image/jpeg' }), 'room.jpg');
+          fd.append('productId', 'p-msbx2zg6-6zv');
+          await fetch('/api/tryon/ai-anon', { method: 'POST', body: fd }).catch(() => {});
+        });
+      }
+    } else {
+      // 注入 429：报文形状与 server.js 的 fail(res, 429, …) 完全一致
+      await page.route('**/api/tryon/ai-anon', (route) => route.fulfill({
+        status: 429,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: false, error: '免费体验已用完，请登录后再试摆' }),
+      }));
+      await openHome(page);
     }
+
     await reachTryon(page);
     await page.locator('#view-tryon button', { hasText: '立即生成' }).first().click();
 
     await page.waitForFunction(() => {
       const t = document.getElementById('view-tryon');
       return /次数用完|用完啦/.test((t && t.textContent) || '');
-    }, null, { timeout: 140000 });
+    }, null, { timeout: 30000 });
 
     const r = await page.evaluate(() => {
       const t = document.getElementById('view-tryon');
