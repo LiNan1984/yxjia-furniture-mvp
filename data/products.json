@@ -10,6 +10,7 @@
   "products": [
     {
       "id": "sofa-1",
+      "category": "sofa",
       "name": "新中式三人沙发",
       "subtitle": "雾霾蓝亚麻+真皮 · 金色竹节",
       "price": "¥3xxx 起",
@@ -803,6 +804,7 @@
     },
     {
       "id": "table-1",
+      "category": "table",
       "name": "深色实木餐桌椅",
       "subtitle": "客餐厅一体化 · 6 人位",
       "price": "¥2xxx 起",
