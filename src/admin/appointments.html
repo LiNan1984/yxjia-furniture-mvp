@@ -99,11 +99,17 @@ function groupHead(date, list){
   let tag = '';
   if (date === t) tag = '<span class="gtag">今天</span>';
   else if (date === tm) tag = '<span class="gtag">明天</span>';
-  const counts = ['上午','下午','晚上'].filter(b => list.some(a => slotBucket(a.slot) === b))
-    .map(b => `${b}${list.filter(a => slotBucket(a.slot) === b).length}人`);
-  const other = list.length - counts.length; // 时段不在三档内的老数据，别让人数凭空消失
-  if (other > 0) counts.push(`其他${other}人`);
-  return `<div class="group-head"><span>${esc(dateCN(date))} ${esc(weekdayCN(date))}</span>${tag}<span class="gcount">· ${esc(counts.join(' / ') || '0人')}</span></div>`;
+  // 分档计数：counts.length 是「桶个数」不是人数，必须逐档累加成人数再算「其他」，
+  // 否则 3 人分 2 桶会凭空冒出「其他1人」，老板会以为有时段不明的预约。
+  const parts = [];
+  let bucketed = 0;
+  for (const b of ['上午', '下午', '晚上']) {
+    const n = list.filter(a => slotBucket(a.slot) === b).length;
+    if (n) { parts.push(`${b}${n}人`); bucketed += n; }
+  }
+  const other = list.length - bucketed;   // 时段不在三档内的老数据，别让人数凭空消失
+  if (other > 0) parts.push(`其他${other}人`);
+  return `<div class="group-head"><span>${esc(dateCN(date))} ${esc(weekdayCN(date))}</span>${tag}<span class="gcount">· ${esc(parts.join(' / ') || '0人')}</span></div>`;
 }
 
 function card(a){
@@ -144,7 +150,11 @@ function render(){
 }
 
 async function load(){
-  const r = await fetch('/api/admin/appointments');
+  // filter 必须真起作用：后端 /api/admin/appointments 支持 ?status= 过滤（非法值 400）。
+  // 之前 filter 只被赋值、从没拼进请求，5 个筛选按钮全是装饰——老板点「已成单」
+  // 看到的还是全量，想把「只看成单的」筛出来根本做不到。
+  const q = filter ? `?status=${encodeURIComponent(filter)}` : '';
+  const r = await fetch('/api/admin/appointments' + q);
   const d = await r.json();
   if (!d.success) { toast(d.error || '读取失败，请刷新重试', true); return; }
   items = d.data.appointments || [];

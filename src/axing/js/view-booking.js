@@ -111,7 +111,7 @@ export async function mount(root, ctx) {
         const note = noteInput.value.trim();
 
         if (!name) { ctx.toast('先填一下怎么称呼您'); nameInput.focus(); return; }
-        if (!/^1\d{10}$/.test(phone)) { ctx.toast('手机号好像是 11 位数字，再看一眼'); phoneInput.focus(); return; }
+        if (!/^1[3-9]\d{9}$/.test(phone)) { ctx.toast('手机号好像是 11 位数字，再看一眼'); phoneInput.focus(); return; }
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { ctx.toast('选一个到店日期'); dateInput.focus(); return; }
         if (!SLOTS.includes(selectedSlot)) { ctx.toast('选一个到店时段'); return; }
 
@@ -212,7 +212,7 @@ export async function mount(root, ctx) {
 
   async function loadMine() {
     const phone = myPhone.value.trim();
-    if (!/^1\d{10}$/.test(phone)) { ctx.toast('先填 11 位手机号，阿杏才好帮你查'); myPhone.focus(); return; }
+    if (!/^1[3-9]\d{9}$/.test(phone)) { ctx.toast('先填 11 位手机号，阿杏才好帮你查'); myPhone.focus(); return; }
     myBtn.disabled = true;
     myBtn.textContent = '正在查…';
     myLoading.textContent = '正在翻预约本子…';

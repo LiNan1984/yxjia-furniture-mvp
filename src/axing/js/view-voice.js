@@ -36,7 +36,7 @@ function micIcon() {
 }
 
 export async function mount(root, ctx) {
-  const { el, mdToNodes } = ctx.ui;
+  const { el, icon, mdToNodes } = ctx.ui;
   const api = resolveApi(ctx);
 
   /** @type {{role:'user'|'assistant',content:string}[]} */
@@ -96,9 +96,9 @@ export async function mount(root, ctx) {
     const toUpload = () => (typeof ctx.openUpload === 'function' ? ctx.openUpload() : ctx.go('view-upload'));
     b.appendChild(el('div.row', { style: 'margin-top:8px;flex-wrap:wrap;' }, [
       el('button.btn', {
-        text: '📷 拍照试摆', style: 'min-height:44px;',
+        style: 'min-height:44px;',
         onclick: toUpload,
-      }),
+      }, [icon('camera'), '拍照试摆']),
       el('button.btn.btn--ghost', {
         text: '浏览家具', style: 'min-height:44px;',
         onclick: () => ctx.go('view-products'),

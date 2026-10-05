@@ -2338,7 +2338,7 @@ app.get('/api/appointments/by-phone/:phone', (req, res) => {
   const myPhone = getSessionUserPhone(req);
   if (myPhone && myPhone !== phone) return fail(res, 403, '只能查询自己手机号的预约');
   if (!myPhone && !checkApptQueryLimit(getClientIp(req))) {
-    return fail(res, 429, '今天查询次数已用完，请登录后再查');
+    return fail(res, 429, '今天查询次数已用完，请明天再试，或拨打门店电话 13359140982');
   }
   try {
     const container = loadAppointmentsContainer();
@@ -2457,7 +2457,7 @@ app.get('/api/scenes/by-phone/:phone', (req, res) => {
   const myPhone = getSessionUserPhone(req);
   if (myPhone && myPhone !== phone) return fail(res, 403, '只能查询自己手机号的方案');
   if (!myPhone && !checkApptQueryLimit(getClientIp(req))) {
-    return fail(res, 429, '今天查询次数已用完，请登录后再查');
+    return fail(res, 429, '今天查询次数已用完，请明天再试，或拨打门店电话 13359140982');
   }
   try {
     const container = loadScenesContainer();
@@ -2519,7 +2519,7 @@ app.get('/api/tryon/history', (req, res) => {
     if (myPhone && myPhone !== phone) return fail(res, 403, '只能查询自己手机号的历史');
     // 未登录：保留可查，但加 IP 限额防枚举
     if (!myPhone && !checkTryonHistoryLimit(getClientIp(req))) {
-      return fail(res, 429, `今天查询次数已用完（每天 ${TRYON_HISTORY_LIMIT} 次），请登录后再查`);
+      return fail(res, 429, `今天查询次数已用完（每天 ${TRYON_HISTORY_LIMIT} 次），请明天再试，或拨打门店电话 13359140982`);
     }
     const container = loadUploadsContainer();
     const list = container.uploads
@@ -3008,7 +3008,7 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
 ]), async (req, res) => {
   const ip = getClientIp(req);
   if (!checkAnonTryonLimit(ip)) {
-    return fail(res, 429, '免费体验已用完，请登录后再试摆');
+    return fail(res, 429, `免费体验已用完（每天 ${TRYON_ANON_LIMIT} 次），请明天再试，或拨打门店电话 13359140982 让阿杏帮您留一个`);
   }
   try {
     const roomFile = req.files?.room?.[0];
@@ -3493,7 +3493,7 @@ app.get('/api/whole-home/history', (req, res) => {
     const myPhone = getSessionUserPhone(req);
     if (myPhone && myPhone !== phone) return fail(res, 403, '只能查询自己手机号的历史');
     if (!myPhone && !checkTryonHistoryLimit(getClientIp(req))) {
-      return fail(res, 429, `今天查询次数已用完（每天 ${TRYON_HISTORY_LIMIT} 次），请登录后再查`);
+      return fail(res, 429, `今天查询次数已用完（每天 ${TRYON_HISTORY_LIMIT} 次），请明天再试，或拨打门店电话 13359140982`);
     }
     const container = loadUploadsContainer();
     const analyses = (Array.isArray(container.wholeHomeAnalyzes) ? container.wholeHomeAnalyzes : [])
