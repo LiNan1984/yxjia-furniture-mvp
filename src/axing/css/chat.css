@@ -43,6 +43,18 @@
 }
 .ax-msg__followups .chip:active{border-color:var(--c-apricot);color:var(--c-apricot-ink);}
 
+/* ---- 对话里的家具商品卡（chat-core.appendProductCards）----
+   同一个 .p-card，在商品页是双列网格里的 1:1 大图，在聊天流里横向只有 78% 宽，
+   1:1 会顶掉整整一屏。所以只在对话这一层把主图压扁、去掉重阴影——
+   .p-card 本体（axing.css）不动，商品页的网格照旧。
+   图来自工具返回的 image（MinIO/静态图），不是 Markdown 里的 ![alt](url)：
+   LLM 手里只有文本编号，url 由后端从商品库带出来，见 chat-core.js 注释。 */
+.ax-chat-products{display:flex;flex-direction:column;gap:10px;margin-top:11px;}
+.ax-chat-products .p-card{box-shadow:none;}
+.ax-chat-products .p-card__img{aspect-ratio:16/10;}
+/* 「选它」是这条链路的主动作：默认 .btn 只有边框，在卡片里不够醒目 */
+.ax-chat-products .p-card__ops .btn{background:var(--c-charcoal);color:var(--c-cream);border-color:var(--c-charcoal);}
+
 /* ---- 停止生成键（§1-3）：与发送键同形，炭底奶字以区别"停止"---- */
 .ax-composer__stop{background:var(--c-charcoal);color:var(--c-cream);}
 .ax-composer__stop:active{opacity:.8;}
