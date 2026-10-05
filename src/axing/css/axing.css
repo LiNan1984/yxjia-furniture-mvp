@@ -307,7 +307,9 @@ img{display:block;max-width:100%;}
   box-shadow:var(--shadow-card);
 }
 .ax-msg--user .ax-msg__bubble{
-  background:var(--c-charcoal);color:var(--c-cream);border-top-right-radius:4px;
+  /* PM 批判 2.13：参考图用户气泡是浅色系，#D7E4F9 违反两色调铁律 → 收敛成杏色浅底 */
+  background:rgba(232,178,125,.22);color:var(--c-charcoal);
+  border:1px solid rgba(232,178,125,.5);border-top-right-radius:4px;
 }
 .ax-msg__who{font-size:10px;letter-spacing:.16em;color:var(--c-gray);padding:0 4px;}
 .ax-msg__ava{
@@ -417,6 +419,8 @@ img{display:block;max-width:100%;}
 }
 .ax-composer__btn:active{background:var(--c-stone);}
 .ax-composer__btn svg{width:20px;height:20px;}
+/* display:flex 会盖掉 UA 的 [hidden]{display:none}，两个会互相切换的按钮都要显式补 */
+.ax-composer__btn[hidden]{display:none;}
 .ax-composer__send{background:var(--c-apricot);color:#4A3418;}
 .ax-composer__send[hidden]{display:none;}
 .ax-composer__send:active{opacity:.8;}

@@ -48,8 +48,9 @@ export function priceText(raw) {
   return typeof raw === 'string' && raw.trim() ? raw.trim() : '到店询价';
 }
 
-// 阿杏头像：用同一 IP 的裁切版本（v2.1 spec §38.2）。图片加载失败回退成文字圆，绝不出现破图。
-const AVATAR_IMG = '/axing/images/axing-avatar.png';
+// 阿杏头像：用同一 IP 的裁切版本（v2.1 spec §38.2）。JPEG 而非 PNG——同画质省 87% 体积，
+// 首屏要同时出 hero + 头像，spec §47 的首屏预算不能浪费在 alpha 通道上。
+const AVATAR_IMG = '/axing/images/axing-avatar.jpg';
 
 /** 阿杏头像 */
 export function avatar(size = '') {
@@ -64,7 +65,7 @@ export function avatar(size = '') {
 /** 阿杏半身像（首页 hero，v2.1 spec §38.1：开心、挥手、面向用户） */
 export function axingHero() {
   const wrap = el('div.ax-hero__girl');
-  const img = el('img', { src: '/axing/images/axing-hero.png', alt: '阿杏', loading: 'eager' });
+  const img = el('img', { src: '/axing/images/axing-hero.jpg', alt: '阿杏', loading: 'eager' });
   img.addEventListener('error', () => { wrap.textContent = '杏'; });
   wrap.appendChild(img);
   return wrap;
