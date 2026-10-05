@@ -97,3 +97,14 @@ data/scenes.json
 # ---- 店铺经营分析（PM 批判）：含库存/定价弱点，只在本地，不推公开仓库 ----
 docs/pm-critique-*.md
 data/conversations.json
+
+# ---- 产品宣传长图：带真实售价与门店信息，不推公开仓库 ----
+# 这两张（以及日后再丢进来的同类宣传图）印着 ¥2,280~¥5,980 的实价、
+# 门店地址/营业时间，第二张还带真实顾客的「预约到店」记录。
+# 与 c65190f / 49416d7 同一个理由：定价和客流是竞争弱点，不进公开仓库。
+# 文件名是内容哈希、每次不一样，所以按「docs 下 >1MB 的 PNG」兜底。
+docs/9a4531b6cbe044ec4c578ecae92a9eb0.png
+docs/a46cdb987c24aab147ac6d3b9ead8617.png
+
+# ---- 工具本地台账（图片 → 商品 ID 的摄入记录，只在 开发 机上有意义）----
+tools/.ingested.local-staging.json
