@@ -411,6 +411,54 @@ function extractToolNameFromRunItem(ev) {
   );
 }
 
+/** 聊天里能出现的商品卡最多几张：工具一次返 30+ 款时全塞进 SSE 会把首屏撑爆 */
+const TOOL_PRODUCTS_MAX = 8;
+
+/**
+ * 从 RunToolCallOutputItem 里取工具的真实返回值。
+ *
+ * 为什么需要它：`tool_call_item`（extractToolNameFromRunItem 认的那个）只有工具名，
+ * 商品数组（含 image）在之后单独到来的 `tool_call_output_item.output` 上。
+ * 原来只 yield 工具名，数组整盘留在服务端——前端聊天里就永远出不了家具图片，
+ * 顾客看到的只有一句「植物印花弧形布艺沙发 ¥2899起 p-xxx」的纯文本。
+ */
+function extractToolOutputFromRunItem(ev) {
+  if (!ev || ev.type !== 'run_item_stream_event') return null;
+  const item = ev.item || ev.data?.item || null;
+  if (!item || item.type !== 'tool_call_output_item') return null;
+  const raw = item.rawItem || {};
+  return {
+    name: raw.name || raw.function?.name || null,
+    output: item.output,
+  };
+}
+
+/**
+ * 把工具输出归一成「前端能直接渲染成商品卡」的最小字段集。
+ * 只认数组形状：get_store_info 返回对象、工具报错返回字符串时返回 []，
+ * 前端就不必为每种返回值各写一条分支。
+ */
+function normalizeToolProducts(output) {
+  const list = Array.isArray(output)
+    ? output
+    : (output && typeof output === 'object' && Array.isArray(output.products) ? output.products : []);
+  return list
+    .filter((p) => p && typeof p === 'object' && p.id)
+    .slice(0, TOOL_PRODUCTS_MAX)
+    .map((p) => ({
+      id: String(p.id),
+      name: String(p.name || ''),
+      price: String(p.price || ''),
+      image: String(p.image || ''),
+      subtitle: String(p.subtitle || ''),
+      size: String(p.size || ''),
+      badge: String(p.badge || ''),
+      // category 不是给前端看的，是 view-3d 的 kindFromProduct 靠它分辨床/柜/桌，
+      // 缺了就只能全按三人沙发摆
+      category: String(p.category || ''),
+    }));
+}
+
 /**
  * 流式跑导购对话：
  * - thinking: 豆包 reasoning_content（思考过程）
@@ -443,6 +491,16 @@ export async function* streamShoppingGuideChat(opts = {}) {
       if (toolName && !seenTools.has(toolName)) {
         seenTools.add(toolName);
         yield { type: 'tool', name: String(toolName) };
+      }
+
+      // 工具输出单独走一遍：call item 只有名字，output item 才带商品数组。
+      // 不走这一遍，前端聊天里就出不了家具图片（只有纯文本编号）。
+      const toolOut = extractToolOutputFromRunItem(ev);
+      if (toolOut && toolOut.name) {
+        const products = normalizeToolProducts(toolOut.output);
+        if (products.length) {
+          yield { type: 'tool', name: String(toolOut.name), products };
+        }
       }
 
       const delta = extractChatCompletionDelta(ev);

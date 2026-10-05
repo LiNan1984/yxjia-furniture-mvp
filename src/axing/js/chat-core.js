@@ -16,6 +16,8 @@ const MAX_TURNS = 6;             // 随身上下文轮数（1 轮 = user + assis
 const MAX_MSGS = MAX_TURNS * 2;
 const CONTENT_MAX = 2000;        // 单轮内容截断
 const FALLBACK_TEXT = '阿杏刚刚走神了，没听清。你再说一遍好不好？';
+/** 一条回复后面最多跟几张商品卡：再多就把对话刷成商品列表页了 */
+const PRODUCT_CARDS_MAX = 4;
 
 /** 工具名 → 人话（豆包 reasoning_content 是内部推理，不上屏，只借 tool 事件占个文案） */
 const TOOL_HINT = {
@@ -45,6 +47,14 @@ function loadMarkdown() {
   if (!mdModulePromise) mdModulePromise = import('./markdown.js').catch(() => null);
   return mdModulePromise;
 }
+
+// productCard 只在这一个文件用，且 ui.js 会拖进一棵依赖树，
+// 所以和 markdown.js 一样懒加载 + 可降级（拿不到就不出图，文字照样在）。
+let uiModulePromise = null;
+const loadUi = () => {
+  if (!uiModulePromise) uiModulePromise = import('./ui.js').catch(() => null);
+  return uiModulePromise;
+};
 
 // ---------------------------------------------------------------- 「猜您还想问」（§1-7 样式二）
 // 追问 chip 是**纯前端启发式**，不再打一次 LLM：一轮问答已经花掉 5-10 秒，
@@ -351,6 +361,46 @@ export function initChat(ctx) {
     scrollToEnd();
   }
 
+  // ---------------------------------------------------------------- 商品卡（工具输出的图）
+  /** 一轮里 list + search 可能返回同一批商品，按 id 去重后按原顺序保留 */
+  function dedupeProducts(list) {
+    if (!Array.isArray(list)) return [];
+    const seen = new Set();
+    return list
+      .filter((p) => p && p.id && !seen.has(p.id) && seen.add(p.id))
+      .slice(0, PRODUCT_CARDS_MAX);
+  }
+
+  /**
+   * 把工具返回的商品渲染成带图小卡，跟在阿杏那段 Markdown 后面。
+   *
+   * 为什么不在 Markdown 里支持 `![alt](url)` 让模型自己贴图：图片地址由**工具**返回，
+   * 模型只拿到文本编号，它的 Markdown 里从来没有 url；而让 LLM 手写 url 又等于
+   * 让它编造不存在的图片（幻觉出一张 404 比不出图更糟）。
+   * 所以图只能走这条「后端把数组带出来、前端按 id 渲染」的路。
+   */
+  async function appendProductCards(col, products) {
+    const ui = await loadUi();
+    if (!ui || typeof ui.productCard !== 'function') return;
+    const wrap = el('div.ax-chat-products');
+    products.forEach((p) => {
+      let card;
+      try {
+        card = ui.productCard(p, {
+          // 「选它」把家具送上 3D 台：这条链路和商品页的「选它」是同一条（ctx.pickProduct），
+          // 所以 3D 页、尺寸标注、换色都跟着生效，不用再写一套跳转。
+          onPick: (prod) => {
+            ctx.pickProduct(prod);
+            ctx.go('view-3d');
+          },
+          pickLabel: '选它，摆进 3D 台',
+        });
+      } catch { return; }               // 单张卡崩不掉整条回复
+      wrap.appendChild(card);
+    });
+    if (wrap.childElementCount) col.appendChild(wrap);
+  }
+
   function appendAi(markdown, opts = {}) {
     const t = String(markdown || '');
     const m = { id: ++seq, role: 'ai', text: t, time: now() };
@@ -358,6 +408,10 @@ export function initChat(ctx) {
     if (!host) return;
     const row = messageNode(m);
     const col = row.querySelector('.ax-msg__col');
+    // 商品卡在追问 chips **之前**铺：卡片是这一轮的内容，chips 是下一步的动作，
+    // 顺序反了会让「猜您还想问」插到家具图和正文中间。
+    const products = dedupeProducts(opts.products);
+    if (products.length) appendProductCards(col, products);
     const followups = (opts.followups || []).filter(Boolean).slice(0, 3);
     if (followups.length) {
       // 追问 chip 在气泡**下方**另起一行，不进气泡本体——气泡纯白、chips 是引导动作，
@@ -597,13 +651,20 @@ export function initChat(ctx) {
     stopped = false;
     streamError = '';
     const collected = { full: '' };
+    // 本轮工具翻出来的商品（含图片地址）。delta 只带正文，图只能在这里攒着，
+    // 等 appendAi 时一起铺——所以它是 send() 的局部量，不能挂到 pending 气泡上：
+    // pending 第一个 delta 就建、done 就拆，商品到得往往比正文晚。
+    const toolProducts = [];
     // 注意：这里不再 openStreamBubble()。流式气泡由第一个 delta 懒建，
     // 否则 reasoning 阶段会在时间线上挂一个空白气泡（见 openStreamBubble 注释）。
 
     const handlers = {
       onStatus: () => {},
       onThinking: () => setTypingHint(''),
-      onTool: (name) => setTypingHint(TOOL_HINT[name] || '正在想办法…'),
+      onTool: (name, products) => {
+        setTypingHint(TOOL_HINT[name] || '正在想办法…');
+        if (Array.isArray(products) && products.length) toolProducts.push(...products);
+      },
       onDelta: async (delta) => { if (!stopped) { collected.full += delta; await streamPush(delta); } },
       onDone: (reply) => { if (reply) collected.full = reply; },
       // 后端已经把话说清楚了，前端不该丢。api.js 对非 200 会取 body.error 送到这里
@@ -653,7 +714,7 @@ export function initChat(ctx) {
         // 顾客可能在第一个 delta 之前就按了停止（LLM 还在 reasoning），
         // 那时 openStreamBubble() 没跑过、typing 行还在，得在这里收掉。
         hideTyping();
-        if (streamed.trim()) { remember('ai', streamed); appendAi(streamed); }
+        if (streamed.trim()) { remember('ai', streamed); appendAi(streamed, { products: toolProducts }); }
         else remember('ai', '（回答被打断）');
         ctx.toast('已经让阿杏停下了');
         return;
@@ -669,7 +730,7 @@ export function initChat(ctx) {
       remember('ai', finalText);
       // 只有「正常答完」这一处出追问。打断和兜底话术都不出——
       // 顾客已经打断/失败了，弹「猜您还想问」等于在错误时机推销（验收标准 3/4）。
-      appendAi(finalText, { followups: pickFollowups(t, finalText) });
+      appendAi(finalText, { followups: pickFollowups(t, finalText), products: toolProducts });
     } catch (err) {
       clearTimeout(timer);
       timer = null;
@@ -684,7 +745,7 @@ export function initChat(ctx) {
       hideTyping();
       if (stopped) {
         // 用户主动停止 / 超时：保留已生成的部分，别把顾客的话甩在半空
-        if (streamed.trim()) { remember('ai', streamed); appendAi(streamed); }
+        if (streamed.trim()) { remember('ai', streamed); appendAi(streamed, { products: toolProducts }); }
         else { remember('ai', '（回答被打断）'); appendAi('（阿杏说到这里被打断了，你接着问就行）'); }
         if (!/等太久/.test((err && err.message) || '')) ctx.toast('已经让阿杏停下了');
       } else {
@@ -692,7 +753,7 @@ export function initChat(ctx) {
         // 翻不成人话时才退回 err 的人话。toast 说清卡在哪，时间线那句也要带上原因。
         const reason = streamError || ctx.humanError(err);
         ctx.toast(reason);
-        if (streamed.trim()) { remember('ai', streamed); appendAi(streamed); }
+        if (streamed.trim()) { remember('ai', streamed); appendAi(streamed, { products: toolProducts }); }
         else {
           // 时间线不能出现问了没答的空洞（§3-2），但至少要说清为什么没答。
           const line = `${FALLBACK_TEXT}\n\n> 原因：${reason}`;

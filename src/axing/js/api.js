@@ -137,7 +137,9 @@ function chatGuideStream(input, handlers = {}) {
               handlers.onThinking && handlers.onThinking(ev.text);
               break;
             case 'tool':
-              handlers.onTool && handlers.onTool(ev.name);
+              // 第二个参数是工具返回的商品数组（含 image）。老后端只发 name，
+              // products 为 undefined，调用方按「没有图」处理即可。
+              handlers.onTool && handlers.onTool(ev.name, ev.products);
               break;
             case 'delta':
               handlers.onDelta && handlers.onDelta(ev.text);
