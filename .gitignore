@@ -96,3 +96,4 @@ data/scenes.json
 
 # ---- 店铺经营分析（PM 批判）：含库存/定价弱点，只在本地，不推公开仓库 ----
 docs/pm-critique-*.md
+data/conversations.json
