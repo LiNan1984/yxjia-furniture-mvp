@@ -99,6 +99,10 @@ async function show(viewId, { push = true } = {}) {
   if (current && push) history.push(current);
   current = viewId;
   setActive(viewId);
+  // 切 view 时收起上传浮窗：否则浮窗 is-open 会盖住新 view 和 Composer，顾客切走了
+  // 却关不掉浮窗、就没法打字（交互规范 §1-2 规则4 + §1-6「任何状态都不能失去 Chat」）。
+  // closeUpload 幂等（没开直接返回），sheet 模块未就绪时是 no-op 兜底，两者都安全。
+  if (typeof ctx.closeUpload === 'function') ctx.closeUpload();
   if (mounted.has(viewId)) return;
   const section = document.getElementById(viewId);
   try {
