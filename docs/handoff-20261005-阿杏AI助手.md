@@ -306,7 +306,7 @@ ctx = { api, ui, state, setState, on, emit, go, back, toast, humanError, pickPro
 |---|---|---|
 | P0 | spec 顶部加「落地偏差声明」+ 章节→实际文件映射表，把 Next.js/PostgreSQL/Rodin/RoomPlan 全部标成远期形态 | 🔴④ |
 | P0 | 试摆 `tryonEnabled` feature flag：AI 整体不可用时全站切到店引导，而不是逐次向用户报错 | 🟠2.10 |
-| P0 | 数据补干净：8-10 个在售商品填真实价格文案与尺寸，确认 23 个下架 SKU 的真实状态 | 🟡2.14 |
+| P0 | 数据补干净：8-10 个在售商品填真实价格文案与尺寸，确认仓库里已下架 SKU 的真实状态（哪些其实还有货） | 🟡2.14 |
 | P1 | 补卧室示例房间图（还掉 `default-room-bed.jpg` 的数据债，示例客厅就能出 4 张） | §7-2 |
 | P1 | 429 话术改成「约到店 / 打电话」，不要把「登录后继续」当唯一出路 | 🟠2.10 |
 | P1 | `/api/admin/scenes` 或 rooms 列表接上已有的 `DELETE /api/admin/rooms/:id`，让「可删除」的隐私承诺真的可执行 | 🟡2.17 |
