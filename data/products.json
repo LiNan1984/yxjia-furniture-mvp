@@ -9,6 +9,31 @@
   },
   "products": [
     {
+      "id": "sofa-1",
+      "name": "新中式三人沙发",
+      "subtitle": "雾霾蓝亚麻+真皮 · 金色竹节",
+      "price": "¥3xxx 起",
+      "size": "3.4 米大尺寸",
+      "stock": "现货",
+      "badge": "主推",
+      "emoji": "🛋️",
+      "color": "#3a2818",
+      "description": "新中式轻奢三人沙发。雾霾蓝亚麻布料 + 藏蓝真皮拼接 + 金色竹节金属装饰条。3.4 米大尺寸气场足，适合中大户型客厅。时光不负此行。",
+      "highlights": [
+        "雾霾蓝亚麻布料（粗犷纹理）",
+        "藏蓝真皮拼接（细腻光泽）",
+        "金色竹节金属装饰",
+        "3.4 米大尺寸气场",
+        "现货 · 当天发货"
+      ],
+      "image": "/images/sofa-1.jpg",
+      "status": "在售",
+      "images": [
+        "/images/sofa-1.jpg"
+      ],
+      "sceneImages": []
+    },
+    {
       "id": "sofa-2",
       "name": "轻奢 L 形转角沙发",
       "subtitle": "雾霾蓝天鹅绒 · 大户型贵妃位",
@@ -775,6 +800,31 @@
       ],
       "image": "/uploads/products/233d32f3e2f17b44.jpg",
       "status": "下架"
+    },
+    {
+      "id": "table-1",
+      "name": "深色实木餐桌椅",
+      "subtitle": "客餐厅一体化 · 6 人位",
+      "price": "¥2xxx 起",
+      "size": "1.6 米 × 0.85 米",
+      "stock": "现货",
+      "badge": "",
+      "emoji": "🍽️",
+      "color": "#3a2818",
+      "description": "深色实木餐桌椅（6 人位：1 桌 + 6 椅）。圆形餐桌 + 米色软包餐椅。客餐厅一体化首选。",
+      "highlights": [
+        "深色实木台面",
+        "米色软包餐椅",
+        "6 人位",
+        "圆形餐桌",
+        "现货"
+      ],
+      "image": "/images/cabinet-wardrobe.jpg",
+      "status": "在售",
+      "images": [
+        "/images/cabinet-wardrobe.jpg"
+      ],
+      "sceneImages": []
     }
   ]
 }
