@@ -467,15 +467,28 @@ src/axing/
 
 ```bash
 ./node_modules/.bin/playwright test tests/axing.test.js              # 8 个（自带 3100 端口实例）
-./node_modules/.bin/playwright test tests/axing-ui.test.js           # 20 个（3412）
+./node_modules/.bin/playwright test tests/axing-ui.test.js           # 23 个（3412）
 ./node_modules/.bin/playwright test tests/axing-admin.test.js        # 11 个（3420）
-./node_modules/.bin/playwright test tests/axing-interaction.test.js  # 22 个（3430）：A1~A10 交互验收
+./node_modules/.bin/playwright test tests/axing-interaction.test.js  # 17 个（3430）：A1~A10 交互验收 + B1~B6 第二波实测洞
+./node_modules/.bin/playwright test tests/axing-journey.test.js      # 14 个（3460）：四条真实顾客旅程 + 浮窗模态与出路
 ./node_modules/.bin/playwright test tests/markdown.spec.js           # 5 个（3425）：Markdown 渲染
 node src/axing/tests/markdown.smoke.mjs                              # 45 断言（不在 playwright testDir 里，要手跑）
-./node_modules/.bin/playwright test                                  # 全量 167：157 passed / 10 failed
+./node_modules/.bin/playwright test                                  # 全量
 ```
 
-**全量那 10 个 failed 全在 `tests/api.test.js`，是本轮之前就有的数据债**，与交互改造无关：`data/products.json` 被 admin 上传流程整体覆盖过（见 §9），`sofa-1`/`table-1` 已不在库里，所以 Products/Orders/TryOn 那几条断言一直红。判别方法：`git stash` 掉交互改造后单跑 `tests/api.test.js`，同样这 10 条红。**别把它当回归。**
+**全量一定要加 `--workers=1`**：这棵树是多会话共享的，`playwright.config.js` 的 webServer 抢 3000 端口，并行跑会互相打死对方的 server（报 `Process from config.webServer was not able to start` / `ERR_CONNECTION_REJECTED` 的假失败）。跑之前先 `node --check src/server.js`——别会话改出的语法错误会造一批假红。
+
+**Axing 五件套 = 8 + 23 + 17 + 14 + 11 = 73 条**（另有 D/E/F 组的 `tests/e2e-customer-*.test.js` 是别组交付的，跑全量时一起过）。`tests/api.test.js` 早前那 10 条红是 `data/products.json` 被整体覆盖丢掉 `sofa-1`/`table-1` 的数据债，已由 `1a51d0d`/`9e90327` 修好——**判别是不是数据债的方法：`git stash` 后单跑同样红，就是债不是回归**。
+
+### 阿杏改前端必须知道的四个坑
+
+1. **量坐标前必须等动画真的播完。** `is-open` 是「先加 class 再播 0.15s 过渡」，class 一加上那一帧面板还在屏幕外（实测 `panelTop=634/844`）。所以判据不能是「把手 top >= 0」或「top < innerHeight」——滑行途中总有一刻满足，随后 `mouse` 起始点落在没升上来的面板上，整条手势静默失效。**等 `getComputedStyle(panel).transform` 收敛到 `none` / `matrix(1,0,0,1,0,0)`**。同类坑：`elementFromPoint` 用视口坐标，折叠线下面的元素要先 `scrollIntoView` 再取点，否则测的是「在不在屏上」而不是「有没有被盖住」；流式气泡是懒建的，第一个 delta 前没有 `.ax-msg--streaming`，只用「没有 streaming」判断答完会立刻 resolve（必须同时等 streaming 和 typing 都消失）。
+
+2. **固定栏挡底部的是 Composer 不是 Tab。** Tab 64px，但 Composer 71px 紧贴在它上面，`#views` 的可见区只到 Composer 顶。任何「主按钮 / 可点 chip 必须在首屏」的断言都要以 Composer 为基准，以 Tab 为基准会漏 71px。
+
+3. **可点高度 44px 的下限不只管 `button`/`.tile`。** `tests/axing-ui.test.js` F1 只量 `.ax-quick__tile / .ax-ucard / #view-home .chip / .tab`，把 `div` 手柄整个漏了——上传浮窗的把手原来只有 **4px 高**，而它是顾客拖掉浮窗的手势出口（蒙版只露顶部一条、Tab 在浮窗开着时被 `pointer-events:none` 挡着），对粗手指等于没有。现在把手是「`::after` 画 4px 可见条 + 本体撑 44px 命中区 + `-24px` 负 margin 把占位高度压回 20px」。注意 `*{box-sizing:border-box}`，padding 撑不了命中区。
+
+4. **`touch` 的隐式指针捕获会遮住鼠标/触控板的 bug。** 拖把手的 `pointermove` 监听挂在 `panel` 上，手指一旦拖出浮窗体，事件 target 就变成蒙版；触屏有隐式捕获所以看着是好的，笔记本触控板下完全失效。修法是 `setPointerCapture`（Playwright 的 `page.mouse` 正好走无隐式捕获那条路，能当回归用）。
 
 **首页是「聊天优先」单屏**（视觉基准 `docs/最新首页图.png`）：阿杏 hero → 上传客厅照卡（第一 CTA，带阿杏头像）→ 上次试摆 → 四大功能 → **对话时间线** → 你可以这样问（沉底）→ 打给店里。时间线必须**贴在 Composer 上方**——chat-core 每次新消息都 `views.scrollTop = scrollHeight`，时间线排在 hero 旁边时滚到底看到的是拨打按钮和 chips，最新气泡反而在屏幕外。`#views` 是唯一滚动区，Composer + Tab 是固定底栏；Composer 只在 `view-voice` 让位。CSS 里给会互相切换显隐的元素必须显式写 `[hidden]{display:none}`——`img{display:block}` / `display:flex` 都会盖掉 UA 规则（返回键常显、发送/图片按钮同显、浮窗里漏出「我的客厅」alt 文字都踩过）。
 
@@ -483,5 +496,5 @@ node src/axing/tests/markdown.smoke.mjs                              # 45 断言
 
 ---
 
-*最后更新：2026-10-05 · 阿杏 AI 家居助手分支（交互规范落地：常驻对话中枢 + ynet Markdown + 上传改底部浮窗）*
+*最后更新：2026-10-05 · 阿杏 AI 家居助手分支（交互规范落地 + 第二波真实顾客实测：上传浮窗把手 44px / Composer 相册键直达 / 试摆主按钮上移 / 追问 chip 回归）*
 
