@@ -254,17 +254,19 @@ test.describe('B · 核心不变式（§70.1）', () => {
     expect(state.display, '语音页是全屏收音，Composer 应收起（不是 flex）').not.toBe('flex');
   });
 
-  test('B2 对话流贴在输入框上方（quick → timeline → ask → composer），滚到底最新消息必须在屏内', async ({ page }) => {
+  test('B2 对话流贴在输入框上方（quick → ask → timeline → composer），滚到底最新消息必须在屏内', async ({ page }) => {
     const r = await rectsOf(page, ORDER_SELECTORS);
     for (const s of ORDER_SELECTORS) {
       expect(r[s], `布局顺序断言需要 ${s} 存在（axing.css 已定义该类）`).not.toBeNull();
     }
-    // (1) 文档顺序铁律：上传卡/四大功能在上 → 对话时间线 → 「你可以这样问」→ Composer。
-    // 依据已换成 docs/最新首页图.png：参考图里对话气泡是沉在底部、贴着输入框的，
-    // 不是 hero 下面那一小段（v2.1 §70.1 的 timeline→quick 顺序已作废）。
-    // 为什么必须是这个顺序：chat-core 每次新消息都执行 views.scrollTop = scrollHeight。
-    // 时间线若排在 hero 旁边，滚到底看到的是最底部的「拨打按钮 + chips」，
-    // 最新那条气泡反而在屏幕外——「我发的 query 看不到」（P2）就是这么漏的。
+    // (1) 文档顺序：上传卡/四大功能 → 「你可以这样问」→ 打给店里 → **对话时间线** → Composer。
+    // 依据 docs/最新首页图.png：对话气泡沉在底部、贴着输入框。
+    // 为什么时间线必须是**最后一项**（连「打给店里」之后）：chat-core 每次新消息都执行
+    // views.scrollTop = views.scrollHeight，滚到的是文档底。时间线原先排在 chips 上面，
+    // 后面还跟着 chips(约117px) + 拨打按钮(约88px)，于是滚到底看见的全是它们，
+    // 最新那条气泡被顶到折叠线以上 96~127px——顾客亲口问的那句，他自己看不见。
+    // （C 组 10 条测试全红、100% 复现。交互规范 §1-6 说「时间线贴在 Composer 上方」，
+    //   那就只能是最后一项，不能是倒数第三项。）
     const domOrder = await page.evaluate(() => {
       const q = document.querySelector('.ax-quick');
       const t = document.querySelector('.ax-timeline');
@@ -272,19 +274,20 @@ test.describe('B · 核心不变式（§70.1）', () => {
       const c = document.getElementById('composer');
       const before = (x, y) => Boolean(x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING);
       return {
-        quickBeforeTimeline: !!(q && before(q, t)),
-        timelineBeforeAsk: !!(t && before(t, a)),
-        askBeforeComposer: !!(a && before(a, c)),
+        quickBeforeAsk: !!(q && before(q, a)),
+        askBeforeTimeline: !!(a && before(a, t)),
+        timelineBeforeComposer: !!(t && before(t, c)),
       };
     });
-    expect(domOrder.quickBeforeTimeline, '四大功能按钮应排在对话时间线之前（第一 CTA 与功能入口在折叠线以上）').toBe(true);
-    expect(domOrder.timelineBeforeAsk, '对话时间线应排在「你可以这样问」之前').toBe(true);
-    expect(domOrder.askBeforeComposer, '「你可以这样问」应沉底但不被 Composer 盖住').toBe(true);
+    expect(domOrder.quickBeforeAsk, '四大功能按钮应排在「你可以这样问」之前').toBe(true);
+    expect(domOrder.askBeforeTimeline, '「你可以这样问」应排在对话时间线之前（时间线必须沉到最底）').toBe(true);
+    expect(domOrder.timelineBeforeComposer, '对话时间线应是最后一项、紧贴 Composer').toBe(true);
 
-    // (2) 几何：时间线整体落在「你可以这样问」上方。
+    // (2) 几何：时间线整体落在「你可以这样问」**下方**（与上一版正好反过来）。
     const askRect = await rectsOf(page, ['.ax-ask--bottom']);
-    expect(r['.ax-timeline'].bottom, '聊天时间线应整体落在「你可以这样问」上方')
-      .toBeLessThanOrEqual(askRect['.ax-ask--bottom'].top + 1);
+    expect(r['.ax-timeline'].top, '对话时间线应整体落在「你可以这样问」下方')
+      .toBeGreaterThanOrEqual(askRect['.ax-ask--bottom'].bottom - 1);
+
 
     // (3) 发一条真消息、滚到底后，最新气泡必须落在 #views 视口内（P2 的验收点）。
     await page.fill('#composerInput', '小户型沙发');

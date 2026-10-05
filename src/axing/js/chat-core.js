@@ -46,6 +46,113 @@ function loadMarkdown() {
   return mdModulePromise;
 }
 
+// ---------------------------------------------------------------- 「猜您还想问」（§1-7 样式二）
+// 追问 chip 是**纯前端启发式**，不再打一次 LLM：一轮问答已经花掉 5-10 秒，
+// 让顾客再等一轮才能看到「你可能还想问」，这条引导就失去意义了。
+//
+// 产出顺序：先从本轮回复正文里抽（表格数据行 / 列表项 / 加粗词）→ 包成问句；
+// 不足 2 条就按用户这句话的关键词退到静态池；再不足才用通用池。
+// 三层都会和「已发过的 user 消息」以及「上一轮已经出过的追问」做集合去重。
+
+/** 通用兜底池：顺序即轮换顺序，够长才不会三轮就重复 */
+const GENERIC_ASK_POOL = [
+  '有没有便宜点的',
+  '这个怎么保养',
+  '适合小户型吗',
+  '能到店试坐吗',
+  '尺寸能不能定制',
+  '发货要多久',
+  '和真皮比哪个划算',
+  '放三米二的客厅够吗',
+];
+
+/** 按用户这句话的关键词给针对性追问 */
+const TOPIC_ASK = [
+  { re: /沙发/, asks: ['三人位还是两人座适合我家', '布艺和真皮哪个更耐猫抓'] },
+  { re: /床/, asks: ['床架材质怎么选', '一米八的床配多大床垫'] },
+  { re: /柜|电视柜/, asks: ['柜子要不要做到顶', '电视柜多长合适'] },
+  { re: /桌|茶几/, asks: ['茶几选圆还是长方', '桌子多高坐着舒服'] },
+  { re: /风格|北欧|现代|奶油/, asks: ['这个风格配什么灯', '墙面刷什么色不撞'] },
+];
+
+/** 表头/字段名不该被当成商品名抽出来 */
+const NON_TERM = /^(商品|价格|编号|项目|详情|材质|库存|好处|要注意|适合谁|怎么保养|提示|建议|到店提示|常规尺寸|现货|推荐理由|卖点|主要卖点|结论|合计|小计|适合场景|保养方法|注意事项|门店信息|门店联系方式|联系方式|电话|地址|营业时间|微信|内容|类别|类型|名称|说明|服务|权益|优惠|活动)$/i;
+/** 一看就不是商品名的词：抽出来包成「××多少钱」会很可笑 */
+const NOT_A_PRODUCT = /(试坐|推荐|提示|建议|结论|说明|注意|保养|优惠|活动|到店|来店|来电|拨打|咨询|免费|登录|网站|官网|点击|选择|看看|帮您|可以|需要|欢迎|拍打|清理|避免|别用|记得|长期|定期|实付|起售|库存|现货|尺寸|颜色|面料|日常|防污|妙招|实际|坐一坐|感受|体验|服务)/;
+/** 价格/数字串：`¥2999起`、`2899`、`1.8米` 都不能当商品名 */
+const IS_PRICE = /^[¥￥$]|\d/;
+
+/** 一个词能不能拿来包成「××多少钱」。isTable=true 时放宽（表格首列基本就是商品名）。 */
+function usableTerm(raw, isTable) {
+  const t = String(raw || '')
+    .replace(/[*_`>]/g, '')
+    .replace(/^[-+]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[：:，,。；;、!！?？]+$/, '');
+  if (t.length < 2 || t.length > 16) return null;
+  if (NON_TERM.test(t)) return null;
+  if (IS_PRICE.test(t)) return null;                      // ¥2999起 / 2899
+  if (t.includes('：') || t.includes(':')) return null;   // 「卖点：粗纺…」这种字段行
+  if (!isTable && NOT_A_PRODUCT.test(t)) return null;     // 非表格来源从严
+  return t;
+}
+
+/**
+ * 从回复正文里抽「能接着问」的词。
+ *
+ * 关键约束：只从**商品表**的首列抽。后端 GUIDE_INSTRUCTIONS 规定商品表表头是
+ * 「商品 | 价格 | 编号」，但同一个回复里也常有「| 门店信息 | 电话 |」这种信息表。
+ * 不认表头就会抽出「门店信息」「营业时间」当商品名，包成「××多少钱」很可笑。
+ * 所以先看表头里有没有 商品/款式/名称，没有就整张表跳过。
+ *
+ * 拿不到商品表才退到加粗词 → 列表项，最后才轮到静态池。
+ */
+function extractTerms(reply) {
+  const fromTable = [];
+  const fromBold = [];
+  const fromList = [];
+  let inProductTable = false;      // 当前表格是不是商品表
+
+  for (const rawLine of String(reply || '').split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    if (line.startsWith('|')) {
+      if (/^\|[\s\-:|]+\|?$/.test(line)) continue;              // | --- | 分隔行
+      const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
+      const head = cells.join(' ');
+      if (/商品|款式|名称|货号/.test(head)) { inProductTable = true; continue; }
+      if (/电话|地址|营业|联系|微信|门店/.test(head)) { inProductTable = false; continue; }
+      if (!inProductTable) continue;                            // 信息表的数据行一律跳过
+      const ok = usableTerm((cells[0] || '').replace(/[*`]/g, '').trim(), true);
+      if (ok) fromTable.push(ok);
+      continue;
+    }
+
+    inProductTable = false;                                     // 出了表格就重置
+    const bullet = line.replace(/^[-*+]\s+/, '').replace(/^\d+[.、)]\s*/, '');
+    if (bullet !== line) {
+      const ok = usableTerm(bullet.split(/[：:，,。]/)[0], false);
+      if (ok) fromList.push(ok);
+    }
+    for (const m of line.matchAll(/\*\*([^*]{2,16})\*\*/g)) {
+      const ok = usableTerm(m[1], false);
+      if (ok) fromBold.push(ok);
+    }
+  }
+  // 有商品表就**只用商品表**：散文里的加粗/列表项动辄是「立刻用干布或纸巾吸干」
+  // 这种操作说明，包成「××多少钱」很怪。商品表一个都没有，才退到散文来源。
+  if (fromTable.length) return [...new Set(fromTable)];
+  return [...new Set([...fromBold, ...fromList])];
+}
+
+/** 拿一个词包成问句；同一轮里别和已用过的问句撞 */
+function askAround(term, used) {
+  const variants = [`「${term}」多少钱`, `看看${term}的细节`, `${term}适合小户型吗`, `${term}怎么保养`];
+  return variants.find((q) => !used.has(q)) || null;
+}
+
 export function initChat(ctx) {
   const { el, avatar } = ctx.ui;
 
@@ -61,6 +168,7 @@ export function initChat(ctx) {
   let streamSettle = null;       // 解开 await 的闸门：abort 时底层可能既不 resolve 也不 reject
   let timer = null;
   let stopped = false;
+  let streamError = '';          // 后端 onError 送来的具体原因（例：问题超过 500 字）
 
   function remember(role, content) {
     const text = String(content).slice(0, CONTENT_MAX);
@@ -110,7 +218,7 @@ export function initChat(ctx) {
       ai ? aiAvatarNode() : userAvatarNode(),
       el('div.ax-msg__col', {}, [bubble, el('div.ax-msg__time', { text: m.time })]),
     ]);
-    if (ai) paintMarkdown(bubble, m.text);
+    if (ai) row.__mdReady = paintMarkdown(bubble, m.text);
     else bubble.textContent = m.text;
     return row;
   }
@@ -120,12 +228,74 @@ export function initChat(ctx) {
     if (views) views.scrollTop = views.scrollHeight;
   }
 
+  // 追问 chip 必须让人看见。它在气泡**下方**另起一行，而气泡里的 markdown 是异步画完
+  // 继续长高的（messageNode 里 paintMarkdown 返回 promise，appendAi 那一刻气泡还是空的）。
+  // 所以 appendAi 里那次 scrollToEnd 滚的是「还没有答案」的高度；等 markdown 画完，
+  // 这一行能再长 100px+，chips 就被顶到固定 Composer 底下。ResizeObserver 有
+  // distanceFromBottom<80 的防拽阈值（见 watchHostHeight），长答案时它到这一步已经放弃。
+  // 这里在 markdown 画完之后单独补一刀。只在顾客还停在底部时才补——他已经划上去看
+  // 历史的话不能被拽回来。
+  function revealFollowups(row) {
+    const views = document.getElementById('views');
+    const chipRow = row && row.querySelector('.ax-msg__followups');
+    if (!views || !chipRow) return;
+    const distance = views.scrollHeight - views.scrollTop - views.clientHeight;
+    if (distance > 240) return;
+    const vr = views.getBoundingClientRect();
+    const cr = chipRow.getBoundingClientRect();
+    const delta = cr.bottom - vr.bottom;
+    if (delta > 0) views.scrollTop += delta;
+  }
+
+  // 气泡是**异步长高**的：paintMarkdown 要 await 引擎模块，流式 delta 一段段来，图片也要加载。
+  // 只在 append 的那一刻 scrollToEnd()，滚的是「当时的高度」，等 markdown 画完高度才定型
+  // ——实测滚完仍差 162px，顾客最新的那句话又在屏幕外（C 组 C2）。
+  // 用 ResizeObserver 补偿：宿主一变高就再滚一次。
+  // ⚠️ 判据不能是「离底部多远」：一条正常回复就能长高 100+px，用距离阈值会把该滚的那次
+  // 也当成「用户在看历史」而跳过（第一版用了 80px，实测 gap 107px 就再也不滚了）。
+  // 正确判据是「用户有没有主动往上滑」——程序性滚动后 dist≈0，会把 pinned 保持为 true；
+  // 用户自己滑上去才会把它置 false，之后就不再拽他回来。
+  let pinnedToBottom = true;
+  let pinWatcher = null;
+  function watchUserScrollIntent() {
+    const views = document.getElementById('views');
+    if (!views || typeof views.addEventListener !== 'function') return;
+    if (pinWatcher) views.removeEventListener('scroll', pinWatcher);
+    pinWatcher = () => {
+      const dist = views.scrollHeight - views.scrollTop - views.clientHeight;
+      pinnedToBottom = dist < 60;
+    };
+    views.addEventListener('scroll', pinWatcher, { passive: true });
+  }
+
+  /** 有新内容贴上时间线就重新pin。注意 app.js 的 setActive() 每次切 view 都把
+   *  views.scrollTop 置 0，scroll 事件随之触发、被 pinWatcher 读成「用户上滑」——
+   *  不在这里复位的话，接下来所有补偿滚动都会被那道判断拦住，最新气泡永远差一截。 */
+  function pinToBottom() {
+    pinnedToBottom = true;
+    scrollToEnd();
+  }
+
+  let hostRO = null;
+  function watchHostHeight() {
+    if (typeof ResizeObserver !== 'function' || !host) return;
+    if (hostRO) hostRO.disconnect();
+    hostRO = new ResizeObserver(() => {
+      const views = document.getElementById('views');
+      if (!views || !pinnedToBottom) return;
+      views.scrollTop = views.scrollHeight;
+    });
+    hostRO.observe(host);
+    watchUserScrollIntent();
+  }
+
   function renderAll() {
     if (!host) return;
     host.textContent = '';
     messages.forEach((m) => host.appendChild(messageNode(m)));
     if (typingEl) host.appendChild(typingEl);
     scrollToEnd();
+    watchHostHeight();
   }
 
   function attachTimeline(nextHost) {
@@ -177,16 +347,27 @@ export function initChat(ctx) {
     if (!host) return;
     const row = messageNode(m);
     const col = row.querySelector('.ax-msg__col');
-    (opts.followups || []).forEach((q) => {
-      col.appendChild(el('button.chip', {
+    const followups = (opts.followups || []).filter(Boolean).slice(0, 3);
+    if (followups.length) {
+      // 追问 chip 在气泡**下方**另起一行，不进气泡本体——气泡纯白、chips 是引导动作，
+      // 混在一起会让人以为是阿杏说的话。头像和 timestamp 都在 .ax-msg__col 里，自然跟着走。
+      const chipRow = el('div.ax-msg__followups');
+      followups.forEach((q) => chipRow.appendChild(el('button.chip', {
         type: 'button',
         text: q,
-        style: 'min-height:44px;margin-top:8px;',
         onclick: () => send(q),
-      }));
-    });
+      })));
+      col.appendChild(chipRow);
+    }
     host.appendChild(row);
     scrollToEnd();
+    // 等 markdown 画完再把 chips 兜进来（气泡此刻还是空的，直接兜会兜个错的高度）
+    if (followups.length) {
+      const ready = row.__mdReady;
+      if (ready && typeof ready.then === 'function') {
+        ready.then(() => revealFollowups(row)).catch(() => {});
+      } else revealFollowups(row);
+    }
   }
 
   // ---------------------------------------------------------------- 「阿杏正在想」
@@ -260,7 +441,7 @@ export function initChat(ctx) {
       el('div.ax-msg__col', {}, [bubble, el('div.ax-msg__time', { text: now() })]),
     ]);
     pending = { bubble, row, assemble: '', stream: null, raf: 0 };
-    if (host) { host.appendChild(row); scrollToEnd(); }
+    if (host) { host.appendChild(row); pinToBottom(); }
     return pending;
   }
 
@@ -326,20 +507,24 @@ export function initChat(ctx) {
   };
 
   /**
-   * api.chatGuideStream 的签名在两处实现间漂移过：契约是
-   * ({message, history}, handlers)，api.js 交付的是 (message, history, handlers)。
-   * 首调走契约式；若一个业务事件都没收到就报错（典型症状：首参被当成位置参数，
-   * 请求体被拼成 {message:{...}, history:[]}，后端 400），自动按位置式重试一次。
+   * 包一层 handlers，把「settle 一次」和「abort 闸门」管起来。
+   *
+   * 曾经这里有个运行时兜底：onError 时若一个业务事件都没收到，就判成
+   * 「签名不匹配」并让上层换个调用形式重试一次。**这个兜底是错的，已删。**
+   * 实测：顾客贴了 800 字 → 后端 400「问题太长」→ 一个事件都没收到 →
+   * 被误判成签名不匹配 → 又发了一次请求，后端再回 400「请输入问题」。
+   * 一条 400 变成两条请求，白扣一次限流额度，还把真正的错误信息盖掉了。
+   * 签名形状用 `String(fn)` 静态探测一次就够了（见 streamCalls），
+   * 那两种形状都是确定的，不需要、也不该靠运行时重试去猜。
    */
   function tryStream(callWith, handlers) {
     return new Promise((resolve, reject) => {
-      let sawEvent = false;
       let settled = false;
       const wrap = {
-        onStatus: (i) => { sawEvent = true; handlers.onStatus && handlers.onStatus(i); },
-        onThinking: (t) => { sawEvent = true; handlers.onThinking && handlers.onThinking(t); },
-        onTool: (n) => { sawEvent = true; handlers.onTool && handlers.onTool(n); },
-        onDelta: (d) => { sawEvent = true; handlers.onDelta && handlers.onDelta(d); },
+        onStatus: (i) => handlers.onStatus && handlers.onStatus(i),
+        onThinking: (t) => handlers.onThinking && handlers.onThinking(t),
+        onTool: (n) => handlers.onTool && handlers.onTool(n),
+        onDelta: (d) => handlers.onDelta && handlers.onDelta(d),
         onDone: (r) => {
           if (settled) return;
           settled = true;
@@ -351,12 +536,6 @@ export function initChat(ctx) {
           if (settled) return;
           settled = true;
           streamSettle = null;
-          if (!sawEvent) {
-            const e = new Error(m);
-            e.signatureMismatch = true;
-            reject(e);
-            return;
-          }
           reject(new Error(m));
         },
       };
@@ -374,7 +553,7 @@ export function initChat(ctx) {
    * 后端收到的也是拼错的请求体——既不 resolve 也不 onError，界面永远卡在「正在想」。
    * 函数源码是本地模块、可读，所以按它静态判断一次，两种调用形式都备好。
    *
-   * 注意：规范化只在这一层做。调用方一律传 (message, history, handlers) 三件套，
+   * 注意：归一化只在这一层做。调用方一律传 (message, history, handlers) 三件套，
    * 不要再自己判断形状——否则两层归一化互相抵消，又回到发错请求体那条路上去。
    */
   const streamCalls = (() => {
@@ -405,6 +584,7 @@ export function initChat(ctx) {
     remember('user', t);
     setThinking(true);
     stopped = false;
+    streamError = '';
     const collected = { full: '' };
     // 注意：这里不再 openStreamBubble()。流式气泡由第一个 delta 懒建，
     // 否则 reasoning 阶段会在时间线上挂一个空白气泡（见 openStreamBubble 注释）。
@@ -415,13 +595,15 @@ export function initChat(ctx) {
       onTool: (name) => setTypingHint(TOOL_HINT[name] || '正在想办法…'),
       onDelta: async (delta) => { if (!stopped) { collected.full += delta; await streamPush(delta); } },
       onDone: (reply) => { if (reply) collected.full = reply; },
-      onError: () => {},
+      // 后端已经把话说清楚了，前端不该丢。api.js 对非 200 会取 body.error 送到这里
+      // （例：贴了 600 字 → 400「问题太长，请控制在 500 字以内」）。
+      // 原来是空实现，这句话被吞掉，顾客只看到「阿杏没说出话来」，完全不知道自己贴太长了。
+      onError: (msg) => { if (msg) streamError = String(msg); },
     };
 
     // new Promise(executor) 同步执行，tryStream 返回时 streamSettle 已就位，
     // 随后 armTimeout() 才能在超时/停止时把 await 解开（否则 abort 后永远卡在「正在想」）。
-    const runStream = (form) => {
-      const call = form === 'positional' ? streamCalls.positional : streamCalls.contract;
+    const runStream = (call) => {
       const promise = tryStream((h) => call(t, recentHistory(), h), handlers);
       armTimeout();
       return promise;
@@ -429,14 +611,12 @@ export function initChat(ctx) {
 
     try {
       if (streamCalls) {
-        const first = streamCalls.isPositional ? 'positional' : 'contract';
-        const second = streamCalls.isPositional ? 'contract' : 'positional';
-        try {
-          await runStream(first);
-        } catch (err) {
-          if (!err || !err.signatureMismatch) throw err;
-          await runStream(second);   // 静态探测没认出来时的兜底
-        }
+        const form = streamCalls.isPositional ? 'positional' : 'contract';
+        const call = streamCalls[form];
+        // 只发一次。曾有个「换个形式再发一次」的兜底，已删：它把每条
+        // 首事件前的 400/429 都误判成签名不匹配，一条错变成两条请求
+        // （白扣一次限流）还把真正的错误信息盖掉。静态探测见 streamCalls。
+        await runStream(call);
       } else {
         // 过渡兜底：api agent 还没交付 chatGuideStream 时走非流式，链路照样通。
         // fetch 不接 signal，所以这里只能用 Promise.race 做 UI 层竞速，底层请求自行结束。
@@ -459,6 +639,9 @@ export function initChat(ctx) {
 
       if (stopped) {
         const streamed = closeStreamBubble();
+        // 顾客可能在第一个 delta 之前就按了停止（LLM 还在 reasoning），
+        // 那时 openStreamBubble() 没跑过、typing 行还在，得在这里收掉。
+        hideTyping();
         if (streamed.trim()) { remember('ai', streamed); appendAi(streamed); }
         else remember('ai', '（回答被打断）');
         ctx.toast('已经让阿杏停下了');
@@ -473,21 +656,38 @@ export function initChat(ctx) {
       const finalText = (collected.full.trim() ? collected.full : streamed).trim();
       if (!finalText) throw new Error('阿杏没说出话来，再试一次');
       remember('ai', finalText);
-      appendAi(finalText);
+      // 只有「正常答完」这一处出追问。打断和兜底话术都不出——
+      // 顾客已经打断/失败了，弹「猜您还想问」等于在错误时机推销（验收标准 3/4）。
+      appendAi(finalText, { followups: pickFollowups(t, finalText) });
     } catch (err) {
       clearTimeout(timer);
       timer = null;
       job = null;
       const streamed = closeStreamBubble();
+      // 先把「阿杏正在想」收掉，再 append 兜底/半截气泡。
+      // hideTyping() 原先只在 openStreamBubble() 里调，而 LLM 一个 delta 都不给时
+      // （报错 / 空回复）openStreamBubble() 根本不执行，typing 行就会和兜底气泡
+      // 同时在时间线上挂一会儿，视觉上是重复占位。
+      // finally 里的 setThinking(false) 也会 hideTyping()，但它在 appendAi **之后**才跑，
+      // 收不住这一帧。所以这里显式先收（hideTyping 幂等，重复调无害）。
+      hideTyping();
       if (stopped) {
         // 用户主动停止 / 超时：保留已生成的部分，别把顾客的话甩在半空
         if (streamed.trim()) { remember('ai', streamed); appendAi(streamed); }
         else { remember('ai', '（回答被打断）'); appendAi('（阿杏说到这里被打断了，你接着问就行）'); }
         if (!/等太久/.test((err && err.message) || '')) ctx.toast('已经让阿杏停下了');
       } else {
-        ctx.toast(ctx.humanError(err));               // 超时/断网/限流都翻成人话
+        // 后端给的具体原因优先（太长 / 今日次数用完 / 缺 key…），
+        // 翻不成人话时才退回 err 的人话。toast 说清卡在哪，时间线那句也要带上原因。
+        const reason = streamError || ctx.humanError(err);
+        ctx.toast(reason);
         if (streamed.trim()) { remember('ai', streamed); appendAi(streamed); }
-        else { remember('ai', FALLBACK_TEXT); appendAi(FALLBACK_TEXT); }  // 时间线不能有空洞
+        else {
+          // 时间线不能出现问了没答的空洞（§3-2），但至少要说清为什么没答。
+          const line = `${FALLBACK_TEXT}\n\n> 原因：${reason}`;
+          remember('ai', line);
+          appendAi(line);
+        }
       }
     } finally {
       clearTimeout(timer);
@@ -495,11 +695,57 @@ export function initChat(ctx) {
       job = null;
       streamSettle = null;
       stopped = false;
-      setThinking(false);
+      setThinking(false);      // 内部也会 hideTyping()，幂等；兜住上面每条 return 路径
     }
   }
 
   function stop() { stopNow(); }
+
+  // ---------------------------------------------------------------- 追问 chip 的产出
+  // 每轮 AI 回复都出（§1-7「补充和延续用户意图」），但同一会话里不重复同一组：
+  // - 和顾客已经发过的话重复 → 不要（再问一遍显得没在听）
+  // - 和上一轮已经出过的追问重复 → 不要（连问三轮同样两条很傻）
+  const askedByUser = () => new Set(
+    messages.filter((m) => m.role === 'user').map((m) => m.text.trim()).filter(Boolean),
+  );
+  let lastFollowups = [];
+  let genericCursor = 0;
+
+  function pickFollowups(userText, replyText) {
+    const banned = askedByUser();
+    lastFollowups.forEach((q) => banned.add(q));
+    const picked = [];
+
+    const add = (q) => {
+      if (!q || picked.length >= 3) return;
+      if (banned.has(q) || picked.includes(q)) return;
+      picked.push(q);
+      banned.add(q);
+    };
+
+    // 1) 从本轮回复正文抽词，包成问句
+    for (const term of extractTerms(replyText)) {
+      if (picked.length >= 2) break;
+      add(askAround(term, banned));
+    }
+    // 2) 按用户这句话的关键词退到针对性追问
+    if (picked.length < 2) {
+      for (const t of TOPIC_ASK) {
+        if (!t.re.test(userText)) continue;
+        t.asks.forEach(add);
+        if (picked.length >= 2) break;
+      }
+    }
+    // 3) 通用池轮换兜底
+    for (let i = 0; i < GENERIC_ASK_POOL.length && picked.length < 2; i++) {
+      const q = GENERIC_ASK_POOL[(genericCursor + i) % GENERIC_ASK_POOL.length];
+      add(q);
+    }
+    genericCursor = (genericCursor + picked.length) % GENERIC_ASK_POOL.length;
+
+    lastFollowups = picked;
+    return picked;
+  }
 
   // ---------------------------------------------------------------- 初始化
   messages.push({ id: ++seq, role: 'ai', text: GREETING, time: now() });

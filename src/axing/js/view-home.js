@@ -291,10 +291,31 @@ export async function mount(root, ctx) {
   // ---------- 四大功能（不依赖任何数据，立即渲染）----------
   stack.appendChild(quickBlock(ctx, goView));
 
+  // ---------- 你可以这样问（沉底，交互规范 §1-7 样式一）----------
+  stack.appendChild(askBlock(ctx));
+
+  // ---------- 门店兜底：打给店里是老人卡住时的最终解法，做成全宽主按钮 ----------
+  const phone = icon('phone');
+  phone.style.cssText = 'width:19px;height:19px;flex:0 0 auto;';
+  stack.appendChild(el('div.stack.stack--sm', {}, [
+    el('a.btn.btn--apricot.btn--block.btn--lg', {
+      href: 'tel:13359140982',
+      'aria-label': '打给店里 13359140982',
+      style: 'text-decoration:none;min-height:48px;',
+    }, [phone, '打给店里 13359140982']),
+    el('p.tiny.muted.center', {
+      text: '银杏家具体验店 · 柞水县乾佑街道农机路河西',
+      style: 'line-height:1.8;',
+    }),
+  ]));
+
   // ---------- 聊天时间线：归 app shell 的 chat-core 持有（交互规范 §1-6）----------
-  // 位置有讲究：必须紧贴「你可以这样问」上方。chat-core 每来一条新消息就
-  // views.scrollTop = views.scrollHeight，时间线若放在 hero 旁边，滚到底看到的是
-  // 最底部的拨打按钮 + chips，最新那条气泡反而在屏幕外。贴着 Composer 长出来才对。
+  // ⚠️ 位置是整个首页唯一不能放错的东西：**必须在 stack 最末尾**，连「打给店里」之后。
+  // chat-core 每来一条新消息就执行 views.scrollTop = views.scrollHeight，滚到的是文档底。
+  // 时间线原先排在「你可以这样问」上面，后面还跟着 chips(约117px) + 拨打按钮(约88px)，
+  // 于是滚到底看见的全是 chips 和拨打按钮，最新那条气泡被顶到折叠线以上 96~127px
+  // ——顾客亲口问的那句，他自己看不见（C 组 10 条测试全红，100% 复现）。
+  // 交互规范 §1-6 说「时间线贴在 Composer 上方」，那就只能是最后一项，不能是倒数第三项。
   // 消息本体和「正在想」占位都由 chat-core 管，本文件只提供挂载点；
   // 顾客在别的页面发消息时，chat-core.send() 会先切回 view-home 再 append，
   // 所以任何时候都不会出现「发了却看不到自己那条」（P2 修复）。
@@ -313,24 +334,6 @@ export async function mount(root, ctx) {
   if (!(ctx.chat && typeof ctx.chat.attachTimeline === 'function')) {
     chatHost.appendChild(ctx.ui.axingSay(GREETING, { small: true }));
   }
-
-  // ---------- 你可以这样问（沉底，交互规范 §1-7 样式一）----------
-  stack.appendChild(askBlock(ctx));
-
-  // ---------- 门店兜底：打给店里是老人卡住时的最终解法，做成全宽主按钮 ----------
-  const phone = icon('phone');
-  phone.style.cssText = 'width:19px;height:19px;flex:0 0 auto;';
-  stack.appendChild(el('div.stack.stack--sm', {}, [
-    el('a.btn.btn--apricot.btn--block.btn--lg', {
-      href: 'tel:13359140982',
-      'aria-label': '打给店里 13359140982',
-      style: 'text-decoration:none;min-height:48px;',
-    }, [phone, '打给店里 13359140982']),
-    el('p.tiny.muted.center', {
-      text: '银杏家具体验店 · 柞水县乾佑街道农机路河西',
-      style: 'line-height:1.8;',
-    }),
-  ]));
 
   return () => cleanups.forEach((fn) => {
     try {
