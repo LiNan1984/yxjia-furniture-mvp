@@ -445,21 +445,43 @@ src/axing/
 
 `data/appointments.json`、`data/scenes.json` 含手机号，已加 .gitignore；写入沿用现有 `loadContainer/saveContainer` + `ok/fail` 模式，未登录按手机号可查但加 IP 限额（仿 `/api/tryon/history`）。
 
+### 聊天链路（2026-10-05 交互规范落地）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/chat/guide` | 阿杏文字导购（一次性，Markdown） |
+| POST | `/api/chat/guide/stream` | **SSE 流式**（前端默认走这条）：`status/thinking/tool/delta/done/error` 五类事件，底层是 Agents SDK `runner.run({stream:true})` |
+| GET | `/api/chat/guide/status` | 导购模型就绪状态 |
+
+**常驻对话中枢 `src/axing/js/chat-core.js`**：聊天气泡不再归 `view-home.js` 的本地变量（那正是「在别页发消息、自己那条落进 `display:none` 容器里」的根因）。时间线由 app shell 级中枢持有，`send()` 第一步就是「不在 `view-home` 就先切回去」，消息存自己的数组，`attachTimeline` 渲染进 view-home 给的 host。
+
+**Markdown 渲染 `src/axing/js/markdown.js`**：vendor 了 ynet-render-markdown 的 H5 ESM 源文件，对外暴露 `renderMarkdown` / `createMarkdownStream`。**禁止调用上游 `injectMarkdownStyle()`**（它注入 `#2F7CF6` 蓝 / `#B42318` 红，违反两色调铁律），样式全走 `css/markdown.css` 的 `.md-*` 类；上游的 `ynet-md-*` 类名在渲染层改写成 `md-*`。上游解析器丢掉有序列表序号，所以**没有 `.md-ol`**。
+
+**上传客厅照是底部浮窗不是全屏页**（`sheet-upload.js`，交互规范 §1-2）：底部推入 0.15s、最高 724px、蒙版/Esc/把手上滑取消。`view-upload.js` 只剩 20 行适配器，路由保留（hash 直入 + 其它 view 的 `ctx.go('view-upload')` 兜底）。
+
+**CSS 拆四个模块文件**，别都往 `axing.css` 里塞：`axing.css`=token+壳+通用件，`markdown.css`=`.md-*`，`chat.css`=对话层，`cards.css`=阿杏卡片。并行开发时按文件边界分工。
+
+**交互规范全文**：`docs/阿杏交互规范.md`（参照《喜豆AI银行交互规范.pdf》写的）；`docs/需求记录-阿杏交互规范.md` 记实测坐实的问题；`docs/阿杏交互规范-落地契约.md` 是 agent team 的唯一契约。
+
 ### 测试
 
 ```bash
-./node_modules/.bin/playwright test tests/axing.test.js        # 8 个（自带 3100 端口实例）
-./node_modules/.bin/playwright test tests/axing-ui.test.js     # 20 个（3412）：首页视觉结构 + §70.1 不变式 + 降级 + 老人友好
-./node_modules/.bin/playwright test tests/axing-admin.test.js  # 11 个（3420）：店主预约后台 + 方案补图
-./node_modules/.bin/playwright test                            # 全量 136 passed
+./node_modules/.bin/playwright test tests/axing.test.js              # 8 个（自带 3100 端口实例）
+./node_modules/.bin/playwright test tests/axing-ui.test.js           # 20 个（3412）
+./node_modules/.bin/playwright test tests/axing-admin.test.js        # 11 个（3420）
+./node_modules/.bin/playwright test tests/axing-interaction.test.js  # 22 个（3430）：A1~A10 交互验收
+./node_modules/.bin/playwright test tests/markdown.spec.js           # 5 个（3425）：Markdown 渲染
+node src/axing/tests/markdown.smoke.mjs                              # 45 断言（不在 playwright testDir 里，要手跑）
+./node_modules/.bin/playwright test                                  # 全量 167：157 passed / 10 failed
 ```
 
-`tests/axing.test.js` 自带 **3100 端口**实例（不碰 3000 上的旧服务），覆盖：`/axing` 页面、vendor 资源、预约/方案接口校验、10 个 view 浏览器挂载冒烟 + three.js 舞台 canvas/降级断言 + 无 pageerror。
+**全量那 10 个 failed 全在 `tests/api.test.js`，是本轮之前就有的数据债**，与交互改造无关：`data/products.json` 被 admin 上传流程整体覆盖过（见 §9），`sofa-1`/`table-1` 已不在库里，所以 Products/Orders/TryOn 那几条断言一直红。判别方法：`git stash` 掉交互改造后单跑 `tests/api.test.js`，同样这 10 条红。**别把它当回归。**
 
-**首页是「聊天优先」单屏**（v2.1 spec §70，视觉基准 `docs/阿杏AI家居导购界面.png`）：阿杏 hero → 一问一答气泡 → 「上传客厅照片」卡（第一 CTA）→ 你可以这样问 → 四大功能 → 打给店里。`#views` 是唯一滚动区，**Composer + Tab 是固定底栏**；Composer 只在 `view-voice` 让位（语音本身就是另一种聊天模态），把「任何状态都不能让用户失去 Chat」落实到上传/试摆/预约等全屏页。CSS 里给会互相切换显隐的元素必须显式写 `[hidden]{display:none}`——`display:flex` 会盖掉 UA 规则（返回键常显、发送/图片按钮同显都踩过）。
+**首页是「聊天优先」单屏**（视觉基准 `docs/最新首页图.png`）：阿杏 hero → 上传客厅照卡（第一 CTA，带阿杏头像）→ 上次试摆 → 四大功能 → **对话时间线** → 你可以这样问（沉底）→ 打给店里。时间线必须**贴在 Composer 上方**——chat-core 每次新消息都 `views.scrollTop = scrollHeight`，时间线排在 hero 旁边时滚到底看到的是拨打按钮和 chips，最新气泡反而在屏幕外。`#views` 是唯一滚动区，Composer + Tab 是固定底栏；Composer 只在 `view-voice` 让位。CSS 里给会互相切换显隐的元素必须显式写 `[hidden]{display:none}`——`img{display:block}` / `display:flex` 都会盖掉 UA 规则（返回键常显、发送/图片按钮同显、浮窗里漏出「我的客厅」alt 文字都踩过）。
 
 **产品经理批判**：`docs/pm-critique-20261005-阿杏v2.1.md`（17 条 / 5 个 🔴）。最重要的一条：店主原先在后台**看不见任何预约**，闭环是断的——已补 `/api/admin/appointments` + `/admin/appointments.html`。剩下的排在 `docs/handoff-20261005-阿杏AI助手.md` §8.6。
 
 ---
 
-*最后更新：2026-10-04 · 阿杏 AI 家居助手分支（three.js 3D 试摆台 + 现有后端改造 + 新端口）*
+*最后更新：2026-10-05 · 阿杏 AI 家居助手分支（交互规范落地：常驻对话中枢 + ynet Markdown + 上传改底部浮窗）*
+
