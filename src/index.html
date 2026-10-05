@@ -38,12 +38,16 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 .nav-logo small{font-size:.6rem;font-weight:400;opacity:.55;margin-left:4px;letter-spacing:.05em}
 @media(max-width:420px){.nav-logo small{display:none}}
 .nav-actions{display:flex;gap:4px;align-items:center;flex-shrink:0}
+/* 顶栏这几个链是导航级入口（AI 导购 / 联系我们 / 登录），客群是手指粗的县城老人。
+   实测原来只有 23~33px 高，远低于 Apple HIG 的 44px 最小可点区域——axing-ui 的 F1
+   只量 #axing，主站整条漏网。padding 撑到 44px，字号不动，视觉只胖一点点。 */
 .nav-actions a{
   color:var(--paper);
   text-align:center;
   padding:5px 8px;font-size:.78rem;font-weight:600;
   border:1px solid var(--paper);
-  min-width:0;
+  min-width:0;min-height:44px;
+  display:inline-flex;align-items:center;justify-content:center;
   white-space:nowrap;
 }
 
@@ -1010,11 +1014,32 @@ document.getElementById('tryonForm').addEventListener('submit', async e => {
   }
 });
 
+// 合成彻底失败时的展示。⚠️ 不能把后端 aiError 原文直接吐给顾客：
+// 三级兜底全挂时后端抛的是英文技术文案「AI upstream failed and no fallback image available」，
+// 而这一刻恰恰是他最需要「打给店里」的时候（CLAUDE.md §13：打给店里是老人卡住时的最终解法）。
+// 所以固定渲染人话 + 大号拨号按钮，原文折进 <details> 只给排查用。
+function showComposeFailure(aiError) {
+  const box = document.getElementById('tryonResult');
+  const raw = String(aiError || '').trim();
+  box.innerHTML = `
+    <div class="state">
+      <div class="state-title">这次没合成出来</div>
+      <div class="state-time">照片可能太暗或不完整，换一张再试试；也可以直接打给店里，我们帮您摆。</div>
+      <a href="tel:13359140982" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;
+         margin-top:12px;min-height:52px;padding:12px 26px;border-radius:10px;background:#3a2818;color:#faf6ef;
+         font-size:1.15rem;font-weight:800;text-decoration:none;">📞 打给店里 13359140982</a>
+      ${raw ? `<details style="margin-top:12px;font-size:.75rem;opacity:.55;text-align:left">
+        <summary style="cursor:pointer">技术详情（排查用）</summary>
+        <div style="margin-top:6px;word-break:break-all">${esc(raw)}</div>
+      </details>` : ''}
+    </div>`;
+}
+
 function showAnonResult(d, sec) {
   const url = d.compositionUrl || (d.compositionBase64 ? d.compositionBase64 : null);
   const resultBox = document.getElementById('tryonResult');
   if (!url) {
-    resultBox.innerHTML = `<div class="state"><div class="state-title">合成失败</div><div class="state-time">${esc(d.aiError) || '换个照片试试'}</div></div>`;
+    showComposeFailure(d.aiError);
     return;
   }
   const product = d.product || {};
@@ -1037,7 +1062,7 @@ function showResult(d, sec, phone) {
   const url = d.compositionUrl;
   const resultBox = document.getElementById('tryonResult');
   if (!url) {
-    resultBox.innerHTML = `<div class="state"><div class="state-title">合成失败</div><div class="state-time">${esc(d.aiError) || '换个照片试试'}</div></div>`;
+    showComposeFailure(d.aiError);
     return;
   }
   fetch('/api/upload/room', { method:'POST', body: (()=>{

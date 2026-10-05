@@ -163,8 +163,10 @@ test.describe('A · 首页', () => {
   //   实测高度只有 23~33px，低于 Apple HIG 的 44px 最小可点区域。
   //   客群是县城老人、手指粗，这几处是导航级入口却要点得很准。
   //   期望改法：给 .nav-actions a / .nav-logo small 补 min-height:44px（或用 padding 撑开）。
-  test('A3b ⚠️已知缺陷：顶栏导航链高度不足 44px', async ({ page }) => {
-    test.fail();
+  // 已修：顶栏「AI 导购 / 联系我们 / 登录」实测只有 23~33px 高，低于 Apple HIG 的
+  // 44px 最小可点区域，而客群是手指粗的县城老人、这又是导航级入口。
+  // axing-ui 的 F1 只量 #axing，主站整条漏网。现在统一 min-height:44px。
+  test('A3b 顶栏导航链高度 ≥44px（老人手指粗，导航级入口不能只有 23px）', async ({ page }) => {
     await openHome(page);
     const small = await page.evaluate(() => {
       const out = [];
@@ -303,7 +305,10 @@ test.describe('C · 试摆', () => {
   //   期望改法：失败分支固定渲染一句人话 + <a href="tel:13359140982"> 一键拨号，
   //   aiError 收进折叠详情或只在开发态露出。
   test('C2 AI 整体不可用：失败必须是人话 + 有门店电话出路', async ({ page }) => {
-    test.fail();
+    // 已修：原先直接把后端 aiError 原文（英文技术文案
+    // 「AI upstream failed and no fallback image available」）摆给顾客，
+    // 那一刻恰恰是他最需要「打给店里」的时候。现在固定渲染人话 + 大号拨号按钮，
+    // 原文折进 <details> 只给排查用。
     const errors = [];
     await openHome(page, { errors });
     await page.locator('#furnGrid .furn-card').first().click();
@@ -328,7 +333,7 @@ test.describe('C · 试摆', () => {
     await expect(page.locator('#bigTimer')).not.toHaveClass(/active/, { timeout: 25000 });
     await page.waitForFunction(() => {
       const t = (document.querySelector('.tryon-result') || {}).textContent || '';
-      return /合成失败|暂不可用|合成服务/.test(t);
+      return /合成失败|暂不可用|合成服务|没合成出来/.test(t);
     }, null, { timeout: 15000 });
 
     const r = await page.evaluate((phone) => {
@@ -340,7 +345,7 @@ test.describe('C · 试摆', () => {
     }, STORE_PHONE);
 
     // 1) 不能静默
-    expect(/合成失败|暂不可用|合成服务/.test(r.text), 'AI 不可用时必须有横幅或说明，不能静默').toBe(true);
+    expect(/合成失败|暂不可用|合成服务|没合成出来/.test(r.text), 'AI 不可用时必须有横幅或说明，不能静默').toBe(true);
     // 2) 不能把英文技术文案直接摆给顾客
     expect(r.text, `顾客看到的是英文技术文案：${r.text.slice(0, 120)}`).not.toMatch(/upstream failed|no fallback image/i);
     // 3) 必须给一条当场能用的出路
