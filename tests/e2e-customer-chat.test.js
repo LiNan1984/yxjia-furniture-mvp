@@ -524,7 +524,14 @@ test.describe('5 · 占位气泡生命周期', () => {
     const long = [REPLY_MD, '', '另外还有几款也可以看看：', '']
       .concat(Array.from({ length: 12 }, (_, i) => `- 款式 ${i + 1}：布艺沙发，¥${2000 + i * 100}起`))
       .join('\n');
+    // ⚠️ route.fulfill 会把整个 body 一次性送完，流可能在 Playwright 观察到「停止生成」
+    // 之前就结束了——按钮从来没出现过，这条测试就变成纯竞态（实测约 1/3 概率红）。
+    // 改成：mock 先挂住不放行，等测试点到停止按钮再放。窗口因此 100% 稳定。
+    await page.addInitScript(() => {
+      window.__releaseStream = new Promise((resolve) => { window.__doRelease = resolve; });
+    });
     await page.route('**/api/chat/guide/stream', async (route) => {
+      await page.evaluate(() => window.__releaseStream);
       await route.fulfill({
         status: 200,
         headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
@@ -535,17 +542,13 @@ test.describe('5 · 占位气泡生命周期', () => {
     await page.fill('#composerInput', '说一半停掉');
     await page.locator('#composerSend').click();
 
-    // 在按钮可见的同一帧里点它（页面内 click，避免 Playwright 轮询时生成已结束）
+    // 按钮可见的同一帧里点它（页面内 click）
     await page.waitForFunction(() => {
-      if (window.__stopped) return true;
       const b = document.getElementById('composerStop');
-      if (b && !b.hidden && getComputedStyle(b).display !== 'none') {
-        window.__stopped = true;
-        b.click();
-        return true;
-      }
-      return false;
+      return Boolean(b && !b.hidden && getComputedStyle(b).display !== 'none');
     }, null, { timeout: 20000 });
+    await page.evaluate(() => document.getElementById('composerStop').click());
+    await page.evaluate(() => window.__doRelease());
     await page.waitForFunction(() => {
       const c = window.AXING && window.AXING.chat;
       return Boolean(c) && !c.isBusy() && document.querySelectorAll('.ax-msg--typing, .ax-msg--streaming').length === 0;
