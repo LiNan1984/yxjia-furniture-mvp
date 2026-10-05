@@ -501,3 +501,72 @@ test.describe('F · 老人友好（≥44px 可点高度 + 无障碍标签）', (
     }
   });
 });
+
+// ============================================================================
+// G. 首屏不排队等 API（生产回归守门员）
+// ============================================================================
+test.describe('G · 首屏不阻塞', () => {
+  test('G1 两个 API 被拖慢时，上传卡 / chips / 四大功能仍与 hero 同帧出现', async ({ page }) => {
+    test.slow();
+    // 复现生产的真实情形：/api/categories + /api/products 慢几秒。
+    // 上传卡要等这两个请求填图，但 chips 与四大功能不依赖任何数据——
+    // 曾经 await 上传卡，把这两块一起堵到首屏外，生产首屏缺一两秒。
+    const DELAY = 4000;
+    for (const path of ['**/api/categories', '**/api/products']) {
+      await page.route(path, async (route) => {
+        await new Promise((r) => setTimeout(r, DELAY));
+        await route.continue();
+      });
+    }
+    await openHome(page);
+    // hero 一出现就抓快照：这一刻后面的块必须已经在场
+    await page.waitForSelector('#view-home.active .ax-hero', { timeout: 15000 });
+    const paint = await page.evaluate(() => ({
+      ucard: document.querySelectorAll('#view-home .ax-ucard').length,
+      ucardTitle: (document.querySelector('.ax-ucard__title') || {}).textContent || '',
+      chips: document.querySelectorAll('#view-home .ax-ask__chips .chip').length,
+      tiles: document.querySelectorAll('#view-home .ax-quick__tile').length,
+      callBtn: document.querySelectorAll('#view-home a[href^="tel:"]').length,
+    }));
+    expect(paint.ucard, '上传客厅照卡（第一 CTA）必须与 hero 同帧，不等 API').toBe(1);
+    expect(paint.ucardTitle).toContain('上传客厅照片');
+    expect(paint.chips, '「你可以这样问」chips 不依赖任何数据，应立即渲染').toBeGreaterThanOrEqual(3);
+    expect(paint.tiles, '四大功能 tile 不依赖任何数据，应立即渲染').toBe(4);
+    expect(paint.callBtn, '打给店里兜底按钮应立即渲染').toBe(1);
+  });
+
+  test('G2 上传卡立即可点：API 还没回来时点它能进上传页', async ({ page }) => {
+    test.slow();
+    await page.route('**/api/categories', async (route) => {
+      await new Promise((r) => setTimeout(r, 6000));
+      await route.continue();
+    });
+    await openHome(page);
+    await page.waitForSelector('#view-home.active .ax-ucard', { timeout: 15000 });
+    // API 仍在飞的窗口内点击（不等 fill 回来）
+    await page.locator('#view-home .ax-ucard__head').click({ timeout: 5000 });
+    await page.waitForFunction(() => document.getElementById('view-upload')?.classList.contains('active'), null, { timeout: 10000 });
+    await expect(page.locator('#view-upload.active')).toHaveCount(1);
+  });
+
+  test('G3 示例缩略图探测后才建格：不出现先渲染再换 src 的破图瞬态', async ({ page }) => {
+    test.slow();
+    await openHome(page);
+    await waitHomeMounted(page);
+    // 等 fill() 定局（bed 的 defaultRoom 是必然 404 的数据债，要靠探测绕开）
+    await page.waitForFunction(() => {
+      const w = document.querySelector('.ax-samples');
+      return w && (w.hidden || document.querySelector('.ax-sample img'));
+    }, null, { timeout: 15000 });
+    await page.waitForTimeout(500);
+    const samples = await page.evaluate(() => Array.from(document.querySelectorAll('.ax-sample')).map((b) => {
+      const img = b.querySelector('img');
+      return { src: (img && img.getAttribute('src')) || '', broken: img ? img.naturalWidth === 0 : true };
+    }));
+    for (const s of samples) {
+      expect(s.broken, `示例缩略图不应是破图：${s.src}`).toBe(false);
+      expect(s.src, '示例缩略图必须有 src').not.toBe('');
+      expect(s.src, '示例缩略图不应指向必然 404 的 default-room-bed.jpg').not.toContain('default-room-bed.jpg');
+    }
+  });
+});

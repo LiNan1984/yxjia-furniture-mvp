@@ -141,7 +141,7 @@ function uploadCard(ctx, goView) {
   });
 
   // 后台填图：取品类与商品，按「声明房间图 → 该品类在售商品图 → 通用客厅图」逐级探测，
-  // 把主预览和示例格换成链上第一个真能加载的；和主预览撞成同一张的示例格撤掉。
+  // 把主预览和示例格换成链上第一个真能加载的；和主预览撞成同一张的示例格不放。
   const fill = async () => {
     let cats = [];
     let products = [];
@@ -159,7 +159,7 @@ function uploadCard(ctx, goView) {
     // 所以不能只认声明图；也不能无脑退到通用图，否则会和主预览撞成同一张。
     const chainOf = (c) => {
       const hit = products.find((p) => p && p.category === c.id && p.image);
-      return [c.defaultRoom, hit && hit.image, ROOM_FALLBACK].filter(Boolean);
+      return [c && c.defaultRoom, hit && hit.image, ROOM_FALLBACK].filter(Boolean);
     };
     const pickFirstOk = async (chain) => {
       for (const u of chain) if (await probeImage(u)) return u;
@@ -169,32 +169,24 @@ function uploadCard(ctx, goView) {
     const finalMain = (await pickFirstOk(cats.length ? chainOf(cats[0]) : [ROOM_FALLBACK])) || ROOM_FALLBACK;
     if (mainImg.getAttribute('src') !== finalMain) mainImg.src = finalMain;
 
-    const sampleCats = cats.slice(1, 4);
-    const btns = sampleCats.map((c) => {
-      const url = (chainOf(c)[0]) || ROOM_FALLBACK;
-      const btn = el('button.ax-sample', {
+    // 示例格先探测后建按钮：bed 的声明房间图是必然 404 的，先渲染再换 src 会闪过一张破图、
+    // 还白跑一次 404。探测完只给有真图的品类建格子，和主预览撞图的直接不放。
+    const found = await Promise.all(cats.slice(1, 4).map(async (c) => ({
+      c,
+      url: await pickFirstOk(chainOf(c)),
+    })));
+    const btns = found
+      .filter((x) => x.url && x.url !== finalMain)
+      .map(({ c, url }) => el('button.ax-sample', {
         type: 'button',
         'aria-label': `用${c.room || ''}示例：${c.name || c.id}`,
         onclick: () => {
           ctx.setState({ sampleRoom: url, sampleCategoryId: c.id });
           goView('view-upload');
         },
-      }, [roomImg(ctx, url, c.name || c.id, c.name || c.id)]);
-      return { c, btn, chain: chainOf(c) };
-    });
-    grid.replaceChildren(...btns.map((x) => x.btn));
-
-    for (const { c, btn, chain } of btns) {
-      const ok = await pickFirstOk(chain);
-      if (!ok || ok === finalMain) { btn.remove(); continue; }
-      const img = btn.querySelector('img');
-      if (img) img.src = ok;
-      btn.onclick = () => {
-        ctx.setState({ sampleRoom: ok, sampleCategoryId: c.id });
-        goView('view-upload');
-      };
-    }
-    samples.hidden = grid.children.length === 0;
+      }, [roomImg(ctx, url, c.name || c.id, c.name || c.id)]));
+    grid.replaceChildren(...btns);
+    samples.hidden = btns.length === 0;
   };
 
   return { card, fill };
