@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<!-- 禁止移动端双击/双指页面缩放，仅保留我们自己在画布上的双指缩放逻辑 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>家具 AI 试摆 · 奢侈品极简</title>
+
+<!-- =========================================================
+     样式层：MiuMiu / BV / Margiela 奢侈品极简风格
+     配色：炭黑 #2C2C2C / 米白 #F7F4EF / 浅石灰 #D9D4CD / 文字灰 #77726C
+     原则：细字重、大留白、微弱阴影、克制几何、无花哨动效
+     ========================================================= -->
+<style>
+  :root{
+    --c-charcoal:#2C2C2C;   /* 炭黑：主文字 / 强调 */
+    --c-cream:#F7F4EF;      /* 米白：主背景 */
+    --c-stone:#D9D4CD;      /* 浅石灰：分隔 / 弱背景 */
+    --c-gray:#77726C;       /* 文字灰：次要文字 */
+    --shadow-lux:0 2px 18px rgba(44,44,44,.06); /* 极淡微弱阴影 */
+    --radius:4px;           /* 小圆角，局部直角 */
+    --ease:cubic-bezier(.22,.61,.36,1);
+    --maxw:1180px;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--c-cream);
+    color:var(--c-charcoal);
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-weight:300;                 /* 细字重 */
+    letter-spacing:.04em;            /* 增加字间距，奢侈品排版感 */
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior-y:contain;   /* 微信/移动端：防止下拉刷新与画布拖拽冲突 */
+  }
+  a{color:inherit;text-decoration:none;}
+  img{display:block;max-width:100%;}
+  button{font-family:inherit;letter-spacing:.06em;cursor:pointer;border:none;background:none;}
+
+  /* 通用按钮：描边细线、字重细、hover 渐变 */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:13px 30px;font-size:13px;font-weight:300;letter-spacing:.14em;
+    color:var(--c-charcoal);border:1px solid var(--c-charcoal);
+    background:transparent;border-radius:var(--radius);
+    transition:background .4s var(--ease),color .4s var(--ease),opacity .4s var(--ease);
+    touch-action:manipulation;       /* 移动端：去除点击延迟，避免双击缩放 */
+  }
+  .btn:hover{background:var(--c-charcoal);color:var(--c-cream);}
+  .btn--ghost{border-color:var(--c-stone);color:var(--c-gray);}
+  .btn--ghost:hover{border-color:var(--c-charcoal);color:var(--c-charcoal);background:transparent;}
+
+  /* 入场淡入（无花哨动效，仅 opacity + 微位移） */
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .9s var(--ease),transform .9s var(--ease);}
+  .reveal.in{opacity:1;transform:none;}
+
+  /* ---------------- 顶部导航 header ---------------- */
+  header.nav{
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    background:rgba(247,244,239,.72);
+    backdrop-filter:saturate(120%) blur(14px);   /* 半透明毛玻璃 */
+    -webkit-backdrop-filter:saturate(120%) blur(14px);
+    border-bottom:1px solid rgba(217,212,205,.55);
+  }
+  .nav__inner{
+    max-width:var(--maxw);margin:0 auto;padding:18px 26px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .brand{font-size:17px;letter-spacing:.34em;font-weight:300;}
+  .nav__menu{display:flex;gap:34px;align-items:center;}
+  .nav__menu a{font-size:12px;letter-spacing:.2em;color:var(--c-gray);transition:color .35s var(--ease);}
+  .nav__menu a:hover{color:var(--c-charcoal);}
+  .nav__toggle{display:none;width:30px;height:20px;position:relative;}
+  .nav__toggle span{position:absolute;left:0;right:0;height:1px;background:var(--c-charcoal);transition:.35s var(--ease);}
+  .nav__toggle span:nth-child(1){top:2px;}
+  .nav__toggle span:nth-child(2){top:9px;}
+  .nav__toggle span:nth-child(3){top:16px;}
+
+  @media(max-width:860px){
+    .nav__menu{
+      position:fixed;top:61px;left:0;right:0;
+      flex-direction:column;gap:0;background:var(--c-cream);
+      border-bottom:1px solid var(--c-stone);
+      max-height:0;overflow:hidden;transition:max-height .45s var(--ease);
+    }
+    .nav__menu.open{max-height:320px;}
+    .nav__menu a{padding:18px 26px;width:100%;border-top:1px solid var(--c-stone);}
+    .nav__toggle{display:block;}
+    .nav__toggle.active span:nth-child(1){top:9px;transform:rotate(45deg);}
+    .nav__toggle.active span:nth-child(2){opacity:0;}
+    .nav__toggle.active span:nth-child(3){top:9px;transform:rotate(-45deg);}
+  }
+
+  /* ---------------- 通用区块 ---------------- */
+  section{scroll-margin-top:70px;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 26px;}
+  .sec{padding:120px 0;}
+  .sec__eyebrow{font-size:11px;letter-spacing:.4em;color:var(--c-gray);margin:0 0 14px;}
+  .sec__title{font-size:30px;font-weight:200;letter-spacing:.08em;margin:0 0 18px;}
+  .sec__desc{color:var(--c-gray);font-size:14px;max-width:560px;}
+
+  /* ---------------- 首屏 Banner ---------------- */
+  #home{
+    min-height:100vh;min-height:100dvh; /* dvh 适配移动端动态地址栏，避免被遮挡 */
+    display:flex;align-items:center;
+    padding-top:70px;position:relative;overflow:hidden;
+  }
+  .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:60px;align-items:center;width:100%;}
+  .hero__title{font-size:clamp(34px,5vw,62px);font-weight:200;line-height:1.18;letter-spacing:.04em;margin:0 0 22px;}
+  .hero__sub{color:var(--c-gray);font-size:15px;max-width:440px;margin:0 0 40px;}
+  .hero__actions{display:flex;gap:18px;flex-wrap:wrap;}
+  /* 右侧 Banner 大图：骨架屏占位，后期替换品牌视觉图 */
+  .hero__visual{aspect-ratio:4/5;background:var(--c-stone);border-radius:var(--radius);position:relative;overflow:hidden;}
+  .skeleton{position:absolute;inset:0;background:linear-gradient(100deg,var(--c-stone) 30%,#e9e4dd 50%,var(--c-stone) 70%);background-size:200% 100%;animation:sk 1.6s infinite;}
+  @keyframes sk{to{background-position:-200% 0;}}
+  .hero__visual .ph-label{position:absolute;left:0;right:0;bottom:0;padding:14px 16px;font-size:11px;letter-spacing:.3em;color:var(--c-gray);background:rgba(247,244,239,.6);}
+
+  @media(max-width:860px){
+    .hero{grid-template-columns:1fr;gap:36px;}
+    .hero__visual{aspect-ratio:16/10;}
+    .sec{padding:84px 0;}
+  }
+
+  /* ---------------- 沙发实景试摆 ---------------- */
+  #try-sofa .try-grid{display:grid;grid-template-columns:1fr 320px;gap:40px;align-items:start;margin-top:40px;}
+  .canvas-stage{
+    position:relative;background:var(--c-stone);border-radius:var(--radius);
+    box-shadow:var(--shadow-lux);overflow:hidden;aspect-ratio:4/3;
+  }
+  .canvas-stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;}
+  .canvas-stage .empty-hint{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;color:var(--c-gray);font-size:13px;letter-spacing:.2em;text-align:center;padding:20px;
+  }
+  .canvas-stage .empty-hint .plus{font-size:34px;font-weight:100;}
+
+  .try-panel{}
+  .try-panel h4{font-size:12px;letter-spacing:.3em;color:var(--c-gray);margin:0 0 14px;font-weight:300;}
+  .sofa-styles{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px;}
+  .style-chip{padding:9px 16px;font-size:12px;letter-spacing:.12em;border:1px solid var(--c-stone);border-radius:var(--radius);color:var(--c-gray);transition:.35s var(--ease);}
+  .style-chip:hover{border-color:var(--c-charcoal);color:var(--c-charcoal);}
+  .style-chip.active{background:var(--c-charcoal);color:var(--c-cream);border-color:var(--c-charcoal);}
+
+  .rotate-row{margin-bottom:24px;}
+  .rotate-row label{display:block;font-size:11px;letter-spacing:.2em;color:var(--c-gray);margin-bottom:8px;}
+  .rotate-row input[type=range]{width:100%;accent-color:var(--c-charcoal);}
+  .rotate-note{font-size:10px;color:var(--c-gray);letter-spacing:.1em;margin-top:4px;opacity:.7;}
+
+  .try-ops{display:flex;flex-direction:column;gap:12px;}
+  .try-ops .btn{width:100%;}
+  .loading-line{font-size:11px;letter-spacing:.2em;color:var(--c-gray);min-height:16px;text-align:center;}
+
+  @media(max-width:860px){
+    #try-sofa .try-grid{grid-template-columns:1fr;}
+    .try-panel{order:-1;}
+  }
+
+  /* ---------------- 产品列表 ---------------- */
+  .filters{display:flex;flex-wrap:wrap;gap:30px;align-items:flex-end;margin:36px 0 40px;}
+  .filter-group{display:flex;flex-direction:column;gap:10px;}
+  .filter-group > span{font-size:11px;letter-spacing:.25em;color:var(--c-gray);}
+  .cat-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .cat-chip{padding:8px 15px;font-size:12px;letter-spacing:.1em;border:1px solid var(--c-stone);border-radius:var(--radius);color:var(--c-gray);transition:.35s var(--ease);}
+  .cat-chip:hover,.cat-chip.active{border-color:var(--c-charcoal);color:var(--c-charcoal);}
+  .price-row{display:flex;align-items:center;gap:14px;min-width:260px;}
+  .price-row input[type=range]{flex:1;accent-color:var(--c-charcoal);}
+  .price-val{font-size:13px;letter-spacing:.1em;color:var(--c-charcoal);min-width:64px;}
+
+  .product-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;}
+  @media(max-width:860px){.product-grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:560px){.product-grid{grid-template-columns:1fr;}}
+  .card{background:var(--c-cream);border:1px solid var(--c-stone);border-radius:var(--radius);overflow:hidden;transition:transform .5s var(--ease),box-shadow .5s var(--ease);}
+  .card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lux);}
+  .card__img{aspect-ratio:1/1;position:relative;background:var(--c-stone);}
+  .card__body{padding:18px 18px 20px;}
+  .card__name{font-size:15px;letter-spacing:.08em;margin:0 0 6px;}
+  .card__attr{font-size:12px;color:var(--c-gray);margin:0 0 14px;min-height:34px;}
+  .card__price{font-size:15px;letter-spacing:.06em;margin:0 0 16px;}
+  .card__ops{display:flex;gap:10px;}
+  .card__ops .btn{flex:1;padding:10px 0;font-size:11px;letter-spacing:.12em;}
+
+  /* ---------------- 灵感案例预留 ---------------- */
+  #inspire .inspire-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:40px;}
+  @media(max-width:860px){#inspire .inspire-grid{grid-template-columns:1fr;}}
+  .inspire-card{background:var(--c-cream);border:1px solid var(--c-stone);border-radius:var(--radius);overflow:hidden;}
+  .inspire-card .inspire-img{aspect-ratio:4/3;position:relative;background:var(--c-stone);}
+  .inspire-card .inspire-body{padding:18px;}
+  .inspire-card .inspire-body .t{font-size:14px;letter-spacing:.1em;margin:0 0 6px;}
+  .inspire-card .inspire-body .d{font-size:12px;color:var(--c-gray);margin:0;}
+
+  /* ---------------- 品牌关于 ---------------- */
+  #about .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center;margin-top:40px;}
+  #about .about-visual{aspect-ratio:1/1;background:var(--c-stone);border-radius:var(--radius);position:relative;}
+  @media(max-width:860px){#about .about-grid{grid-template-columns:1fr;}}
+
+  /* ---------------- 页脚 ---------------- */
+  footer.foot{background:var(--c-charcoal);color:var(--c-cream);padding:80px 0 50px;}
+  .foot__inner{max-width:var(--maxw);margin:0 auto;padding:0 26px;display:grid;grid-template-columns:2fr 1fr 1fr;gap:40px;}
+  .foot h5{font-size:12px;letter-spacing:.3em;color:#b8b2a9;font-weight:300;margin:0 0 16px;}
+  .foot p,.foot a{font-size:13px;color:#cfc9c0;line-height:2;letter-spacing:.06em;}
+  .foot .brand-big{font-size:22px;letter-spacing:.34em;color:var(--c-cream);margin:0 0 14px;}
+  .foot__bottom{max-width:var(--maxw);margin:50px auto 0;padding:24px 26px 0;border-top:1px solid rgba(255,255,255,.12);font-size:11px;letter-spacing:.2em;color:#9a948b;}
+  @media(max-width:860px){.foot__inner{grid-template-columns:1fr;}}
+
+  /* ---------------- 悬浮公共组件 ---------------- */
+  .float-btn{
+    position:fixed;right:22px;width:50px;height:50px;border-radius:50%;
+    background:var(--c-charcoal);color:var(--c-cream);display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--shadow-lux);z-index:90;font-size:18px;transition:opacity .4s var(--ease),transform .4s var(--ease);
+  }
+  #toTop{bottom:84px;opacity:0;pointer-events:none;transform:translateY(10px);}
+  #toTop.show{opacity:1;pointer-events:auto;transform:none;}
+  #serviceBtn{bottom:22px;}
+
+  /* ---------------- 通用弹窗 ---------------- */
+  .modal-mask{
+    position:fixed;inset:0;background:rgba(44,44,44,.42);backdrop-filter:blur(3px);
+    z-index:200;display:flex;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity .4s var(--ease);padding:20px;
+  }
+  .modal-mask.show{opacity:1;pointer-events:auto;}
+  .modal{
+    background:var(--c-cream);border-radius:var(--radius);max-width:560px;width:100%;
+    max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(44,44,44,.18);
+    transform:translateY(14px) scale(.99);transition:transform .45s var(--ease);
+  }
+  .modal-mask.show .modal{transform:none;}
+  .modal__head{display:flex;justify-content:space-between;align-items:center;padding:22px 26px;border-bottom:1px solid var(--c-stone);}
+  .modal__head h3{margin:0;font-size:15px;letter-spacing:.18em;font-weight:300;}
+  .modal__close{width:30px;height:30px;font-size:20px;color:var(--c-gray);line-height:1;}
+  .modal__body{padding:26px;}
+  .modal__img{aspect-ratio:16/10;background:var(--c-stone);border-radius:var(--radius);position:relative;margin-bottom:20px;}
+  .modal__img .skeleton{position:absolute;inset:0;}
+  .spec-row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--c-stone);font-size:13px;letter-spacing:.04em;}
+  .spec-row span:first-child{color:var(--c-gray);}
+  .modal__ops{display:flex;gap:12px;margin-top:22px;}
+  .modal__ops .btn{flex:1;}
+
+  /* ---------------- 语音咨询 / AI 助手弹窗（适老化） ---------------- */
+  #voiceModal .modal{max-width:440px;}
+  .mic-btn{
+    width:120px;height:120px;border-radius:50%;background:var(--c-stone);
+    display:flex;align-items:center;justify-content:center;position:relative;
+    transition:background .3s var(--ease);
+    touch-action:none;               /* 移动端：按住录音不被识别为滚动/缩放 */
+  }
+  .mic-btn:active,.mic-btn.recording{background:var(--c-charcoal);}
+  .mic-btn svg{width:46px;height:46px;fill:var(--c-charcoal);transition:fill .3s var(--ease);}
+  .mic-btn.recording svg{fill:var(--c-cream);}
+  /* 按住录音呼吸脉冲 */
+  .mic-btn.recording::after{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    border:1px solid var(--c-charcoal);animation:pulse 1.4s infinite ease-out;
+  }
+  @keyframes pulse{0%{transform:scale(1);opacity:.6;}100%{transform:scale(1.5);opacity:0;}}
+  .voice-tip{font-size:13px;letter-spacing:.16em;color:var(--c-gray);min-height:18px;text-align:center;}
+
+  .chat{width:100%;margin-top:6px;display:flex;flex-direction:column;gap:12px;max-height:300px;overflow:auto;padding:4px 2px;}
+  .bubble{max-width:82%;padding:12px 16px;border-radius:var(--radius);font-size:13px;line-height:1.6;letter-spacing:.03em;}
+  .bubble.user{align-self:flex-end;background:var(--c-charcoal);color:var(--c-cream);}
+  .bubble.ai{align-self:flex-start;background:var(--c-cream);border:1px solid var(--c-stone);color:var(--c-charcoal);}
+  .chat-empty{font-size:12px;color:var(--c-gray);text-align:center;letter-spacing:.12em;padding:18px 0;}
+
+  /* AI 助手信息条 + 文字输入（营造 AI 助手身份感） */
+  .assistant{display:flex;flex-direction:column;gap:16px;}
+  .assistant__bar{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--c-stone);}
+  .assistant__avatar{width:46px;height:46px;border-radius:50%;background:var(--c-charcoal);color:var(--c-cream);display:flex;align-items:center;justify-content:center;font-size:13px;letter-spacing:.08em;}
+  .assistant__name{font-size:14px;letter-spacing:.1em;}
+  .assistant__status{font-size:11px;color:var(--c-gray);letter-spacing:.14em;}
+  .assistant__input{display:flex;gap:10px;}
+  .assistant__input input{flex:1;border:1px solid var(--c-stone);background:var(--c-cream);border-radius:var(--radius);padding:12px 14px;font-family:inherit;font-size:13px;letter-spacing:.04em;color:var(--c-charcoal);outline:none;transition:border-color .35s var(--ease);}
+  .assistant__input input:focus{border-color:var(--c-charcoal);}
+  .assistant__input .btn{padding:0 22px;}
+  .voice-row{display:flex;flex-direction:column;align-items:center;gap:12px;}
+
+  .toast{
+    position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(20px);
+    background:var(--c-charcoal);color:var(--c-cream);padding:13px 26px;border-radius:var(--radius);
+    font-size:12px;letter-spacing:.14em;z-index:300;opacity:0;pointer-events:none;transition:.4s var(--ease);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%);}
+</style>
+</head>
+
+<body>
+
+<!-- =========================================================
+     1. 顶部全局导航 header（固定悬浮 / 毛玻璃 / 移动端汉堡）
+     ========================================================= -->
+<header class="nav">
+  <div class="nav__inner">
+    <div class="brand">MAISON&nbsp;·&nbsp;家具</div>
+    <nav class="nav__menu" id="navMenu">
+      <a href="#home">首页</a>
+      <a href="#try-sofa">实景试摆</a>
+      <a href="#products">产品</a>
+      <a href="#inspire">灵感</a>
+      <a href="#about">品牌</a>
+      <a href="#contact">联系</a>
+    </nav>
+    <button class="nav__toggle" id="navToggle" aria-label="菜单">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<!-- =========================================================
+     3. 首页首屏 Banner #home
+     ========================================================= -->
+<section id="home">
+  <div class="wrap">
+    <div class="hero">
+      <div class="hero__text reveal">
+        <p class="sec__eyebrow">AI 实景试摆 · 适老语音导购</p>
+        <h1 class="hero__title">把理想客厅<br/>先摆进你的家</h1>
+        <p class="hero__sub">上传一张房间照片，自由拖拽、缩放真实比例的沙发，所见即所得。长辈也能用语音轻松挑选合适款式。</p>
+        <div class="hero__actions">
+          <button class="btn" id="heroTry">开始体验试摆</button>
+          <button class="btn btn--ghost" id="heroVoice">语音咨询</button>
+        </div>
+      </div>
+      <!-- 右侧 Banner 大图：骨架屏占位，后期替换品牌视觉图 -->
+      <div class="hero__visual reveal">
+        <div class="skeleton"></div>
+        <div class="ph-label">BRAND VISUAL · 占位</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     4. 核心模块：沙发实景试摆 #try-sofa
+     ========================================================= -->
+<section id="try-sofa" class="sec">
+  <div class="wrap">
+    <p class="sec__eyebrow reveal">REAL-SCENE TRY-ON</p>
+    <h2 class="sec__title reveal">沙发实景试摆</h2>
+    <p class="sec__desc reveal">上传你的房间照片，叠加沙发素材，拖拽、缩放、旋转，生成专属搭配预览图。</p>
+
+    <div class="try-grid">
+      <!-- 画布舞台：两层 Canvas 叠加（底层房间背景 + 上层沙发） -->
+      <div class="canvas-stage reveal" id="stage">
+        <canvas id="bgCanvas"></canvas>
+        <canvas id="sofaCanvas"></canvas>
+        <div class="empty-hint" id="emptyHint">
+          <div class="plus">＋</div>
+          <div>上传房间照片，开始你的试摆</div>
+        </div>
+      </div>
+
+      <!-- 右侧操作面板 -->
+      <div class="try-panel reveal">
+        <h4>① 上传居室照片</h4>
+        <button class="btn" id="uploadBtn" style="width:100%;margin-bottom:26px;">选择房间照片</button>
+
+        <h4>② 选择沙发款式</h4>
+        <!-- 款式按钮容器：后期由 JS 动态渲染（来自商品数据接口） -->
+        <div class="sofa-styles" id="sofaStyles"></div>
+
+        <div class="rotate-row">
+          <label>旋转角度（预留接口）</label>
+          <input type="range" id="rotateRange" min="-45" max="45" value="0" />
+          <div class="rotate-note">角度调节 UI 已预留，后期可扩展更细的旋转控制</div>
+        </div>
+
+        <h4>③ 操作</h4>
+        <div class="try-ops">
+          <button class="btn btn--ghost" id="resetBtn">重置画布</button>
+          <button class="btn" id="previewBtn">生成预览图</button>
+          <button class="btn btn--ghost" id="saveBtn">保存 / 下载图片</button>
+        </div>
+        <div class="loading-line" id="tryLoading"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     5. 产品列表模块 #products
+     ========================================================= -->
+<section id="products" class="sec">
+  <div class="wrap">
+    <p class="sec__eyebrow reveal">COLLECTION</p>
+    <h2 class="sec__title reveal">沙发系列</h2>
+
+    <!-- 5.1 筛选：分类 + 价格区间 -->
+    <div class="filters reveal">
+      <div class="filter-group">
+        <span>分类</span>
+        <div class="cat-row" id="catRow">
+          <button class="cat-chip active" data-cat="all">全部</button>
+          <button class="cat-chip" data-cat="直排">直排</button>
+          <button class="cat-chip" data-cat="贵妃">贵妃</button>
+          <button class="cat-chip" data-cat="单人">单人</button>
+          <button class="cat-chip" data-cat="转角">转角</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span>价格上限</span>
+        <div class="price-row">
+          <input type="range" id="priceRange" min="1000" max="10000" step="500" value="10000" />
+          <span class="price-val" id="priceVal">¥10000</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5.2 产品卡片：JS 动态渲染占位 -->
+    <div class="product-grid" id="productGrid"></div>
+  </div>
+</section>
+
+<!-- =========================================================
+     6. 灵感案例预留模块 #inspire（仅 UI 框架，三列骨架屏）
+     ========================================================= -->
+<section id="inspire" class="sec">
+  <div class="wrap">
+    <p class="sec__eyebrow reveal">INSPIRATION</p>
+    <h2 class="sec__title reveal">灵感与案例</h2>
+    <p class="sec__desc reveal">空间案例、工艺解读、FAQ、买家秀……后期直接替换卡片图片与文字，无需改动结构。</p>
+    <div class="inspire-grid">
+      <div class="inspire-card reveal"><div class="inspire-img"><div class="skeleton"></div></div>
+        <div class="inspire-body"><p class="t">空间搭配案例</p><p class="d">不同户型的沙发实拍搭配参考</p></div></div>
+      <div class="inspire-card reveal"><div class="inspire-img"><div class="skeleton"></div></div>
+        <div class="inspire-body"><p class="t">工艺与材质</p><p class="d">面料、框架、填充材料解读</p></div></div>
+      <div class="inspire-card reveal"><div class="inspire-img"><div class="skeleton"></div></div>
+        <div class="inspire-body"><p class="t">常见问题</p><p class="d">保养 · 物流 · 尺寸 · 退换货</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     7. 品牌关于模块 #about
+     ========================================================= -->
+<section id="about" class="sec">
+  <div class="wrap">
+    <p class="sec__eyebrow reveal">ABOUT</p>
+    <h2 class="sec__title reveal">关于品牌</h2>
+    <div class="about-grid">
+      <div class="about-visual reveal"><div class="skeleton"></div></div>
+      <div class="reveal">
+        <p class="sec__desc" style="max-width:none;">品牌故事与理念占位区块。后期替换为品牌图文内容：设计哲学、适老化关怀、材质与工艺标准等。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     8. 页脚 Footer #contact
+     ========================================================= -->
+<footer class="foot" id="contact">
+  <div class="foot__inner">
+    <div>
+      <div class="brand-big">MAISON</div>
+      <p>家具 AI 试摆 · 让每个家都有自己的样子。</p>
+    </div>
+    <div>
+      <h5>联系</h5>
+      <p>客服咨询<br/>门店地址<br/>商务合作</p>
+    </div>
+    <div>
+      <h5>关注</h5>
+      <p>微信公众号<br/>视频号<br/>小程序</p>
+    </div>
+  </div>
+  <div class="foot__bottom">© 2026 MAISON 家具 · 占位版权信息</div>
+</footer>
+
+<!-- 9. 悬浮公共组件 -->
+<button class="float-btn" id="toTop" aria-label="回到顶部">↑</button>
+<button class="float-btn" id="serviceBtn" aria-label="客服">✦</button>
+
+<!-- =========================================================
+     5.3 / 产品详情弹窗（JS 填充内容）
+     ========================================================= -->
+<div class="modal-mask" id="detailModal">
+  <div class="modal">
+    <div class="modal__head"><h3 id="detailName">产品详情</h3><button class="modal__close" data-close>×</button></div>
+    <div class="modal__body">
+      <div class="modal__img"><div class="skeleton"></div></div>
+      <div id="detailSpecs"></div>
+      <div class="modal__ops">
+        <button class="btn" id="detailPlace">置入我的房间</button>
+        <button class="btn btn--ghost" data-close>关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================================
+     7. AI 智能助手 / 语音咨询（适老化，H5 仅 UI，录音由小程序完成）
+     定位：像一个 AI 助手，可语音也可文字咨询；后端对话/导购能力后期接入
+     ========================================================= -->
+<div class="modal-mask" id="voiceModal">
+  <div class="modal">
+    <div class="modal__head"><h3>AI 智能助手</h3><button class="modal__close" data-close>×</button></div>
+    <div class="modal__body">
+      <div class="assistant">
+        <!-- 助手信息条：营造 AI 助手身份感，后期可换品牌名/头像 -->
+        <div class="assistant__bar">
+          <div class="assistant__avatar">AI</div>
+          <div>
+            <div class="assistant__name">阿杏</div>
+            <div class="assistant__status">提前把家具搬到你家的 AI 助手</div>
+          </div>
+        </div>
+        <!-- 聊天消息容器：用户 / 助手气泡（首条为助手问候） -->
+        <div class="chat" id="chatBox"><div class="chat-empty">示例：「想要布艺沙发，三千左右」「有没有适合小客厅的沙发」</div></div>
+        <!-- 文字输入（AI 助手标配，除语音外可打字咨询） -->
+        <div class="assistant__input">
+          <input type="text" id="textInput" placeholder="输入你的问题，或按住麦克风语音咨询" />
+          <button class="btn" id="sendText">发送</button>
+        </div>
+        <!-- 适老化大尺寸麦克风按钮：按住录音 -->
+        <div class="voice-row">
+          <button class="mic-btn" id="micBtn" aria-label="按住说话">
+            <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+          </button>
+          <div class="voice-tip" id="voiceTip">按住麦克风，告诉我你的需求</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- =========================================================
+     脚本层：全部 UI 逻辑 + 小程序 postMessage 通信钩子
+     ========================================================= -->
+<script>
+(function(){
+  "use strict";
+
+  /* =======================================================
+     0. 环境 & 小程序通信桥
+     - 判断是否微信 web-view 环境
+     - H5 通过 wx.miniProgram.postMessage 发消息
+     - 小程序在 bindmessage 接收，并回调下面这些全局函数
+     ======================================================= */
+  function isMiniProgram(){
+    // 微信 web-view 内可通过 wx.miniProgram 或 UA 判断
+    return (typeof wx !== "undefined" && wx.miniProgram) ||
+           /miniProgram/i.test(navigator.userAgent) ||
+           window.__wxjs_environment === "miniprogram";
+  }
+  // 向小程序发送消息的统一封装
+  function postToMini(data){
+    if(isMiniProgram() && typeof wx !== "undefined" && wx.miniProgram && wx.miniProgram.postMessage){
+      wx.miniProgram.postMessage({ data: data });
+      console.log("[H5→小程序] postMessage:", data);
+    }else{
+      // 浏览器环境：仅打印，能力降级为演示
+      console.log("[浏览器演示] 拟发送小程序消息:", data);
+    }
+  }
+
+  /* —— 小程序回传给 H5 的全局回调函数（小程序原生层需调用）——
+     这些函数必须挂在 window 上，小程序 bindmessage 处理完后调用 */
+  window.wxUploadCallback = function(tempFilePath){
+    // 小程序选择相册图片后，回传临时路径 → 加载为房间背景
+    loadRoomImageFromSrc(tempFilePath);
+  };
+  window.wxVoiceRecCallback = function(recognizeText){
+    // 小程序完成语音识别，回传文本 → 渲染用户消息并请求 AI 导购
+    handleUserVoice(recognizeText);
+  };
+
+  /* =======================================================
+     通用工具
+     ======================================================= */
+  function $(sel,root){return (root||document).querySelector(sel);}
+  function $all(sel,root){return Array.prototype.slice.call((root||document).querySelectorAll(sel));}
+  function toast(msg){
+    var t=$("#toast");t.textContent=msg;t.classList.add("show");
+    clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove("show");},2200);
+  }
+
+  /* =======================================================
+     1. 导航：平滑滚动 + 移动端汉堡
+     ======================================================= */
+  (function nav(){
+    var toggle=$("#navToggle"),menu=$("#navMenu");
+    toggle.addEventListener("click",function(){
+      toggle.classList.toggle("active");menu.classList.toggle("open");
+    });
+    $all("#navMenu a").forEach(function(a){
+      a.addEventListener("click",function(e){
+        e.preventDefault();
+        var id=a.getAttribute("href");
+        var el=document.querySelector(id);
+        if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
+        toggle.classList.remove("active");menu.classList.remove("open");
+      });
+    });
+  })();
+
+  /* =======================================================
+     入场淡入观察器
+     ======================================================= */
+  (function reveal(){
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add("in"); io.unobserve(en.target);} });
+    },{threshold:.12});
+    $all(".reveal").forEach(function(el){io.observe(el);});
+  })();
+
+  /* =======================================================
+     3. 首屏按钮 → 试摆 / 语音弹窗
+     ======================================================= */
+  $("#heroTry").addEventListener("click",function(){
+    document.querySelector("#try-sofa").scrollIntoView({behavior:"smooth"});
+  });
+  $("#heroVoice").addEventListener("click",openVoice);
+
+  /* =======================================================
+     4. 沙发实景试摆 —— Canvas 核心逻辑
+     两层 Canvas：bgCanvas(房间背景) / sofaCanvas(沙发图层)
+     ======================================================= */
+  var bgCanvas=$("#bgCanvas"), sofaCanvas=$("#sofaCanvas");
+  var bgCtx=bgCanvas.getContext("2d"), sofaCtx=sofaCanvas.getContext("2d");
+  var stage=$("#stage"), emptyHint=$("#emptyHint");
+
+  // 沙发图层状态（变换参数）
+  var sofa={
+    loaded:false,
+    style:"直排",
+    x:0, y:0,          // 画布坐标系中心位置
+    scale:1,           // 缩放 0.3 ~ 2
+    rotation:0,        // 旋转角度（预留接口）
+    baseW:260, baseH:160 // 沙发基准像素尺寸（占位矢量绘制）
+  };
+  var MIN_SCALE=0.3, MAX_SCALE=2;
+
+  // 适配画布尺寸（按显示尺寸 * dpr）
+  function resizeCanvas(){
+    var rect=stage.getBoundingClientRect();
+    var dpr=window.devicePixelRatio||1;
+    [bgCanvas,sofaCanvas].forEach(function(c){
+      c.width=rect.width*dpr; c.height=rect.height*dpr;
+      c.getContext("2d").setTransform(dpr,0,0,dpr,0,0);
+    });
+    redrawSofa();
+  }
+  window.addEventListener("resize",resizeCanvas);
+
+  /* ---- 图片前端压缩：限制最大宽高，避免大图卡顿 ---- */
+  // [后端接口] 此函数也可用于把压缩后的图上传到后端做 AI 抠图/识别
+  function compressImage(src,maxDim,cb){
+    var img=new Image();
+    img.onload=function(){
+      var w=img.width,h=img.height,ratio=Math.min(1,maxDim/Math.max(w,h));
+      var tw=Math.round(w*ratio),th=Math.round(h*ratio);
+      var tmp=document.createElement("canvas");
+      tmp.width=tw;tmp.height=th;
+      tmp.getContext("2d").drawImage(img,0,0,tw,th);
+      // JPEG 0.82 质量压缩
+      cb(tmp.toDataURL("image/jpeg",0.82));
+    };
+    img.onerror=function(){toast("图片加载失败，请重试");};
+    img.src=src;
+  }
+
+  // 浏览器：input file 选择本地图片
+  function bindUpload(){
+    var input=document.createElement("input");
+    input.type="file";input.accept="image/*";
+    input.addEventListener("change",function(){
+      var f=input.files&&input.files[0];if(!f)return;
+      setLoading("正在加载房间照片…");
+      var reader=new FileReader();
+      reader.onload=function(e){
+        // 先压缩再绘制
+        compressImage(e.target.result,1600,function(dataUrl){
+          loadRoomImageFromSrc(dataUrl);
+          setLoading("");
+        });
+      };
+      reader.readAsDataURL(f);
+    });
+    return input;
+  }
+  var fileInput=bindUpload();
+  $("#uploadBtn").addEventListener("click",function(){
+    if(isMiniProgram()){
+      // 小程序环境：通知小程序调用 wx.chooseMedia 选图
+      postToMini({action:"chooseImage"});
+      setLoading("请在微信中选择照片…");
+    }else{
+      fileInput.click();
+    }
+  });
+
+  // 把房间图（dataURL 或 小程序回传路径）绘制到底层 Canvas
+  function loadRoomImageFromSrc(src){
+    var img=new Image();
+    img.onload=function(){
+      bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+      // 等比 cover 填充
+      var cw=bgCanvas.clientWidth,ch=bgCanvas.clientHeight;
+      var ir=img.width/img.height, cr=cw/ch, dw,dh,dx,dy;
+      if(ir>cr){dh=ch;dw=ch*ir;dx=(cw-dw)/2;dy=0;}
+      else{dw=cw;dh=cw/ir;dx=0;dy=(ch-dh)/2;}
+      bgCtx.drawImage(img,dx,dy,dw,dh);
+      emptyHint.style.display="none";
+      setLoading("");
+    };
+    img.onerror=function(){toast("图片读取失败");setLoading("");};
+    img.src=src;
+  }
+
+  /* ---- 沙发款式占位：用矢量绘制不同形状的沙发（无外部素材）---- */
+  var STYLE_COLORS={fill:"#2C2C2C",cushion:"#3a3a3a",leg:"#1f1f1f"};
+  function drawSofaVector(ctx,style){
+    // 以 (0,0) 为中心绘制占位沙发
+    ctx.save();
+    ctx.fillStyle=STYLE_COLORS.fill;
+    ctx.strokeStyle="rgba(0,0,0,.08)";
+    var w=sofa.baseW,h=sofa.baseH;
+    if(style==="单人"){w=w*0.55;}
+    if(style==="贵妃"){w=w*1.15;h=h*0.9;}
+    if(style==="转角"){w=w*1.25;}
+    // 沙发主体
+    roundRect(ctx,-w/2,-h/2+18,w,h-30,14);ctx.fill();
+    // 靠背
+    ctx.fillStyle=STYLE_COLORS.cushion;
+    roundRect(ctx,-w/2,-h/2,w,26,12);ctx.fill();
+    // 座垫分隔
+    ctx.fillStyle=STYLE_COLORS.fill;
+    var seats=style==="单人"?1:(style==="转角"?3:2);
+    var sw=w/seats;
+    for(var i=0;i<seats;i++){
+      roundRect(ctx,-w/2+sw*i+6,-h/2+24,sw-12,34,10);ctx.fill();
+    }
+    // 贵妃位扩展
+    if(style==="贵妃"){roundRect(ctx,w/2-10,-h/2+10,40,h,14);ctx.fill();}
+    if(style==="转角"){roundRect(ctx,w/2-6,-h/2-20,46,h+30,12);ctx.fill();}
+    // 脚
+    ctx.fillStyle=STYLE_COLORS.leg;
+    ctx.fillRect(-w/2+14,h/2-8,8,10);
+    ctx.fillRect(w/2-22,h/2-8,8,10);
+    ctx.restore();
+  }
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+  }
+
+  function redrawSofa(){
+    sofaCtx.clearRect(0,0,sofaCanvas.width,sofaCanvas.height);
+    if(!sofa.loaded)return;
+    var cw=sofaCanvas.clientWidth,ch=sofaCanvas.clientHeight;
+    sofaCtx.save();
+    sofaCtx.translate(sofa.x||cw/2, sofa.y||ch/2);
+    sofaCtx.rotate((sofa.rotation||0)*Math.PI/180);
+    sofaCtx.scale(sofa.scale,sofa.scale);
+    drawSofaVector(sofaCtx,sofa.style);
+    sofaCtx.restore();
+  }
+
+  // 选择款式：点击加载占位沙发
+  function selectStyle(style){
+    sofa.loaded=true;sofa.style=style;
+    var cw=sofaCanvas.clientWidth,ch=sofaCanvas.clientHeight;
+    sofa.x=cw/2;sofa.y=ch/2;sofa.scale=1;sofa.rotation=0;
+    $("#rotateRange").value=0;
+    redrawSofa();
+  }
+  // 动态渲染款式按钮（后期可由商品接口驱动）
+  (function renderStyleChips(){
+    var styles=["直排","贵妃","单人","转角"];
+    var box=$("#sofaStyles");
+    styles.forEach(function(s,i){
+      var b=document.createElement("button");
+      b.className="style-chip"+(i===0?" active":"");
+      b.textContent=s;
+      b.addEventListener("click",function(){
+        $all(".style-chip").forEach(function(x){x.classList.remove("active");});
+        b.classList.add("active");
+        selectStyle(s);
+      });
+      box.appendChild(b);
+    });
+    // 默认载入一个款式，便于浏览器演示
+    selectStyle("直排");
+  })();
+
+  // 旋转滑块（预留接口 UI）
+  $("#rotateRange").addEventListener("input",function(){
+    sofa.rotation=parseFloat(this.value);redrawSofa();
+  });
+
+  /* ---- 画布交互：拖拽 + 滚轮缩放 + 双指捏合缩放 ---- */
+  var drag=null;       // 拖拽状态
+  var pinch=null;      // 双指状态
+
+  function getPos(e){
+    var rect=sofaCanvas.getBoundingClientRect();
+    var p=(e.touches&&e.touches[0])||e;
+    return {x:p.clientX-rect.left,y:p.clientY-rect.top};
+  }
+
+  // 鼠标拖拽
+  sofaCanvas.addEventListener("mousedown",function(e){
+    if(!sofa.loaded)return;
+    var p=getPos(e);drag={sx:p.x,sy:p.y,ox:sofa.x,oy:sofa.y};
+  });
+  window.addEventListener("mousemove",function(e){
+    if(!drag)return;var p=getPos(e);
+    sofa.x=drag.ox+(p.x-drag.sx);sofa.y=drag.oy+(p.y-drag.sy);redrawSofa();
+  });
+  window.addEventListener("mouseup",function(){drag=null;});
+
+  // 触摸：单指拖拽 / 双指捏合
+  sofaCanvas.addEventListener("touchstart",function(e){
+    if(!sofa.loaded)return;
+    if(e.touches.length===1){
+      var p=getPos(e);drag={sx:p.x,sy:p.y,ox:sofa.x,oy:sofa.y};
+    }else if(e.touches.length===2){
+      drag=null;
+      var d=dist(e.touches);pinch={startDist:d,startScale:sofa.scale};
+    }
+    e.preventDefault();
+  },{passive:false});
+  sofaCanvas.addEventListener("touchmove",function(e){
+    if(e.touches.length===1 && drag){
+      var p=getPos(e);sofa.x=drag.ox+(p.x-drag.sx);sofa.y=drag.oy+(p.y-drag.sy);redrawSofa();
+    }else if(e.touches.length===2 && pinch){
+      var d=dist(e.touches);
+      var ns=pinch.startScale*(d/pinch.startDist);
+      sofa.scale=Math.min(MAX_SCALE,Math.max(MIN_SCALE,ns));
+      redrawSofa();
+    }
+    e.preventDefault();
+  },{passive:false});
+  sofaCanvas.addEventListener("touchend",function(e){
+    if(e.touches.length===0){drag=null;pinch=null;}
+  });
+  function dist(t){
+    var dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;
+    return Math.sqrt(dx*dx+dy*dy);
+  }
+
+  // 鼠标滚轮缩放
+  sofaCanvas.addEventListener("wheel",function(e){
+    if(!sofa.loaded)return;
+    e.preventDefault();
+    var f=e.deltaY<0?1.08:0.92;
+    sofa.scale=Math.min(MAX_SCALE,Math.max(MIN_SCALE,sofa.scale*f));
+    redrawSofa();
+  },{passive:false});
+
+  /* ---- 操作按钮 ---- */
+  $("#resetBtn").addEventListener("click",function(){
+    sofa.loaded=false;sofa.x=0;sofa.y=0;sofa.scale=1;sofa.rotation=0;
+    bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+    sofaCtx.clearRect(0,0,sofaCanvas.width,sofaCanvas.height);
+    emptyHint.style.display="flex";
+    toast("已重置");
+  });
+
+  // 生成预览图：合并两层 Canvas
+  $("#previewBtn").addEventListener("click",function(){
+    if(!sofa.loaded){toast("请先选择沙发款式");return;}
+    var cw=sofaCanvas.clientWidth,ch=sofaCanvas.clientHeight;
+    var out=document.createElement("canvas");
+    out.width=cw;out.height=ch;
+    var octx=out.getContext("2d");
+    // 白色底，避免透明
+    octx.fillStyle="#F7F4EF";octx.fillRect(0,0,cw,ch);
+    octx.drawImage(bgCanvas,0,0,cw,ch);
+    octx.drawImage(sofaCanvas,0,0,cw,ch);
+    var url=out.toDataURL("image/jpeg",0.92);
+    // 预览：用新窗口/下载展示
+    var a=document.createElement("a");a.href=url;a.download="试摆预览.jpg";
+    if(!isMiniProgram()){a.click();}
+    window._lastPreview=url;
+    toast("预览图已生成");
+  });
+
+  // 保存图片：小程序 postMessage 传 base64 / 浏览器下载
+  $("#saveBtn").addEventListener("click",function(){
+    var url=window._lastPreview;
+    if(!url){
+      // 没点生成则自动合成一次
+      $("#previewBtn").click();url=window._lastPreview;
+    }
+    if(isMiniProgram()){
+      // [小程序] 把 base64 传给小程序调用 wx.saveImageToPhotosAlbum
+      postToMini({action:"saveAlbum",image:url});
+      setLoading("正在保存到相册…");
+    }else{
+      var a=document.createElement("a");a.href=url;a.download="试摆预览.jpg";a.click();
+      toast("已下载（浏览器演示）");
+    }
+  });
+
+  function setLoading(t){$("#tryLoading").textContent=t;}
+
+  resizeCanvas();
+
+  /* =======================================================
+     5. 产品列表：占位数据 + 渲染 + 筛选
+     ======================================================= */
+  // [后端接口] 商品数据接口：获取沙发列表（id/名称/分类/价格/材质/透明PNG/参数）
+  // 此处为占位数据，后期替换为接口返回
+  var PRODUCTS=[
+    {id:1,name:"云朵直排沙发",cat:"直排",price:3980,material:"科技布",color:"#2C2C2C",desc:"三人位 · 可拆洗"},
+    {id:2,name:"暮色贵妃沙发",cat:"贵妃",price:5280,material:"绒布",color:"#77726C",desc:"带贵妃位 · 慵懒倚靠"},
+    {id:3,name:"素白单人沙发",cat:"单人",price:1980,material:"棉麻",color:"#D9D4CD",desc:"阅读角 · 小户型"},
+    {id:4,name:"环抱转角沙发",cat:"转角",price:7680,material:"头层牛皮",color:"#2C2C2C",desc:"L型 · 大客厅"},
+    {id:5,name:"简直线排沙发",cat:"直排",price:3180,material:"科技布",color:"#77726C",desc:"二人位 · 极简"},
+    {id:6,name:"晨光贵妃沙发",cat:"贵妃",price:4680,material:"绒布",color:"#D9D4CD",desc:"暖调 · 舒适"}
+  ];
+  var curCat="all",curMax=10000;
+
+  function renderProducts(){
+    var box=$("#productGrid");box.innerHTML="";
+    PRODUCTS.filter(function(p){
+      return (curCat==="all"||p.cat===curCat) && p.price<=curMax;
+    }).forEach(function(p){
+      var card=document.createElement("div");card.className="card";
+      card.innerHTML=
+        '<div class="card__img"><div class="skeleton"></div></div>'+
+        '<div class="card__body">'+
+          '<p class="card__name">'+p.name+'</p>'+
+          '<p class="card__attr">'+p.cat+' · '+p.material+'<br/>'+p.desc+'</p>'+
+          '<p class="card__price">¥ '+p.price.toLocaleString()+'</p>'+
+          '<div class="card__ops">'+
+            '<button class="btn btn--ghost" data-detail="'+p.id+'">查看详情</button>'+
+            '<button class="btn" data-place="'+p.id+'">置入我的房间</button>'+
+          '</div>'+
+        '</div>';
+      box.appendChild(card);
+    });
+    // 绑定卡片按钮
+    $all("[data-detail]",box).forEach(function(b){
+      b.addEventListener("click",function(){openDetail(parseInt(b.getAttribute("data-detail"),10));});
+    });
+    $all("[data-place]",box).forEach(function(b){
+      b.addEventListener("click",function(){placeIntoSofa(parseInt(b.getAttribute("data-place"),10));});
+    });
+  }
+
+  // 分类筛选
+  $all("#catRow .cat-chip").forEach(function(c){
+    c.addEventListener("click",function(){
+      $all("#catRow .cat-chip").forEach(function(x){x.classList.remove("active");});
+      c.classList.add("active");curCat=c.getAttribute("data-cat");renderProducts();
+    });
+  });
+  // 价格滑块
+  $("#priceRange").addEventListener("input",function(){
+    curMax=parseInt(this.value,10);
+    $("#priceVal").textContent="¥"+curMax.toLocaleString();
+    renderProducts();
+  });
+  renderProducts();
+
+  /* =======================================================
+     5.3 产品详情弹窗
+     ======================================================= */
+  var detailModal=$("#detailModal");
+  function openDetail(id){
+    var p=PRODUCTS.filter(function(x){return x.id===id;})[0];if(!p)return;
+    $("#detailName").textContent=p.name;
+    var specs=$("#detailSpecs");
+    specs.innerHTML=
+      '<div class="spec-row"><span>分类</span><span>'+p.cat+'</span></div>'+
+      '<div class="spec-row"><span>材质</span><span>'+p.material+'</span></div>'+
+      '<div class="spec-row"><span>价格</span><span>¥ '+p.price.toLocaleString()+'</span></div>'+
+      '<div class="spec-row"><span>规格</span><span>'+p.desc+'</span></div>'+
+      '<div class="spec-row"><span>参数</span><span>占位（后期接口填充）</span></div>';
+    detailModal._pid=p.id;
+    detailModal.classList.add("show");
+  }
+  $("#detailPlace").addEventListener("click",function(){
+    var id=detailModal._pid;detailModal.classList.remove("show");placeIntoSofa(id);
+  });
+
+  // 置入我的房间：加载对应款式占位沙发并滚动到试摆
+  function placeIntoSofa(id){
+    var p=PRODUCTS.filter(function(x){return x.id===id;})[0];if(!p)return;
+    // 同步款式选择
+    $all(".style-chip").forEach(function(x){
+      x.classList.toggle("active",x.textContent===p.cat);
+    });
+    selectStyle(p.cat);
+    document.querySelector("#try-sofa").scrollIntoView({behavior:"smooth"});
+    toast("已置入："+p.name);
+  }
+
+  /* =======================================================
+     7. AI 智能助手 / 语音咨询（适老化） —— H5 仅 UI，录音/识别走小程序
+     定位：像一个 AI 助手，可语音也可文字；后端对话能力后期接入
+     ======================================================= */
+  var voiceModal=$("#voiceModal"),micBtn=$("#micBtn"),voiceTip=$("#voiceTip"),chatBox=$("#chatBox");
+  var assistantGreeted=false;
+  function openVoice(){ openAssistant(); } // 保留原函数名，避免改动其它调用点
+  function openAssistant(){
+    voiceModal.classList.add("show");
+    // 首次打开送上助手问候，建立 AI 助手「人设」感
+    if(!assistantGreeted){
+      addBubble("ai","你好，我是阿杏，提前把家具搬到你家的 AI 助手～ 想挑沙发、看搭配，还是聊理想中的家？我来帮你。想从哪里开始？");
+      assistantGreeted=true;
+    }
+    if(isMiniProgram()){
+      voiceTip.textContent="按住麦克风，告诉我你的需求";
+    }else{
+      voiceTip.textContent="演示模式：点按麦克风或输入文字模拟咨询";
+    }
+  }
+
+  // 按住录音：小程序环境发 postMessage(startVoiceRec)；浏览器模拟
+  // recLock 防止移动端 touch 与合成 mouse 事件重复触发（微信/iOS 常见）
+  var recLock=false;
+  function startRec(){
+    if(recLock) return; recLock=true;
+    micBtn.classList.add("recording");
+    if(isMiniProgram()){
+      voiceTip.textContent="正在聆听…";
+      postToMini({action:"startVoiceRec"});
+    }else{
+      voiceTip.textContent="（演示）聆听中…";
+    }
+  }
+  function stopRec(){
+    if(!recLock) return; recLock=false;
+    micBtn.classList.remove("recording");
+    if(!isMiniProgram()){
+      // 浏览器演示：模拟一句用户语音指令 → 走助手对话
+      handleUserVoice("想要布艺沙发，三千左右");
+    }
+  }
+  // 鼠标按住 / 触摸按住
+  micBtn.addEventListener("mousedown",startRec);
+  window.addEventListener("mouseup",function(){ if(micBtn.classList.contains("recording")) stopRec(); });
+  micBtn.addEventListener("touchstart",function(e){e.preventDefault();startRec();},{passive:false});
+  micBtn.addEventListener("touchend",function(e){e.preventDefault();stopRec();},{passive:false});
+
+  // 文字输入发送（AI 助手标配：除语音外也能打字咨询）
+  $("#sendText").addEventListener("click",function(){ handleUserText($("#textInput").value); });
+  $("#textInput").addEventListener("keydown",function(e){ if(e.key==="Enter") handleUserText(this.value); });
+
+  // 语音识别文本回调 / 文字输入 → 统一进入助手对话
+  function handleUserVoice(text){
+    voiceTip.textContent="";
+    addBubble("user",text);
+    requestAssistant(text);
+  }
+  // 文字输入：用户打字咨询
+  function handleUserText(text){
+    if(!text||!text.trim())return;
+    addBubble("user",text.trim());
+    $("#textInput").value="";
+    requestAssistant(text.trim());
+  }
+
+  // [后端接口] AI 助手对话接口（核心对接点，后期替换为 fetch 后端）：
+  //   入参：用户文本（语音转写 或 打字）；
+  //   返回：{ answer: 回答文本, ttsUrl: TTS 音频流 }；
+  //   约束：答案只从真实商品库 / 知识库取值。
+  //   此处为占位演示逻辑，便于浏览器预览交互效果。
+  function requestAssistant(text){
+    addBubble("ai","正在思考…");
+    setTimeout(function(){
+      // 移除「正在思考」气泡，替换为示例回答
+      var last=chatBox.querySelector(".bubble.ai:last-child");
+      if(last) last.remove();
+      var answer="（演示回答）收到你的问题：「"+text+"」。我是家居 AI 助手，后端接入后，我会基于真实商品库与知识库为你解答，并朗读回答方便长辈收听。";
+      addBubble("ai",answer);
+      // [后端接口] 拿到 ttsUrl 后前端播放语音朗读（适老化）
+      // playTTS(ttsUrl);
+    },900);
+  }
+
+  function addBubble(role,text){
+    var empty=chatBox.querySelector(".chat-empty");if(empty)empty.remove();
+    var b=document.createElement("div");b.className="bubble "+role;b.textContent=text;
+    chatBox.appendChild(b);chatBox.scrollTop=chatBox.scrollHeight;
+  }
+
+  /* =======================================================
+     8. 悬浮组件：回到顶部 / 客服
+     ======================================================= */
+  var toTop=$("#toTop");
+  window.addEventListener("scroll",function(){
+    toTop.classList.toggle("show",window.scrollY>400);
+  });
+  toTop.addEventListener("click",function(){window.scrollTo({top:0,behavior:"smooth"});});
+
+  $("#serviceBtn").addEventListener("click",function(){
+    if(isMiniProgram()){
+      // [小程序] 唤起微信官方客服会话
+      postToMini({action:"openService"});
+    }else{
+      openVoice(); // 浏览器演示：引导到 AI 助手
+    }
+  });
+
+  /* =======================================================
+     通用：弹窗关闭（data-close 元素）
+     ======================================================= */
+  $all("[data-close]").forEach(function(b){
+    b.addEventListener("click",function(){ b.closest(".modal-mask").classList.remove("show"); });
+  });
+  $all(".modal-mask").forEach(function(m){
+    m.addEventListener("click",function(e){ if(e.target===m) m.classList.remove("show"); });
+  });
+
+})();
+</script>
+</body>
+</html>
