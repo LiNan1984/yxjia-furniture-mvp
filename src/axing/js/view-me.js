@@ -10,13 +10,12 @@ const STORE = {
 
 /** 列表行：图标 + 标题 + 说明 + 右箭头；href 存在时是 <a>，否则是 <button> */
 function entryRow(ctx, { icon, title, desc, href, onclick }) {
-  const { el } = ctx.ui;
+  const { el, icon: iconOf } = ctx.ui;
   const inner = [
     el('div', {
       style: 'width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;' +
-        'justify-content:center;font-size:17px;background:rgba(232,178,125,.18);',
-      text: icon,
-    }),
+        'justify-content:center;background:rgba(232,178,125,.18);color:var(--c-apricot-ink);',
+    }, iconOf(icon) ? [iconOf(icon)] : [icon]),
     el('div.grow', {}, [
       el('div', { text: title, style: 'font-size:14px;letter-spacing:.06em;' }),
       desc ? el('div.tiny.muted', { text: desc, style: 'margin-top:1px;line-height:1.6;' }) : null,
@@ -33,13 +32,13 @@ function entryRow(ctx, { icon, title, desc, href, onclick }) {
 }
 
 function storeCard(ctx) {
-  const { el } = ctx.ui;
+  const { el, icon } = ctx.ui;
   return el('div.card', {}, [
     el('div.card__body.stack.stack--sm', {}, [
       el('div', { text: STORE.name, style: 'font-size:15px;letter-spacing:.08em;' }),
       el('div.tiny.muted', { text: STORE.address, style: 'line-height:1.8;' }),
       el('div.tiny.muted', { text: `营业 ${STORE.hours}` }),
-      el('a.btn.btn--block', { href: `tel:${STORE.phone}`, text: `📞 打给店里 ${STORE.phone}` }),
+      el('a.btn.btn--block', { href: `tel:${STORE.phone}` }, [icon('phone'), `打给店里 ${STORE.phone}`]),
     ]),
   ]);
 }
@@ -168,11 +167,11 @@ export async function mount(root, ctx) {
   stack.appendChild(el('div', {}, [
     el('p.sec-eyebrow', { text: 'MY STUFF' }),
     el('div.stack.stack--sm', {}, [
-      entryRow(ctx, { icon: '🧾', title: '我的订单', desc: '下单的家具在这儿查', href: '/my-orders' }),
-      entryRow(ctx, { icon: '🏠', title: '我的家', desc: '全屋分析、家里摆过的样子', href: '/my-home' }),
-      entryRow(ctx, { icon: '🖼', title: '我的生成记录', desc: 'AI 合成过的图和方案', href: '/my-generations' }),
-      entryRow(ctx, { icon: '📅', title: '我的预约', desc: '约了哪天到店，一看就知道', onclick: () => ctx.go('view-booking') }),
-      entryRow(ctx, { icon: '📍', title: '到店预约', desc: '挑个日子来店里坐坐', onclick: () => ctx.go('view-booking') }),
+      entryRow(ctx, { icon: 'receipt', title: '我的订单', desc: '下单的家具在这儿查', href: '/my-orders' }),
+      entryRow(ctx, { icon: 'home', title: '我的家', desc: '全屋分析、家里摆过的样子', href: '/my-home' }),
+      entryRow(ctx, { icon: 'image', title: '我的生成记录', desc: 'AI 合成过的图和方案', href: '/my-generations' }),
+      entryRow(ctx, { icon: 'calendar', title: '我的预约', desc: '约了哪天到店，一看就知道', onclick: () => ctx.go('view-booking') }),
+      entryRow(ctx, { icon: 'pin', title: '到店预约', desc: '挑个日子来店里坐坐', onclick: () => ctx.go('view-booking') }),
     ]),
   ]));
 

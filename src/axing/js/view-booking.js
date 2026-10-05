@@ -12,7 +12,7 @@ const STORE = {
 
 /** 门店信息卡（可复用小块） */
 function storeCard(ctx) {
-  const { el } = ctx.ui;
+  const { el, icon } = ctx.ui;
   return el('div.card', {}, [
     el('div.card__body.stack.stack--sm', {}, [
       el('div', { text: STORE.name, style: 'font-size:15px;letter-spacing:.08em;' }),
@@ -22,7 +22,7 @@ function storeCard(ctx) {
       el('div.spec-row', { style: 'border-bottom:none;padding:4px 0;' }, [
         el('span', { text: '营业' }), el('span', { text: STORE.hours }),
       ]),
-      el('a.btn.btn--block', { href: `tel:${STORE.phone}`, text: `📞 打给店里 ${STORE.phone}` }),
+      el('a.btn.btn--block', { href: `tel:${STORE.phone}` }, [icon('phone'), `打给店里 ${STORE.phone}`]),
     ]),
   ]);
 }

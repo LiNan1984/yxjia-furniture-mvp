@@ -41,7 +41,7 @@ async function fileFromUrl(url, name = 'room.jpg') {
 }
 
 export async function mount(root, ctx) {
-  const { axingSay, priceText } = ctx.ui;
+  const { icon,  axingSay, priceText } = ctx.ui;
   const api = resolveApi(ctx);
 
   // ---------- 本地状态 ----------
@@ -91,9 +91,8 @@ export async function mount(root, ctx) {
   // tabbar 占 780–844），黄金路径「房间→直接去试摆→立即生成」落地后还得再滑一下
   // 才看见主按钮。顾客来这一页的目的是「看效果」，精修项是生成之后的事。
   const genBtn = el('button.btn.btn--apricot.btn--lg.btn--block', {
-    text: '✨ 立即生成',
     style: 'margin-top:14px;',
-  });
+  }, [icon('spark'), '立即生成']);
   genBtn.addEventListener('click', generate);
   root.appendChild(genBtn);
   const timerLine = el('div.loading-line', { text: '', style: 'margin-top:10px;' });
@@ -126,7 +125,6 @@ export async function mount(root, ctx) {
   // 结果下方操作
   const actionRow = el('div.stack--sm', { style: 'margin-top:16px;', hidden: true }, [
     el('button.btn.btn--lg.btn--block', {
-      text: '🔁 换个氛围再试',
       onclick: () => {
         presetRow.querySelectorAll('button').forEach((b) => { b.className = 'chip'; });
         presetId = '';
@@ -134,11 +132,11 @@ export async function mount(root, ctx) {
         clearResult();
         presetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
       },
-    }),
+    }, [icon('refresh'), '换个氛围再试']),
     el('div.row', {}, [
-      el('button.btn.btn--ghost.grow', { text: '◍ 3D 看看', onclick: () => ctx.go('view-3d') }),
-      el('button.btn.btn--ghost.grow', { text: '✧ 存进方案', onclick: () => ctx.go('view-plans') }),
-      el('button.btn.btn--ghost.grow', { text: '📅 预约到店', onclick: () => ctx.go('view-booking') }),
+      el('button.btn.btn--ghost.grow', { onclick: () => ctx.go('view-3d') }, [icon('cube'), '3D 看看']),
+      el('button.btn.btn--ghost.grow', { onclick: () => ctx.go('view-plans') }, [icon('spark'), '存进方案']),
+      el('button.btn.btn--ghost.grow', { onclick: () => ctx.go('view-booking') }, [icon('calendar'), '预约到店']),
     ]),
   ]);
   root.appendChild(actionRow);
@@ -256,7 +254,9 @@ export async function mount(root, ctx) {
   function setRunning(on) {
     running = on;
     genBtn.disabled = on;
-    genBtn.textContent = on ? '正在生成…' : '✨ 立即生成';
+    // 只换文字：图标是 el() 建按钮时放进来的子节点，不能整体覆盖 textContent
+    genBtn.textContent = '';
+    genBtn.append(icon('spark'), document.createTextNode(on ? '正在生成…' : '立即生成'));
   }
 
   async function generate() {
@@ -308,11 +308,10 @@ export async function mount(root, ctx) {
         say(el('div', {}, [
           axingSay(`AI 这次没出图（${data.aiError}），先看看侧边预览；也可以到店看实物。`),
           el('div.stack--sm', { style: 'margin-top:12px;' }, [
-            el('button.btn.btn--lg.btn--block', { text: '🔁 再试一次', onclick: generate }),
+            el('button.btn.btn--lg.btn--block', { onclick: generate }, [icon('refresh'), '再试一次']),
             el('button.btn.btn--ghost.btn--block', {
-              text: '📞 打店里电话 13359140982',
               onclick: () => { window.location.href = 'tel:13359140982'; },
-            }),
+            }, [icon('phone'), '打店里电话 13359140982']),
           ]),
         ]));
       } else {
@@ -340,13 +339,11 @@ export async function mount(root, ctx) {
           axingSay('今天的免费试摆次数用完啦（每天 3 次）。登录后还能继续试，或者直接到店看实物。'),
           el('div.stack--sm', { style: 'margin-top:12px;' }, [
             el('button.btn.btn--apricot.btn--lg.btn--block', {
-              text: '📅 预约到店体验',
               onclick: () => ctx.go('view-booking'),
-            }),
+            }, [icon('calendar'), '预约到店体验']),
             el('button.btn.btn--ghost.btn--block', {
-              text: '📞 打店里电话 13359140982',
               onclick: () => { window.location.href = 'tel:13359140982'; },
-            }),
+            }, [icon('phone'), '打店里电话 13359140982']),
           ]),
         ]));
       } else {

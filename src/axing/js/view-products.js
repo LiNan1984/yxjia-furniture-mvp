@@ -17,7 +17,7 @@ function resolveApi(ctx) {
 }
 
 export async function mount(root, ctx) {
-  const { el, skeleton, productCard, parsePrice, priceText } = ctx.ui;
+  const { icon,  el, skeleton, productCard, parsePrice, priceText } = ctx.ui;
   const api = resolveApi(ctx);
 
   // ---------- 本地筛选状态 ----------
@@ -150,13 +150,11 @@ export async function mount(root, ctx) {
     }
     body.appendChild(el('div.stack--sm', { style: 'margin-top:16px;' }, [
       el('button.btn.btn--apricot.btn--lg.btn--block', {
-        text: '📷 拍客厅照试摆',
         onclick: () => (ctx.openUpload ? ctx.openUpload() : ctx.go('view-upload')),
-      }),
+      }, [icon('camera'), '拍客厅照试摆']),
       el('button.btn.btn--lg.btn--block', {
-        text: '◍ 3D 看看',
         onclick: () => ctx.go('view-3d'),
-      }),
+      }, [icon('cube'), '3D 看看']),
     ]));
     box.appendChild(body);
     return box;
@@ -216,13 +214,11 @@ export async function mount(root, ctx) {
       ]),
       el('div.stack--sm', { style: 'margin-top:12px;' }, [
         el('button.btn.btn--apricot.btn--lg.btn--block', {
-          text: '📷 拍客厅照试摆',
           onclick: () => (ctx.openUpload ? ctx.openUpload() : ctx.go('view-upload')),
-        }),
+        }, [icon('camera'), '拍客厅照试摆']),
         el('button.btn.btn--lg.btn--block', {
-          text: '◍ 3D 看看',
           onclick: () => ctx.go('view-3d'),
-        }),
+        }, [icon('cube'), '3D 看看']),
       ]),
     );
   }

@@ -14,7 +14,7 @@ const KIND_FALLBACK_DIMS = {
 
 export async function mount(root, ctx) {
   const ui = ctx.ui;
-  const { el: h } = ui;
+  const { icon,  el: h } = ui;
   let product0 = ctx.state.productId
     ? (await ctx.api.product(ctx.state.productId).catch(() => null))?.product || null
     : null;
@@ -120,7 +120,7 @@ export async function mount(root, ctx) {
     a.remove();
     ctx.toast('图已保存');
   });
-  const addSceneBtn = h('button.btn.btn--apricot.btn--block.btn--lg', { text: '✧ 把我选的加进方案' });
+  const addSceneBtn = h('button.btn.btn--apricot.btn--block.btn--lg', {}, [icon('spark'), '把我选的加进方案']);
   addSceneBtn.addEventListener('click', async () => {
     if (!ctx.state.productId) { ctx.toast('先在上一步选一件家具'); return; }
     addSceneBtn.disabled = true;
@@ -144,7 +144,9 @@ export async function mount(root, ctx) {
       ctx.toast(ctx.humanError(err));
     } finally {
       addSceneBtn.disabled = false;
-      addSceneBtn.textContent = '✧ 把我选的加进方案';
+      // 只换文字：图标是建按钮时就放进去的子节点，覆盖 textContent 会把它一起抹掉
+      addSceneBtn.textContent = '';
+      addSceneBtn.append(icon('spark'), document.createTextNode('把我选的加进方案'));
     }
   });
   root.appendChild(h('div.stack.stack--sm', { style: 'margin-top:24px;' }, [
