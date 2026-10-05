@@ -48,9 +48,37 @@ export function priceText(raw) {
   return typeof raw === 'string' && raw.trim() ? raw.trim() : '到店询价';
 }
 
+// 阿杏头像：用同一 IP 的裁切版本（v2.1 spec §38.2）。图片加载失败回退成文字圆，绝不出现破图。
+const AVATAR_IMG = '/axing/images/axing-avatar.png';
+
 /** 阿杏头像 */
 export function avatar(size = '') {
-  return el(`div.ax-avatar${size ? `.ax-avatar--${size}` : ''}`, { text: '杏' });
+  const node = el(`div.ax-avatar${size ? `.ax-avatar--${size}` : ''}`);
+  const img = el('img', { src: AVATAR_IMG, alt: '阿杏', loading: 'eager' });
+  img.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:top center;';
+  img.addEventListener('error', () => { node.textContent = '杏'; });
+  node.appendChild(img);
+  return node;
+}
+
+/** 阿杏半身像（首页 hero，v2.1 spec §38.1：开心、挥手、面向用户） */
+export function axingHero() {
+  const wrap = el('div.ax-hero__girl');
+  const img = el('img', { src: '/axing/images/axing-hero.png', alt: '阿杏', loading: 'eager' });
+  img.addEventListener('error', () => { wrap.textContent = '杏'; });
+  wrap.appendChild(img);
+  return wrap;
+}
+
+/** 图标：icon('camera') → <svg class="ico"><use href="#i-camera"/></svg>，颜色跟随 currentColor */
+export function icon(name, cls = 'ico') {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  if (cls) svg.setAttribute('class', cls);
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `#i-${name}`);
+  svg.appendChild(use);
+  return svg;
 }
 
 /** 阿杏说一句话（头像 + 气泡横排） */

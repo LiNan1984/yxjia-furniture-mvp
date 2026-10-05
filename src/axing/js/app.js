@@ -2,6 +2,7 @@
 // 每个 view 模块约定：export function mount(root, ctx) { ...; return optional cleanup }
 import * as apiModule from './api.js';
 import * as ui from './ui.js';
+import { initComposer } from './chat-composer.js';
 
 const { $, $$, el, toast, humanError, on, emit } = ui;
 
@@ -50,6 +51,7 @@ const ctx = {
   api: apiModule.api, ui, state, setState, on, emit,
   go, back, toast,
   humanError,
+  appendChat(role, text) { emit('chat:message', { role, text }); },
   pickProduct(product) {
     setState({
       productId: product.id,
@@ -67,9 +69,11 @@ function setActive(viewId) {
   const section = document.getElementById(viewId);
   $('#topTitle').textContent = (section && section.dataset.title) || '阿杏';
   $('#backBtn').hidden = history.length === 0;
+  // v2.1 spec §70：Composer 只在 tab 级 view 出现，非 tab 的工作流页面让位给表单
+  const phone = $('#phone');
+  if (phone) phone.dataset.composer = VIEWS[viewId] && VIEWS[viewId].tab ? 'on' : 'off';
   const views = $('#views');
   if (views) views.scrollTop = 0;
-  window.scrollTo({ top: 0 });
 }
 
 async function show(viewId, { push = true } = {}) {
@@ -117,3 +121,4 @@ show(fromHash());
 
 // 阿杏全局问候（首页 view 也会用自己的问候，这里只做兜底提示）
 window.AXING = ctx;
+initComposer(ctx);

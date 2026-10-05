@@ -18,8 +18,31 @@
 </head>
 <body>
 
+<!-- 图标库：view 模块用 <svg class="ico"><use href="#i-camera"/></svg> 取用，stroke 跟随 currentColor -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5.5 8h13l-1 12H6.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3.2 20 7.6v8.8L12 20.8 4 16.4V7.6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M4 7.6 12 12l8-4.4M12 12v8.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" fill="currentColor"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5h3l1.4-2h7.2L17 8.5h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="14" r="3.4" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9.2" y="3.2" width="5.6" height="10.4" rx="2.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.8 11.4a6.2 6.2 0 0 0 12.4 0M12 17.6V21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-sofa" viewBox="0 0 24 24"><path d="M4 11V8.6A1.6 1.6 0 0 1 5.6 7h12.8A1.6 1.6 0 0 1 20 8.6V11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3.2 13.4A1.8 1.8 0 0 1 5 11.6h14a1.8 1.8 0 0 1 1.8 1.8v3.2H3.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6.4 15v2.2M17.6 15v2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9.5 5.5 16 12l-6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M20 4.4V8.6h-4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.6" y="5" width="16.8" height="14" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8.6" cy="10" r="1.6" fill="currentColor"/><path d="M4.4 17.6 9.8 12l4 4 3-2.6 3 3.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M4.4 11.4 19.6 5.2l-6.2 15.2-2.4-6z" fill="currentColor"/><path d="M11 14.4 19.6 5.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3.6 12h1.6M7.4 8.2v7.6M11.2 4.6v14.8M15 7v10M18.8 9.6v4.8M21.6 12h-.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.2 3.8h3l1.4 3.6-2 1.4a11 11 0 0 0 5.6 5.6l1.4-2 3.6 1.4v3a2 2 0 0 1-2.2 2A16.4 16.4 0 0 1 4.2 6a2 2 0 0 1 2-2.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4.5 7h15M4.5 12h15M4.5 17h15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="18" cy="12" r="1.5" fill="currentColor"/></symbol>
+  </defs>
+</svg>
+
 <!-- 手机壳：宽屏时居中成一台手机，窄屏时全屏 -->
-<div id="phone">
+<div id="phone" data-composer="off">
   <header class="topbar">
     <button class="topbar__back" id="backBtn" aria-label="返回" hidden>‹</button>
     <div class="topbar__title" id="topTitle">阿杏</div>
@@ -40,12 +63,32 @@
     <section class="view" id="view-me"       data-title="我的"></section>
   </main>
 
+  <!-- Composer：v2.1 spec §70「聊天窗口始终在页面上」。只在 tab 级 view 显示，逻辑在 js/chat-composer.js -->
+  <div class="ax-composer" id="composer">
+    <button class="ax-composer__btn" id="composerVoice" type="button" aria-label="按住说话">
+      <svg class="ico" aria-hidden="true"><use href="#i-wave"/></svg>
+    </button>
+    <div class="ax-composer__field">
+      <input class="ax-composer__input" id="composerInput" type="text" autocomplete="off"
+             enterkeyhint="send" placeholder="发消息或按住说话…" aria-label="跟阿杏说话" />
+      <button class="ax-composer__btn" id="composerImage" type="button" aria-label="发客厅照片">
+        <svg class="ico" aria-hidden="true"><use href="#i-image"/></svg>
+      </button>
+      <button class="ax-composer__btn ax-composer__send" id="composerSend" type="button" aria-label="发送" hidden>
+        <svg class="ico" aria-hidden="true"><use href="#i-send"/></svg>
+      </button>
+    </div>
+    <button class="ax-composer__btn" id="composerPlus" type="button" aria-label="更多">
+      <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>
+    </button>
+  </div>
+
   <nav class="tabbar" id="tabbar">
-    <button class="tab" data-view="view-home"><span class="tab__ico">⌂</span>首页</button>
-    <button class="tab" data-view="view-products"><span class="tab__ico">▦</span>商品</button>
-    <button class="tab" data-view="view-3d"><span class="tab__ico">◍</span>3D</button>
-    <button class="tab" data-view="view-plans"><span class="tab__ico">✧</span>方案</button>
-    <button class="tab" data-view="view-me"><span class="tab__ico">☺</span>我的</button>
+    <button class="tab active" data-view="view-home"><span class="tab__ico"><svg aria-hidden="true"><use href="#i-home"/></svg></span>首页</button>
+    <button class="tab" data-view="view-products"><span class="tab__ico"><svg aria-hidden="true"><use href="#i-bag"/></svg></span>商品</button>
+    <button class="tab" data-view="view-3d"><span class="tab__ico"><svg aria-hidden="true"><use href="#i-cube"/></svg></span>3D</button>
+    <button class="tab" data-view="view-plans"><span class="tab__ico"><svg aria-hidden="true"><use href="#i-spark"/></svg></span>方案</button>
+    <button class="tab" data-view="view-me"><span class="tab__ico"><svg aria-hidden="true"><use href="#i-user"/></svg></span>我的</button>
   </nav>
 </div>
 

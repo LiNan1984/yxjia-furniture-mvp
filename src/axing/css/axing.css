@@ -11,12 +11,17 @@
   --c-gray:#77726C;
   --c-apricot:#E8B27D;
   --c-apricot-deep:#C98F55;
+  /* v2.1 spec §38.3 Design Tokens：杏色主色的「墨色」变体，只给「阿杏」二字和图标用 */
+  --c-apricot-ink:#C9712B;
   --shadow-lux:0 2px 18px rgba(44,44,44,.06);
   --shadow-card:0 1px 4px rgba(44,44,44,.05);
   --radius:14px;
   --radius-sm:8px;
   --ease:cubic-bezier(.22,.61,.36,1);
   --maxw:480px;
+  /* Composer / Tab 高度（app shell 布局算间距用） */
+  --h-tab:56px;
+  --h-composer:60px;
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
@@ -40,14 +45,15 @@ img{display:block;max-width:100%;}
   position:relative;
   max-width:var(--maxw);
   margin:0 auto;
-  min-height:100vh;min-height:100dvh;
+  /* App shell：顶栏 + 可滚动内容 + Composer + Tab 固定不跑，v2.1 spec §70 的「Chat 永远在」 */
+  height:100vh;height:100dvh;
   background:var(--c-cream);
   display:flex;flex-direction:column;
   box-shadow:0 0 60px rgba(44,44,44,.10);
 }
 @media(min-width:520px){
-  body{padding:24px 0;}
-  #phone{min-height:calc(100dvh - 48px);border-radius:28px;overflow:hidden;}
+  body{padding:24px 0;height:100dvh;overflow:hidden;}
+  #phone{height:calc(100dvh - 48px);border-radius:28px;overflow:hidden;}
 }
 
 /* ---------------- 顶栏 ---------------- */
@@ -70,17 +76,17 @@ img{display:block;max-width:100%;}
 .topbar__title{flex:1;font-size:15px;letter-spacing:.2em;font-weight:400;}
 .topbar__right{display:flex;gap:8px;align-items:center;}
 
-/* ---------------- view 容器 ---------------- */
-#views{flex:1;position:relative;}
-.view{display:none;padding:22px 18px 96px;animation:viewIn .45s var(--ease);}
+/* ---------------- view 容器（唯一滚动区） ---------------- */
+#views{flex:1;position:relative;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;}
+.view{display:none;padding:20px 16px 24px;animation:viewIn .45s var(--ease);}
 .view.active{display:block;}
 @keyframes viewIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
 
-/* ---------------- 底部 Tab ---------------- */
+/* ---------------- 底部 Tab（app shell 固定底栏） ---------------- */
 .tabbar{
-  position:sticky;bottom:0;z-index:60;
+  flex:0 0 auto;z-index:60;
   display:grid;grid-template-columns:repeat(5,1fr);
-  background:rgba(247,244,239,.92);
+  background:rgba(247,244,239,.94);
   backdrop-filter:saturate(120%) blur(14px);
   -webkit-backdrop-filter:saturate(120%) blur(14px);
   border-top:1px solid rgba(217,212,205,.55);
@@ -91,9 +97,10 @@ img{display:block;max-width:100%;}
   padding:7px 0;font-size:10px;letter-spacing:.14em;color:var(--c-gray);
   transition:color .3s var(--ease);
 }
-.tab__ico{font-size:19px;font-weight:300;line-height:1.1;}
+.tab__ico{display:flex;align-items:center;justify-content:center;height:21px;}
+.tab__ico svg{width:21px;height:21px;}
 .tab.active{color:var(--c-charcoal);}
-.tab.active .tab__ico{color:var(--c-apricot-deep);}
+.tab.active .tab__ico{color:var(--c-apricot-ink);}
 
 /* ---------------- 通用组件 ---------------- */
 .btn{
@@ -262,3 +269,165 @@ img{display:block;max-width:100%;}
 .muted{color:var(--c-gray);}
 .tiny{font-size:11px;letter-spacing:.1em;}
 .center{text-align:center;}
+
+/* ============================================================
+   v2.1 首页视觉还原（基准：docs/阿杏AI家居导购界面.png）
+   Hero 阿杏 → 聊天时间线 → 上传客厅照卡 → 你可以这样问 → 四大功能 → Composer
+   ============================================================ */
+
+/* ---- Hero：阿杏半身 + 问候 ---- */
+.ax-hero{display:flex;gap:14px;align-items:flex-start;}
+.ax-hero__girl{
+  width:112px;height:112px;flex:0 0 auto;border-radius:24px;overflow:hidden;
+  background:linear-gradient(160deg,#FDF3E6,#F1D9BE);
+  box-shadow:0 6px 22px rgba(201,113,43,.16);
+}
+.ax-hero__girl img{width:100%;height:100%;object-fit:cover;object-position:top center;}
+.ax-hero__text{flex:1;min-width:0;padding-top:2px;}
+.ax-hero__title{font-size:22px;font-weight:300;letter-spacing:.03em;line-height:1.35;margin:0;}
+.ax-hero__title em{font-style:normal;color:var(--c-apricot-ink);font-weight:400;}
+.ax-hero__sub{font-size:11px;letter-spacing:.14em;color:var(--c-gray);margin-top:6px;}
+.ax-hero__intro{
+  font-size:12.5px;line-height:1.85;letter-spacing:.03em;color:var(--c-gray);
+  margin-top:14px;
+}
+
+/* ---- 聊天时间线 ---- */
+.ax-timeline{display:flex;flex-direction:column;gap:14px;}
+.ax-msg{display:flex;gap:10px;align-items:flex-start;}
+.ax-msg--user{flex-direction:row-reverse;}
+.ax-msg__col{display:flex;flex-direction:column;gap:4px;min-width:0;max-width:78%;}
+.ax-msg--user .ax-msg__col{align-items:flex-end;}
+.ax-msg__bubble{
+  padding:11px 14px;border-radius:var(--radius);font-size:13px;line-height:1.75;
+  letter-spacing:.03em;white-space:pre-wrap;word-break:break-word;
+}
+.ax-msg--ai .ax-msg__bubble{
+  background:#fff;border:1px solid rgba(217,212,205,.8);border-top-left-radius:4px;
+  box-shadow:var(--shadow-card);
+}
+.ax-msg--user .ax-msg__bubble{
+  background:var(--c-charcoal);color:var(--c-cream);border-top-right-radius:4px;
+}
+.ax-msg__who{font-size:10px;letter-spacing:.16em;color:var(--c-gray);padding:0 4px;}
+.ax-msg__ava{
+  width:34px;height:34px;border-radius:50%;flex:0 0 auto;overflow:hidden;
+  background:radial-gradient(circle at 32% 28%, #F7D9B7, var(--c-apricot) 62%, var(--c-apricot-deep));
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:#5C4020;letter-spacing:0;font-weight:500;
+}
+.ax-msg__ava img{width:100%;height:100%;object-fit:cover;object-position:top center;}
+.ax-msg__ava--user{background:var(--c-stone);color:var(--c-charcoal);}
+.ax-msg--typing .ax-msg__bubble{color:var(--c-gray);letter-spacing:.24em;}
+
+/* ---- 上传客厅照卡（首页第一 CTA） ---- */
+.ax-ucard{
+  background:#fff;border:1px solid rgba(217,212,205,.7);border-radius:var(--radius);
+  box-shadow:var(--shadow-card);padding:14px;width:100%;text-align:left;display:block;
+  transition:transform .3s var(--ease);
+}
+.ax-ucard:active{transform:scale(.99);}
+.ax-ucard__head{display:flex;align-items:center;gap:12px;}
+.ax-ucard__ico{
+  width:44px;height:44px;border-radius:50%;flex:0 0 auto;
+  background:rgba(232,178,125,.24);color:var(--c-apricot-ink);
+  display:flex;align-items:center;justify-content:center;
+}
+.ax-ucard__ico svg{width:21px;height:21px;}
+.ax-ucard__title{font-size:15px;letter-spacing:.06em;line-height:1.4;}
+.ax-ucard__desc{font-size:11px;letter-spacing:.06em;color:var(--c-gray);margin-top:3px;line-height:1.6;}
+.ax-ucard__go{color:var(--c-stone);font-size:20px;font-weight:200;line-height:1;flex:0 0 auto;}
+.ax-ucard__body{display:flex;gap:10px;margin-top:14px;}
+.ax-ucard__main{
+  flex:1.3;min-width:0;border-radius:12px;overflow:hidden;aspect-ratio:4/3;
+  background:var(--c-stone);position:relative;
+}
+.ax-ucard__main img{width:100%;height:100%;object-fit:cover;}
+.ax-ucard__main figcaption{
+  position:absolute;left:0;right:0;bottom:0;padding:16px 10px 8px;
+  background:linear-gradient(to top,rgba(44,44,44,.62),rgba(44,44,44,0));
+  color:var(--c-cream);font-size:10px;letter-spacing:.14em;
+}
+.ax-samples{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
+.ax-samples__label{font-size:10px;letter-spacing:.12em;color:var(--c-gray);line-height:1.4;}
+.ax-samples__grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.ax-sample{
+  aspect-ratio:1/1;border-radius:10px;overflow:hidden;padding:0;
+  border:1px solid rgba(217,212,205,.9);background:var(--c-stone);
+  transition:border-color .3s var(--ease);
+}
+.ax-sample img{width:100%;height:100%;object-fit:cover;}
+.ax-sample:active{border-color:var(--c-apricot);}
+.ax-ucard__hint{font-size:10px;letter-spacing:.1em;color:var(--c-gray);margin-top:10px;line-height:1.6;}
+
+/* ---- 你可以这样问 ---- */
+.ax-ask__head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+.ax-ask__title{font-size:12px;letter-spacing:.1em;color:var(--c-charcoal);}
+.ax-ask__more{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;letter-spacing:.1em;
+  color:var(--c-gray);padding:4px 2px;
+}
+.ax-ask__more svg{width:12px;height:12px;}
+.ax-ask__chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+.ax-ask__chips::-webkit-scrollbar{display:none;}
+
+/* ---- 四大功能入口 ---- */
+.ax-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.ax-quick__tile{
+  background:#fff;border:1px solid rgba(217,212,205,.7);border-radius:var(--radius);
+  box-shadow:var(--shadow-card);padding:13px 4px 11px;
+  display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;
+  transition:transform .3s var(--ease);
+}
+.ax-quick__tile:active{transform:scale(.97);}
+.ax-quick__ico{
+  width:38px;height:38px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+}
+.ax-quick__ico svg{width:20px;height:20px;}
+.ax-quick__ico--apricot{background:rgba(232,178,125,.26);color:var(--c-apricot-ink);}
+.ax-quick__ico--stone{background:var(--c-stone);color:var(--c-charcoal);}
+.ax-quick__label{font-size:12px;letter-spacing:.08em;line-height:1.3;}
+.ax-quick__desc{font-size:9.5px;letter-spacing:.04em;color:var(--c-gray);line-height:1.45;}
+
+/* ---- Composer（聊天输入栏，永远在 Tab 上方） ---- */
+.ax-composer{
+  display:none;flex:0 0 auto;align-items:center;gap:8px;z-index:55;
+  padding:9px 12px;
+  background:rgba(247,244,239,.96);
+  backdrop-filter:saturate(120%) blur(14px);
+  -webkit-backdrop-filter:saturate(120%) blur(14px);
+  border-top:1px solid rgba(217,212,205,.55);
+}
+#phone[data-composer="on"] .ax-composer{display:flex;}
+.ax-composer__field{
+  flex:1;min-width:0;display:flex;align-items:center;gap:8px;
+  background:#fff;border:1px solid rgba(217,212,205,.85);border-radius:999px;
+  padding:8px 8px 8px 14px;
+}
+.ax-composer__input{
+  flex:1;min-width:0;border:none;outline:none;background:none;
+  font-size:13px;letter-spacing:.04em;color:var(--c-charcoal);
+}
+.ax-composer__input::placeholder{color:var(--c-gray);}
+.ax-composer__btn{
+  width:34px;height:34px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;color:var(--c-charcoal);
+  transition:background .3s var(--ease);
+}
+.ax-composer__btn:active{background:var(--c-stone);}
+.ax-composer__btn svg{width:20px;height:20px;}
+.ax-composer__send{background:var(--c-apricot);color:#4A3418;}
+.ax-composer__send[hidden]{display:none;}
+.ax-composer__send:active{opacity:.8;}
+
+/* ---- 阿杏「正在想」抖动 ---- */
+.ax-dots{display:inline-flex;gap:4px;align-items:center;}
+.ax-dots i{width:5px;height:5px;border-radius:50%;background:var(--c-gray);animation:axdot 1.2s infinite;}
+.ax-dots i:nth-child(2){animation-delay:.18s;}
+.ax-dots i:nth-child(3){animation-delay:.36s;}
+@keyframes axdot{0%,60%,100%{opacity:.25;transform:translateY(0);}30%{opacity:1;transform:translateY(-3px);}}
+
+@media (prefers-reduced-motion: reduce){
+  .ax-dots i,.view{animation:none;}
+}
