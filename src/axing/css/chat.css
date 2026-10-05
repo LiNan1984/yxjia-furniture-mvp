@@ -1,0 +1,44 @@
+/* ============================================================
+   chat.css — 常驻对话层样式（交互规范 §1-6 / §2-1 / §1-3）
+   归属：chat-core.js / chat-composer.js / app.js 同一 agent
+   只管对话层新增件：时间戳、流式生成态、停止生成键、浮窗开合时 Composer 的失焦态。
+   不碰 .md-*（markdown.css）与卡片内容（cards.css），不写死色值。
+   ============================================================ */
+
+/* ---- 时间戳（§2-1.2：每条气泡都带，10px、弱一号） ---- */
+.ax-msg__time{
+  font-size:10px;letter-spacing:.06em;color:var(--c-gray);
+  padding:2px 4px 0;line-height:1.4;
+}
+.ax-msg--user .ax-msg__time{text-align:right;}
+
+/* ---- 「阿杏正在想」：三个抖点 + 一句人话提示 ---- */
+.ax-thinking-hint{
+  margin-left:8px;font-size:11px;letter-spacing:.06em;color:var(--c-gray);
+}
+
+/* ---- 流式生成中的气泡 ---- */
+/* 生成中不给边框闪烁（老人友好 + 减少视觉噪音），只把光标态做实：
+   未稳定节点会被 markdown 渲染器反复重画，过强的视觉反馈会让人眼花。 */
+.ax-msg--streaming .ax-msg__bubble{position:relative;}
+.ax-msg--streaming .ax-msg__bubble::after{
+  content:"";display:inline-block;width:2px;height:1em;
+  margin-left:3px;vertical-align:-.15em;background:var(--c-apricot-deep);
+  animation:axcaret .9s steps(2,start) infinite;
+}
+@keyframes axcaret{0%,50%{opacity:1;}50.01%,100%{opacity:0;}}
+
+/* ---- 停止生成键（§1-3）：与发送键同形，炭底奶字以区别"停止"---- */
+.ax-composer__stop{background:var(--c-charcoal);color:var(--c-cream);}
+.ax-composer__stop:active{opacity:.8;}
+/* display:flex 会盖掉 UA 的 [hidden]{display:none}，显隐由 chat-core 内联控制，
+   这里再兜一层，防止将来有人加了别的 display 规则又把按钮顶出来 */
+.ax-composer__stop[hidden]{display:none;}
+
+/* ---- 浮窗开合时：Composer 失焦、Tab 让位（§1-2.4 键盘不顶浮窗） ---- */
+#phone[data-sheet="on"] .ax-composer{opacity:.55;pointer-events:none;transition:opacity .15s var(--ease);}
+#phone[data-sheet="on"] .tabbar{opacity:.55;pointer-events:none;transition:opacity .15s var(--ease);}
+
+@media (prefers-reduced-motion: reduce){
+  .ax-msg--streaming .ax-msg__bubble::after{animation:none;}
+}

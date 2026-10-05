@@ -3,6 +3,7 @@
 import * as apiModule from './api.js';
 import * as ui from './ui.js';
 import { initComposer } from './chat-composer.js';
+import { initChat } from './chat-core.js';
 
 const { $, $$, el, toast, humanError, on, emit } = ui;
 
@@ -16,6 +17,7 @@ const defaultState = {
   roomName: null,
   phone: '',           // 顾客手机号（试摆/预约/方案归属）
   lastTryonUrl: null,
+  pendingRoomFile: null,  // Composer 相册键挑好、还没进浮窗的文件名
 };
 function loadState() {
   try { return { ...defaultState, ...(JSON.parse(localStorage.getItem(STATE_KEY)) || {}) }; }
@@ -37,6 +39,8 @@ const VIEWS = {
   'view-plans':    { module: () => import('./view-plans.js'),    tab: true },
   'view-me':       { module: () => import('./view-me.js'),       tab: true },
   'view-voice':    { module: () => import('./view-voice.js') },
+  // 上传不再当独立全屏页用：主入口走底部浮窗（ctx.openUpload）。
+  // 这里保留路由，供 hash 直入、其它 view 的 ctx.go('view-upload') 与既有测试兜底。
   'view-upload':   { module: () => import('./view-upload.js') },
   'view-tryon':    { module: () => import('./view-tryon.js') },
   'view-material': { module: () => import('./view-material.js') },
@@ -51,7 +55,7 @@ const ctx = {
   api: apiModule.api, ui, state, setState, on, emit,
   go, back, toast,
   humanError,
-  appendChat(role, text) { emit('chat:message', { role, text }); },
+  get current() { return current; },   // chat-core 靠它判断「现在是不是在对话流里」
   pickProduct(product) {
     setState({
       productId: product.id,
@@ -61,7 +65,17 @@ const ctx = {
     });
     emit('product:selected', product);
   },
+  // 兼容旧调用：转成正儿八经的聊天气泡，而不是只 emit 一个没人消费的事件。
+  // 首页 chips 现在直接调 ctx.chat.send()，不会再走这条半截链路（P3）。
+  appendChat(role, text) {
+    if (role === 'user') ctx.chat.appendUser(text);
+    else ctx.chat.appendAi(text);
+  },
 };
+
+// 常驻对话中枢（交互规范 §1-6）：时间线归它持有，不随 view 卸载销毁。
+// 必须先于 initComposer——Composer 的发送键直接调 ctx.chat.send()。
+ctx.chat = initChat(ctx);
 
 // v2.1 spec §70/§71「聊天窗口始终在页面上」：Composer 在几乎所有 view 都在场，
 // 只有 view-voice 让位——语音本身就是另一种聊天输入模态，全屏收音更不容易误触。
@@ -114,6 +128,20 @@ $('#tabbar').addEventListener('click', (e) => {
 });
 $('#backBtn').addEventListener('click', back);
 
+// ---------- 底部浮窗：上传客厅照 ----------
+// sheet-upload.js 由 cards/sheet agent 交付。先同步挂一个降级实现（整页跳转），
+// 模块到了再热替换成浮窗——否则并行开发期间点击会撞上 undefined。
+ctx.openUpload = () => go('view-upload');
+ctx.closeUpload = () => {};
+
+(async function bindUploadSheet() {
+  try {
+    const mod = await import('./sheet-upload.js');
+    ctx.openUpload = () => mod.openUploadSheet(ctx);
+    ctx.closeUpload = () => mod.closeUploadSheet(ctx);
+  } catch { /* 保持降级实现 */ }
+})();
+
 // 供浏览器地址栏 #view-3d 直入（调试/分享用）
 function fromHash() {
   const id = location.hash.replace('#', '');
@@ -122,6 +150,5 @@ function fromHash() {
 
 show(fromHash());
 
-// 阿杏全局问候（首页 view 也会用自己的问候，这里只做兜底提示）
 window.AXING = ctx;
 initComposer(ctx);
