@@ -127,10 +127,33 @@ function catLabel(c){return CAT_LABEL[c]||c||'家具'}
 
 function showMsg(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'err');setTimeout(()=>{msg.className='msg'},3000)}
 
+// 图挂了不能让它凭空消失：卡片只剩文字时，老板分不清「这张还没传」还是「图加载失败」，
+// 会以为商品数据坏了。换成一句占位，并留个显眼的底色。
+function imgBroken(img){
+  img.style.display='none';
+  const box=img.parentElement;
+  if(!box||box.dataset.broken)return;
+  box.dataset.broken='1';
+  box.style.cssText='display:flex;align-items:center;justify-content:center;min-height:120px;padding:10px;'+
+    'background:#f6e7e4;color:#8a3b2e;font-size:13px;font-weight:700;text-align:center;line-height:1.5;';
+  box.appendChild(document.createTextNode('图挂了，点编辑重新上传'));
+}
+
 async function load(){
-  const r=await fetch('/api/products?all=1').then(r=>r.json());
-  products=(r.data&&r.data.products)||r.products||[];
-  render();
+  let r;
+  try{
+    r=await fetch('/api/products?all=1').then(x=>x.json());
+  }catch(e){ showMsg('网络出错，商品列表没读到，请刷新重试',false); return }
+  // ⚠️ 不能不看 success 就 render([])：请求失败时会弹「还没有商品」，老板会以为数据丢了、
+  // 慌乱中把整店重新上传一遍（那正是 CLAUDE.md §9 记的整体覆盖事故）。
+  // 失败要报错并留住屏幕上的旧列表，让老板知道只是这一下没读到。
+  const list=r&&r.success?((r.data&&r.data.products)||r.products):null;
+  if(!Array.isArray(list)){
+    showMsg((r&&r.error)||'读取失败，请刷新重试（你的商品没有动）',false);
+    return;
+  }
+  products=list;
+  render(document.getElementById('filter').value||'');
 }
 function render(filter=''){
   const f=filter.trim().toLowerCase();
@@ -139,7 +162,7 @@ function render(filter=''){
   empty.style.display='none';
   grid.innerHTML=list.map(p=>`
     <div class="card ${p.status==='下架'?'off-shelf':''}" data-id="${esc(p.id)}">
-      <div class="img"><img src="${esc(p.image||'/images/sofa-tihua-real.png')}" alt="${esc(p.name)}" onerror="this.style.display='none'"></div>
+      <div class="img"><img src="${esc(p.image||'/images/sofa-tihua-real.png')}" alt="${esc(p.name)}" onerror="imgBroken(this)"></div>
       <div class="meta">
         <div class="badge ${p.status==='下架'?'off':''}">${esc(p.status||'在售')} · ${esc(catLabel(p.category))}</div>
         <h3>${esc(p.name||'(无名)')}</h3>
@@ -242,9 +265,19 @@ async function del(id){
 }
 
 document.getElementById('toggleAll').onclick=async()=>{
-  if(!confirm('把所有当前显示的商品都上下架切换？（取决于当前显示列表）'))return;
   const ids=Array.from(document.querySelectorAll('.card')).map(c=>c.dataset.id);
   if(ids.length===0){showMsg('没有可切换的商品',false);return}
+  // ⚠️ 确认框必须报数量和方向。原文案「把所有当前显示的商品都上下架切换？」一个数字都没有，
+  // 无筛选时这一下覆盖全店 32 款——老板想批量上几个新品，结果把整店全切了。
+  // 而且 ids 取的是「当前筛选后」的卡片，老板刚搜过关键字时实际影响范围与按钮语义不符，
+  // 所以把受影响数和上/下架各几款都摆出来，让他在点下去之前能核對。
+  const shown=products.filter(p=>ids.includes(p.id));
+  const onSale=shown.filter(p=>p.status!=='下架').length;
+  const goingOff=onSale, goingOn=shown.length-onSale;
+  const detail=goingOff&&goingOn?`（其中下架 ${goingOff} 款、上架 ${goingOn} 款）`:'';
+  const scope=document.getElementById('filter').value.trim()
+    ? `当前筛选出的 ${shown.length} 款` : `全店 ${shown.length} 款`;
+  if(!confirm(`确定切换${scope}商品的在售状态？${detail}\n\n切换后顾客端会立刻跟着变，确认要点「确定」。`))return;
   try{
     const r=await fetch('/api/admin/products/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,action:'toggle'})});
     const d=await r.json();
