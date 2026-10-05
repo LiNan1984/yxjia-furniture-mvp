@@ -1,5 +1,6 @@
 // view-plans.js — 我的方案：保存当前选中家具为方案 + 按手机号查方案列表 + 接着看/预约到店。
 // 约定：export async function mount(root, ctx)，可 return cleanup 函数。
+import { COLOR_SWATCHES } from './furniture.js';
 
 const MATERIAL_LABELS = {
   fabric: '布艺', tech: '科技布', leather: '真皮', wood: '实木', mdf: '密度板',
@@ -9,6 +10,22 @@ function todayLabel() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+}
+
+/** 颜色值归一化。历史上「颜色」这一条被三条路径送过三种东西：
+ *  view-3d 存方案送色板 id（'rust'）、scene:style 广播送 hex（'#A9683C'）、
+ *  还有直接送中文名的。三种都认——取中文名当标签（顾客看得懂），取 hex 画圆点。
+ *  认不出来时照原样显示文字、不画圆点，绝不显示成 hex 或英文 id。 */
+function resolveColor(raw) {
+  const v = typeof raw === 'string' ? raw.trim() : '';
+  if (!v) return null;
+  const byHex = COLOR_SWATCHES.find((c) => c.hex.toLowerCase() === v.toLowerCase());
+  if (byHex) return { label: byHex.name, hex: byHex.hex };
+  const byName = COLOR_SWATCHES.find((c) => c.name === v);
+  if (byName) return { label: byName.name, hex: byName.hex };
+  const byId = COLOR_SWATCHES.find((c) => c.id === v);
+  if (byId) return { label: byId.name, hex: byId.hex };
+  return { label: v, hex: null };
 }
 
 /** 颜色小圆点（color 是 #rrggbb 之类才画圆点，否则只显示文字） */
@@ -87,7 +104,7 @@ export async function mount(root, ctx) {
       return;
     }
     const phone = phoneInput.value.trim();
-    if (phone && !/^1\d{10}$/.test(phone)) {
+    if (phone && !/^1[3-9]\d{9}$/.test(phone)) {
       ctx.toast('手机号填 11 位数字，不填也行');
       phoneInput.focus();
       return;
@@ -137,7 +154,7 @@ export async function mount(root, ctx) {
 
   async function loadMine(phoneArg) {
     const phone = (phoneArg || myListPhone || phoneInput.value || '').trim();
-    if (!/^1\d{10}$/.test(phone)) {
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
       listSlot.textContent = '';
       listSlot.appendChild(el('div.empty', { text: '填一下手机号，阿杏把你保存的方案找出来' }));
       return;
@@ -178,7 +195,8 @@ export async function mount(root, ctx) {
     const body = el('div', { style: 'padding:0 16px 16px;display:flex;flex-direction:column;gap:12px;' });
     items.forEach((it) => {
       const tags = [];
-      if (it.color) tags.push(tag(ctx, `颜色 ${it.color}`, it.color));
+      const c = resolveColor(it.color);
+      if (c) tags.push(tag(ctx, `颜色 ${c.label}`, c.hex));
       if (it.materialId) tags.push(tag(ctx, MATERIAL_LABELS[it.materialId] || it.materialId));
       body.appendChild(el('div.row', { style: 'align-items:center;gap:10px;' }, [
         el('div', {
@@ -235,7 +253,7 @@ export async function mount(root, ctx) {
   ]));
 
   // 初始：有手机号就自动拉一次，否则给空态引导
-  if (/^1\d{10}$/.test(ctx.state.phone || '')) loadMine(ctx.state.phone);
+  if (/^1[3-9]\d{9}$/.test(ctx.state.phone || '')) loadMine(ctx.state.phone);
   else {
     listSlot.appendChild(el('div.empty', {
       text: '还没有方案。上面选一件家具，点「保存当前方案」，这儿就能翻到了。',

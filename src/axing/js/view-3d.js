@@ -131,7 +131,9 @@ export async function mount(root, ctx) {
         phone: ctx.state.phone,
         items: [{
           productId: ctx.state.productId,
-          color: (COLOR_SWATCHES.find((c) => c.hex === color) || {}).id || null,
+          // 存中文名（'焦糖'），不存色板 id（'rust'）——view-plans 直接把值拼进
+          // 「颜色 ${it.color}」，存 id 会让顾客看到「颜色 rust」。
+          color: (COLOR_SWATCHES.find((c) => c.hex === color) || {}).name || null,
           materialId,
           dims,
         }],
@@ -188,13 +190,22 @@ export async function mount(root, ctx) {
     dims = dimsFromProduct(p, kind);
     if (viewer) viewer.setFurniture(kind, dims);
     syncInfo();
+    // WebGL 起不来时兜底在挂载那刻就画完了，那时多半还没选家具 → 兜底只有一行字。
+    // 顾客之后选了家具，兜底要补上照片，否则看不到家长什么样。
+    if (hint.dataset.fallback) fallbackToImage();
   });
 
   syncChips();
   syncInfo();
 
   // ---------- 3D 初始化（WebGL 失败给图片兜底） ----------
-  const fallbackToImage = () => {
+  // ⚠️ createViewer 内部吞掉 WebGL 失败：它 synchronously 调 onError（= fallbackToImage）
+  // 把兜底画进 hint，然后返回 makeStub()——一个真值对象。所以光看 `if (viewer)`
+  // 分不出「真渲染器」和「兜底壳」，而无条件 hint.remove() 会把刚画好的兜底连壳删掉，
+  // stage 里一个节点都不剩：旧安卓/禁 GPU 的浏览器上顾客只看到空白框（E 组实测）。
+  // 用 hint 上的 data-fallback 标记区分：兜底画过就置位，成功路径看到它就不撤。
+  function fallbackToImage() {
+    hint.dataset.fallback = '1';
     hint.innerHTML = '';
     hint.appendChild(h('div', { text: '这台设备看不了 3D' }));
     hint.appendChild(h('div.tiny', { text: '先看看照片，到店摸实物' }));
@@ -207,7 +218,8 @@ export async function mount(root, ctx) {
   };
   try {
     viewer = createViewer(stage, { background: '#F7F4EF', onError: fallbackToImage });
-    if (viewer) {
+    // hint 初始是「3D 加载中…」，不能靠 firstChild 判空；data-fallback 只在兜底时置位
+    if (viewer && !hint.dataset.fallback) {
       viewer.setFurniture(kind, dims);
       viewer.setColor(color);
       viewer.setMaterial(materialId);
