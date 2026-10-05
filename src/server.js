@@ -1183,6 +1183,8 @@ app.get('/admin/presets', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admi
 app.get('/admin/tryon-results', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'tryon-results.html')));
 app.get('/admin/feature-flags', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'feature-flags.html')));
 app.get('/admin/categories', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'categories.html')));
+// 阿杏顾客在线约到店后，老板在这个页面看到「明天谁来、要看什么、打电话」（转化闭环的收口）
+app.get('/admin/appointments', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'admin', 'appointments.html')));
 
 // Static: HTML pages served from src/ (兜底：直接访问 .html 时)
 app.use(express.static(PUBLIC_DIR, { extensions: ['html'] }));
@@ -2262,6 +2264,8 @@ function saveScenesContainer(container) {
 
 // 预约时段固定三档（门店 9:00-20:00，老人友好：不让用户自己输时间）
 const APPOINTMENT_SLOTS = ['上午 9:00-12:00', '下午 12:00-18:00', '晚上 18:00-20:00'];
+// 预约状态机（店主在后台点按钮推进；与 /api/admin/appointments 的 status 过滤共用同一份白名单）
+const APPOINTMENT_STATUSES = ['待到店', '已到店', '已成单', '已取消'];
 
 // 按手机号查预约的 IP 限额（未登录也要让老人查，但防枚举拖库）
 const APPT_QUERY_LIMIT = 20;
@@ -2346,7 +2350,58 @@ app.get('/api/appointments/by-phone/:phone', (req, res) => {
   }
 });
 
-// POST /api/scenes — 保存「我家的方案」body: { name?, phone?, items: [{ productId, color?, materialId?, transform?, dims? }] }
+// GET /api/admin/appointments — 店主看预约：按到店日期升序（最近要来的人排最前，老板先打明天的电话），
+// 同一天再按提交时间倒序（后约的放前面，方便回访确认）。?status= 可过滤，最多返回 200 条。
+app.get('/api/admin/appointments', requireAdmin, (req, res) => {
+  const status = typeof req.query.status === 'string' ? req.query.status.trim() : '';
+  if (status && !APPOINTMENT_STATUSES.includes(status)) {
+    return fail(res, 400, `状态只能是：${APPOINTMENT_STATUSES.join(' / ')}`);
+  }
+  try {
+    const container = loadAppointmentsContainer();
+    const all = Array.isArray(container.appointments) ? container.appointments : [];
+    const list = (status ? all.filter(a => a.status === status) : all.slice()).sort((a, b) => {
+      const da = String(a.date || ''), db = String(b.date || '');
+      if (da !== db) return da < db ? -1 : 1;
+      return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    });
+    return ok(res, { appointments: list.slice(0, 200), total: all.length });
+  } catch (err) {
+    console.error('[axing][admin-appointments]', err);
+    return fail(res, 500, '读取预约失败');
+  }
+});
+
+// PATCH /api/admin/appointments/:id — 店主推进状态（body: { status }）
+app.patch('/api/admin/appointments/:id', requireAdmin, (req, res) => {
+  const status = typeof req.body?.status === 'string' ? req.body.status.trim() : '';
+  if (!APPOINTMENT_STATUSES.includes(status)) {
+    return fail(res, 400, `状态只能是：${APPOINTMENT_STATUSES.join(' / ')}`);
+  }
+  try {
+    const container = loadAppointmentsContainer();
+    const idx = (container.appointments || []).findIndex(a => a.id === req.params.id);
+    if (idx < 0) return fail(res, 404, '没找到这条预约');
+    container.appointments[idx] = { ...container.appointments[idx], status };
+    saveAppointmentsContainer(container);
+    return ok(res, { appointment: container.appointments[idx] });
+  } catch (err) {
+    console.error('[axing][admin-appointment-patch]', err);
+    return fail(res, 500, '保存状态失败');
+  }
+});
+
+// 方案里的图片 URL（试摆图 / 顾客客厅照）只做增强：非 http(s) 或超长一律降级成 null，
+// 绝不让一条坏 URL 把整个方案的保存打断（PM 批判 §2.11）
+function normalizeImageUrl(raw) {
+  if (typeof raw !== 'string') return null;
+  const v = raw.trim();
+  if (v.length > 1000) return null;
+  if (!/^https?:\/\//i.test(v)) return null;
+  return v;
+}
+
+// POST /api/scenes — 保存「我家的方案」body: { name?, phone?, items: [{ productId, color?, materialId?, transform?, dims?, compositionUrl?, roomUrl? }] }
 app.post('/api/scenes', (req, res) => {
   const name = (req.body?.name || '').trim().slice(0, 40);
   const phone = (req.body?.phone || '').trim();
@@ -2369,6 +2424,9 @@ app.post('/api/scenes', (req, res) => {
       materialId: typeof item.materialId === 'string' ? item.materialId.slice(0, 20) : null,
       transform: item.transform && typeof item.transform === 'object' ? item.transform : null,
       dims: item.dims && typeof item.dims === 'object' ? item.dims : null,
+      // 试摆图 + 顾客客厅照（老数据没有这两个键，读的时候自然就是 undefined，不影响回看）
+      compositionUrl: normalizeImageUrl(item.compositionUrl),
+      roomUrl: normalizeImageUrl(item.roomUrl),
     });
   }
 

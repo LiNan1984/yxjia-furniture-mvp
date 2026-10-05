@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3a2818">
+<title>到店预约 · 银杏家具后台</title>
+<style>
+:root{--ink:#1a1a1a;--paper:#faf6ef;--coffee:#3a2818;--red:#d94f3e;--green:#1f7a3a;--amber:#d39e00}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:18px}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);padding-bottom:90px;color:var(--ink)}
+.nav{background:var(--coffee);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.nav a{color:#fff;text-decoration:none;font-size:1.1rem}
+.wrap{max-width:880px;margin:0 auto;padding:24px 20px}
+h1{font-size:2rem;color:var(--coffee);margin-bottom:6px}
+.sub{font-size:1.15rem;color:#555;margin-bottom:16px}
+.back{display:inline-block;margin-bottom:16px;font-size:1.2rem;color:var(--coffee);text-decoration:none}
+/* 筛选：一行五个，全部 48px 起步，戴手套也能点准 */
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+.fbtn{min-height:48px;padding:10px 18px;border:2px solid var(--coffee);background:#fff;color:var(--coffee);border-radius:10px;font-size:1.1rem;font-weight:700;cursor:pointer}
+.fbtn.on{background:var(--coffee);color:#fff}
+/* 日期分组 */
+.group-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:22px 0 10px;font-size:1.35rem;font-weight:800;color:var(--coffee)}
+.gtag{background:var(--red);color:#fff;padding:2px 10px;border-radius:999px;font-size:1rem}
+.gcount{font-size:1.05rem;font-weight:600;color:#666}
+.appt{background:#fff;border:2px solid var(--coffee);border-radius:14px;padding:18px;margin-bottom:14px}
+.appt-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.appt-name{font-size:1.6rem;font-weight:800;color:var(--coffee)}
+.status{display:inline-block;background:var(--green);color:#fff;padding:6px 14px;border-radius:999px;font-size:1.05rem;font-weight:700}
+.status.pending{background:var(--amber)}
+.status.cancelled{background:#8a837c}
+.row{font-size:1.15rem;margin-top:10px;line-height:1.5}
+.row b{color:var(--coffee)}
+.meta{font-size:1rem;color:#777;margin-top:10px}
+/* 手机号大号 + 一键拨号：老板的第一动作就是打这个电话 */
+.phone{font-size:1.9rem;font-weight:800;color:var(--coffee);letter-spacing:1px;margin-top:8px}
+.call-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;margin-top:10px;background:var(--red);color:#fff;padding:12px 24px;border-radius:10px;font-size:1.25rem;font-weight:800;text-decoration:none}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:14px;border-top:2px dashed #d9d4cd}
+.sbtn{min-height:48px;padding:10px 16px;border:2px solid var(--coffee);background:#fff;color:var(--coffee);border-radius:10px;font-size:1.05rem;font-weight:700;cursor:pointer}
+.sbtn.on{background:var(--coffee);color:#fff}
+.sbtn:disabled{opacity:.6;cursor:default}
+.empty{text-align:center;color:#666;font-size:1.2rem;padding:40px;line-height:1.7}
+/* 操作反馈：改状态成败都必须让老板看见，不能静默 */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:28px;max-width:88%;background:var(--coffee);color:#fff;padding:14px 22px;border-radius:10px;font-size:1.15rem;font-weight:700;display:none;z-index:9}
+.toast.show{display:block}
+.toast.bad{background:var(--red)}
+</style>
+</head>
+<body>
+<header class="nav"><a href="/admin/index">← 返回</a><div style="font-size:1.3rem;font-weight:800">📅 到店预约</div></header>
+<main class="wrap">
+  <a class="back" href="/admin/index">← 返回后台首页</a>
+  <h1>📅 到店预约</h1>
+  <p class="sub">顾客在线约好了，照着准备</p>
+
+  <div class="filters" id="filters">
+    <button class="fbtn on" data-status="">全部</button>
+    <button class="fbtn" data-status="待到店">待到店</button>
+    <button class="fbtn" data-status="已到店">已到店</button>
+    <button class="fbtn" data-status="已成单">已成单</button>
+    <button class="fbtn" data-status="已取消">已取消</button>
+  </div>
+
+  <div id="list"></div>
+</main>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+const STATUSES = ['待到店', '已到店', '已成单', '已取消'];
+const EMPTY_TEXT = '还没有顾客预约。顾客在阿杏助手里点「预约到店」就會出现在这里。';
+let items = [];      // 当前列表（改完状态后原地替换，避免整页 refetch）
+let filter = '';
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+function pad(n){return String(n).padStart(2,'0')}
+function todayStr(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}
+function tomorrowStr(){const d=new Date();d.setDate(d.getDate()+1);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}
+// YYYY-MM-DD 必须按本地时区拆，直接 new Date(str) 会被当 UTC 午夜、在某些时区差一天
+function parseDate(s){const p=String(s||'').split('-').map(Number);return new Date(p[0]||1970,(p[1]||1)-1,p[2]||1)}
+function dateCN(s){const d=parseDate(s);return `${d.getMonth()+1}月${d.getDate()}日`}
+function weekdayCN(s){return '周' + '日一二三四五六'[parseDate(s).getDay()]}
+function fmtTime(iso){try{return new Date(iso).toLocaleString('zh-CN',{hour12:false})}catch(e){return iso||'-'}}
+function slotBucket(slot){const s=String(slot||'');if(s.indexOf('上午')===0)return '上午';if(s.indexOf('下午')===0)return '下午';if(s.indexOf('晚上')===0)return '晚上';return s.slice(0,2)}
+
+let toastTimer = null;
+function toast(msg, bad){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (bad ? ' bad' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 2600);
+}
+
+function statusClass(s){return s === '待到店' ? 'pending' : (s === '已取消' ? 'cancelled' : '')}
+
+function groupHead(date, list){
+  const t = todayStr(), tm = tomorrowStr();
+  let tag = '';
+  if (date === t) tag = '<span class="gtag">今天</span>';
+  else if (date === tm) tag = '<span class="gtag">明天</span>';
+  const counts = ['上午','下午','晚上'].filter(b => list.some(a => slotBucket(a.slot) === b))
+    .map(b => `${b}${list.filter(a => slotBucket(a.slot) === b).length}人`);
+  const other = list.length - counts.length; // 时段不在三档内的老数据，别让人数凭空消失
+  if (other > 0) counts.push(`其他${other}人`);
+  return `<div class="group-head"><span>${esc(dateCN(date))} ${esc(weekdayCN(date))}</span>${tag}<span class="gcount">· ${esc(counts.join(' / ') || '0人')}</span></div>`;
+}
+
+function card(a){
+  const names = Array.isArray(a.productNames) ? a.productNames.filter(Boolean) : [];
+  return `<div class="appt" data-id="${esc(a.id)}" data-status="${esc(a.status)}">
+    <div class="appt-top">
+      <span class="appt-name">${esc(a.name)}</span>
+      <span class="status ${statusClass(a.status)}">${esc(a.status)}</span>
+    </div>
+    <div class="phone">${esc(a.phone)}</div>
+    <div><a class="call-btn" href="tel:${esc(a.phone)}">📞 打给 ${esc(a.name)}</a></div>
+    <div class="row"><b>到店：</b>${esc(dateCN(a.date))} ${esc(weekdayCN(a.date))} · ${esc(a.slot)}</div>
+    <div class="row"><b>想看：</b>${names.length ? esc(names.join('、')) : '还没选具体款式'}</div>
+    ${a.note ? `<div class="row"><b>备注：</b>${esc(a.note)}</div>` : ''}
+    <div class="meta">预约号 ${esc(a.id)} · 提交于 ${esc(fmtTime(a.createdAt))}</div>
+    <div class="btns">${STATUSES.map(s =>
+      `<button class="sbtn${s === a.status ? ' on' : ''}" data-id="${esc(a.id)}" data-status="${esc(s)}"${s === a.status ? ' disabled' : ''}>${esc(s)}</button>`
+    ).join('')}</div>
+  </div>`;
+}
+
+function render(){
+  const list = document.getElementById('list');
+  if (!items.length) {
+    list.innerHTML = `<div class="empty">${esc(EMPTY_TEXT)}</div>`;
+    return;
+  }
+  const groups = new Map();
+  for (const a of items) {
+    const d = String(a.date || '');
+    if (!groups.has(d)) groups.set(d, []);
+    groups.get(d).push(a);
+  }
+  // 后端已按 date 升序返回，Map 保持插入顺序即分组顺序
+  let html = '';
+  for (const [date, arr] of groups) html += groupHead(date, arr) + arr.map(card).join('');
+  list.innerHTML = html;
+}
+
+async function load(){
+  const r = await fetch('/api/admin/appointments');
+  const d = await r.json();
+  if (!d.success) { toast(d.error || '读取失败，请刷新重试', true); return; }
+  items = d.data.appointments || [];
+  render();
+}
+
+async function setStatus(id, status){
+  try {
+    const r = await fetch(`/api/admin/appointments/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const d = await r.json();
+    if (!d.success) { toast(d.error || '改状态失败', true); return; }
+    const hit = items.find(a => a.id === id);
+    if (hit) { hit.status = d.data.appointment.status; render(); }
+    toast(`已改成「${status}」`);
+  } catch (e) {
+    toast('网络出错，状态没改成功', true);
+  }
+}
+
+document.getElementById('filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.fbtn');
+  if (!btn) return;
+  filter = btn.dataset.status || '';
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.toggle('on', b === btn));
+  load();
+});
+
+// 事件委托：预约卡是整块重渲染的，绑在容器上才不会丢
+document.getElementById('list').addEventListener('click', (e) => {
+  const btn = e.target.closest('.sbtn');
+  if (!btn || btn.disabled) return;
+  setStatus(btn.dataset.id, btn.dataset.status);
+});
+
+async function check(){
+  const r = await fetch('/api/auth/me');
+  const d = await r.json();
+  if (!d.success || !d.data || !d.data.user || d.data.user.id !== 'admin') {
+    location.href = '/admin/login';
+    return false;
+  }
+  return true;
+}
+check().then(isAdmin => { if (isAdmin) load(); });
+</script>
+</body>
+</html>
