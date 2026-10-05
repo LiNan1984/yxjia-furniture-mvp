@@ -311,3 +311,39 @@ ctx = { api, ui, state, setState, on, emit, go, back, toast, humanError, pickPro
 | P1 | 429 话术改成「约到店 / 打电话」，不要把「登录后继续」当唯一出路 | 🟠2.10 |
 | P1 | `/api/admin/scenes` 或 rooms 列表接上已有的 `DELETE /api/admin/rooms/:id`，让「可删除」的隐私承诺真的可执行 | 🟡2.17 |
 | P1 | 试摆结果 / 方案生成一张可保存、可发微信的长图（客群传播路径） | 🟠2.7 |
+
+### 8.7 部署状态：**代码就绪，未上线**（等一条命令）
+
+**生产当前停在 `130a475`**（09-27 v3 多品类试摆）。实测依据：`/api/categories` 返回 v3 形状的 JSON；
+而 `/axing`、`/axing/css/axing.css`、`/vendor/three/*`、`/admin/appointments`、`/my-generations.html`
+全是 **404**。所以这次上线**不是增量更新，是首次把整个阿杏分支推上公网**。
+
+`rsync src/` 会动 **31 个文件**（相对 `130a475`）：
+
+- **新增 28**：阿杏 App 26 个（`src/axing/**` + `src/vendor/three/**`）、`src/admin/appointments.html`、`src/my-generations.html`
+- **修改 3**：`src/server.js`（+7302 行里的大部分，generations + 4 个阿杏接口）、`src/admin/index.html`、`src/my-orders.html`
+- 纯新增，**不删任何生产独有文件**（rsync 不加 `--delete`）
+
+**已做的上线前验证**：`node --check src/server.js` 过；`/tmp` 里用**生产那样的 data/**（只有 6 个入库
+json，没有 orders/users/uploads/generations/appointments/scenes）实测启动——服务正常起来，
+`/` `/axing` `/api/products` `/api/categories` `/api/tryon/presets` `/api/feature-flags`
+`/api/whole-home/styles` 全 200，缺失容器由 `loadContainer` 自动补建，不会崩。
+
+**为什么 Claude 侧执行不了**：本 Claude Code 环境所有外连被本地 shim 接管（地址在 `198.18.0.0/15`），
+**只放行 HTTP**。证据：`git ls-remote origin` 报 `Connection closed by 198.18.0.162 port 22`；
+裸 socket 连任何端口都是 0ms（真实 RTT 275ms）；`:22` 等 60.8s 被干净关闭且 0 字节；
+22/80/443/2222/3300/9000 全端口无 SSH banner；`rsync` 的 ssh 子进程 exit 255。
+`curl :3300` 能拿到真实页面 → **部署后的验证可以由 Claude 做，部署本身不行**。
+
+**执行方式**（在用户自己终端跑，会提示输密码）：
+
+```bash
+bash /tmp/deploy-axing.sh
+```
+
+脚本四步，失败自动回滚：① 远端 `cp src/server.js src/server.js.bak-<ts>` + 回传生产现状；
+② `rsync -a src/ root@72.60.193.189:/root/yxjia-mvp/src/`；③ `systemctl restart yxjia`；
+④ 冒烟 10 个路径，任一非 200 就把 ① 的备份拷回去再重启。
+
+预期：部署后 `/axing`、`/vendor/three/*`、`/my-generations.html`、`/admin/appointments`
+应从 404 翻成 200；`/`、`/api/products`、`/api/categories` 保持 200。
