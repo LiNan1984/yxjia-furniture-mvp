@@ -1,0 +1,117 @@
+/* ============================================================
+   markdown.css — Markdown 渲染节点样式（阿杏交互规范 §4-5）
+   归属：A 号（js/markdown.js + js/vendor/markdown/ 同属一个 agent）
+   规则：颜色全部走 axing.css 的 :root token，禁止写死色值。
+        只允许出现 .md-* 类，不要碰 .ax-* / .p-card / .btn。
+   ============================================================
+   说明：需要 alpha 的地方用 var(--c-stone)=#D9D4CD / var(--c-apricot)=#E8B27D
+        的 rgba 形式（和 axing.css 里 .card / .ax-msg--user 的既有写法保持一致），
+        不是新色值，只是同一 token 加透明度。
+   ============================================================ */
+
+/* --- 段落与通用间距：气泡里最后一个块不该再撑出下间距 --- */
+.md-inline{display:inline;}
+.md-p{
+  margin:0 0 8px;font-size:13px;line-height:1.7;letter-spacing:.03em;
+  color:var(--c-charcoal);white-space:normal;overflow-wrap:anywhere;
+}
+.md-p:last-child{margin-bottom:0;}
+.md-unknown{display:none;}
+
+/* --- 标题：项目铁律是细字重，标题只靠字号和颜色分层，不加粗 --- */
+.md-h1,.md-h2,.md-h3,.md-h4,.md-h5,.md-h6{
+  margin:14px 0 8px;font-weight:400;line-height:1.4;letter-spacing:.04em;
+  color:var(--c-charcoal);
+}
+.md-h1:first-child,.md-h2:first-child,.md-h3:first-child,
+.md-h4:first-child,.md-h5:first-child,.md-h6:first-child{margin-top:0;}
+.md-h1{font-size:17px;}
+.md-h2{font-size:15px;color:var(--c-apricot-ink);}
+.md-h3{font-size:14px;}
+.md-h4{font-size:13px;}
+.md-h5,.md-h6{font-size:12px;color:var(--c-gray);}
+.md-h1:last-child,.md-h2:last-child,.md-h3:last-child,
+.md-h4:last-child,.md-h5:last-child,.md-h6:last-child{margin-bottom:0;}
+
+/* --- 列表 ---
+   上游 parser 把 `- a` 和 `1. a` 都输出成 list_item 且丢掉序号（上游语义：「有序列表只保留文本，
+   不保留序号」），所以渲染层统一成 <ul>，没有 .md-ol——不自己发明序号和上游打架。 */
+.md-ul{margin:0 0 8px;padding-left:18px;list-style:disc;}
+.md-ul:last-child{margin-bottom:0;}
+.md-li{
+  font-size:13px;line-height:1.7;letter-spacing:.03em;color:var(--c-charcoal);
+  margin:0 0 3px;white-space:normal;overflow-wrap:anywhere;
+}
+.md-li:last-child{margin-bottom:0;}
+.md-li::marker{color:var(--c-stone);}
+
+/* --- 引用 --- */
+.md-quote{
+  margin:0 0 8px;padding:8px 11px;
+  border-left:2px solid var(--c-apricot);
+  background:rgba(232,178,125,.10);
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  font-size:12px;line-height:1.7;color:var(--c-gray);
+  white-space:normal;overflow-wrap:anywhere;
+}
+.md-quote:last-child{margin-bottom:0;}
+
+/* --- 代码块 / 行内代码 --- */
+.md-pre{
+  margin:0 0 8px;padding:10px 12px;
+  background:rgba(217,212,205,.22);
+  border:1px solid rgba(217,212,205,.8);
+  border-radius:var(--radius-sm);
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+}
+.md-pre:last-child{margin-bottom:0;}
+.md-code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11px;line-height:1.6;color:var(--c-charcoal);
+  white-space:pre;overflow-wrap:normal;
+}
+.md-codeinline{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11px;padding:1px 5px;border-radius:4px;
+  background:rgba(217,212,205,.34);color:var(--c-charcoal);
+}
+
+/* --- 表格：气泡窄，必须自己适配宽度，不能指望用户横滑 --- */
+.md-table-wrap{
+  margin:0 0 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  max-width:100%;border-radius:var(--radius-sm);
+}
+.md-table-wrap:last-child{margin-bottom:0;}
+.md-table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:11px;}
+.md-th,.md-td{
+  border:1px solid rgba(217,212,205,.85);
+  padding:5px 7px;text-align:left;vertical-align:top;
+  line-height:1.6;letter-spacing:.03em;color:var(--c-charcoal);
+  /* nowrap 会把「植物印花弧形布艺沙发（粗纺布艺软包材质）」这种长品名撑爆气泡，
+     第三列直接被切到屏幕外，看着像表格坏了。改成按词换行 + 强制断词，
+     表格永远缩在气泡宽度内。 */
+  white-space:normal;overflow-wrap:anywhere;word-break:break-word;
+}
+.md-th{background:rgba(217,212,205,.32);font-weight:400;letter-spacing:.08em;}
+.md-tbody .md-tr:nth-child(even) .md-td{background:rgba(247,244,239,.6);}
+
+/* --- 分割线 --- */
+.md-hr{margin:12px 0;border:none;border-top:1px solid var(--c-stone);}
+.md-hr:first-child,.md-hr:last-child{margin-top:0;margin-bottom:0;}
+
+/* --- 行内强调 --- */
+.md-strong{font-weight:500;color:var(--c-charcoal);}
+.md-em{font-style:normal;color:var(--c-apricot-ink);}
+.md-del{text-decoration:line-through;color:var(--c-gray);}
+
+/* --- 链接：杏色墨变体，不用浏览器默认蓝 --- */
+.md-a{color:var(--c-apricot-ink);text-decoration:none;border-bottom:1px solid rgba(201,113,43,.35);}
+.md-a:active{opacity:.7;}
+
+/* --- 图片（后端 instructions 不让输出图片，这里是兜底） --- */
+.md-img{max-width:100%;height:auto;border-radius:var(--radius-sm);margin:0 0 8px;background:rgba(217,212,205,.3);}
+.md-img[hidden]{display:none;}
+
+@media (prefers-reduced-motion: reduce){
+  .md-table-wrap,.md-pre{scroll-behavior:auto;}
+}
