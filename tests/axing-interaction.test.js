@@ -19,6 +19,7 @@
 //   B3 鼠标/触控板也能拖把手收起（触屏有隐式捕获，遮住了这个问题）
 //   B4 浮窗里写明「怎么收起」
 //   B5 试摆页「立即生成」在固定栏（Composer）以上，黄金路径不用滑
+//   B6 追问 chip 落在滚动区内，不被固定 Composer 挡住（真链路）
 //
 // ⚠️ 量坐标前必须等浮窗动画真的播完：is-open 是「先加 class 再播 0.15s 过渡」，
 //    class 一加上那一帧面板还在屏幕外（panelTop=634/844）。等 transform 收敛到
@@ -448,6 +449,42 @@ test('A8 生成中可「停止生成」', async ({ page }) => {
   });
   expect(inputState.readOnly).toBe(false);
   expect(inputState.placeholder).not.toContain('正在想');
+});
+
+test('B6 追问 chip 落在滚动区内，不被固定 Composer 挡住（真链路）', async ({ page }) => {
+  test.slow();                       // 真模型，和 S1 一样按十几秒算
+  await openHome(page);
+  await page.fill('#composerInput', '三千左右的布艺沙发');
+  await page.locator('#composerSend').click();
+  // streaming 和 typing 都必须消失才算答完：懒建的流式气泡在第一个 delta 前不存在，
+  // 只用「没有 streaming」判断会立刻 resolve（Agent F 踩过）。
+  await page.waitForFunction(() => {
+    const t = document.querySelector('#view-home .ax-msg--typing');
+    const s = document.querySelector('#view-home .ax-msg--streaming');
+    const stop = document.getElementById('composerStop');
+    return !t && !s && !(stop && stop.offsetParent !== null);
+  }, null, { timeout: 60000 });
+
+  const m = await page.evaluate(() => {
+    const row = document.querySelector('#view-home .ax-msg--ai:last-child');
+    const chip = row?.querySelector('.ax-msg__followups .chip');
+    if (!chip) return { chip: false };
+    const views = document.getElementById('views');
+    const c = chip.getBoundingClientRect();
+    const v = views.getBoundingClientRect();
+    const mid = document.elementFromPoint(c.left + c.width / 2, c.top + c.height / 2);
+    return {
+      chip: true,
+      overflow: Math.round(c.bottom - v.bottom),
+      hitSelf: !!mid && (chip === mid || chip.contains(mid)),
+    };
+  });
+  expect(m.chip, '这一轮没有产出追问 chip，测不到位置').toBe(true);
+  // 追问 chip 是刚长出来的可点东西，必须在滚动区内。曾经它被顶到 Composer 底下
+  // 63px——气泡里的 markdown 是异步画完继续长高的，append 时那次 scrollToEnd 滚的是
+  // 「还没有答案」的高度，而 ResizeObserver 的 <80px 防拽阈值到这一步已经放弃。
+  expect(m.overflow, `追问 chip 溢出滚动区 ${m.overflow}px（被固定 Composer 挡住）`).toBeLessThanOrEqual(0);
+  expect(m.hitSelf, '追问 chip 被别的东西盖住').toBe(true);
 });
 
 // ---------------------------------------------------------------- 真实链路冒烟

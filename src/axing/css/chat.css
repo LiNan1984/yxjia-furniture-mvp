@@ -28,6 +28,21 @@
 }
 @keyframes axcaret{0%,50%{opacity:1;}50.01%,100%{opacity:0;}}
 
+/* ---- 「猜您还想问」追问 chip（§1-7 样式二）----
+   放在气泡**下方另起一行**，不进气泡本体：气泡是阿杏说的话，chips 是给顾客的
+   引导动作，混在一起会让人以为是阿杏在自问自答。
+   .ax-msg__col 已经把最大宽度收到 78%，chips 自动换行，不会溢出气泡。 */
+.ax-msg__followups{
+  display:flex;flex-wrap:wrap;gap:7px;
+  margin-top:9px;max-width:100%;
+}
+/* 复用 .chip 基类，只把可点高度补到 44px（§1-4 老人最小可点区域） */
+.ax-msg__followups .chip{
+  min-height:44px;display:inline-flex;align-items:center;
+  padding:7px 12px;font-size:11px;letter-spacing:.04em;max-width:100%;
+}
+.ax-msg__followups .chip:active{border-color:var(--c-apricot);color:var(--c-apricot-ink);}
+
 /* ---- 停止生成键（§1-3）：与发送键同形，炭底奶字以区别"停止"---- */
 .ax-composer__stop{background:var(--c-charcoal);color:var(--c-cream);}
 .ax-composer__stop:active{opacity:.8;}
