@@ -222,9 +222,15 @@ export function mountUploadSheetBody(panel, ctx, opts = {}) {
   panel.appendChild(el('div.stack--sm', { style: 'margin-top:16px;' }, [camBtn, albumBtn]));
 
   // 已传过：重新拍照 / 直接去试摆
+  // ⚠️ 「直接去试摆」必须先收浮窗再跳。只 ctx.go() 的话浮窗还开着，蒙版会把整个
+  // 试摆页盖住——顾客点了「立即生成」实际点在蒙版/label 上，整条试摆链路就断了。
+  // 这是真实顾客旅程（示例房间 → 直接去试摆 → 立即生成）实测打断的地方。
   const roomRow = el('div.row', { hidden: true }, [
     el('button.btn.btn--ghost.grow', { text: '↻ 重新拍照', style: 'min-height:44px;', onclick: () => camInput.click() }),
-    el('button.btn.btn--apricot.grow', { text: '直接去试摆 →', style: 'min-height:44px;', onclick: () => ctx.go('view-tryon') }),
+    el('button.btn.btn--apricot.grow', { text: '直接去试摆 →', style: 'min-height:44px;', onclick: () => {
+      closeUploadSheet();
+      ctx.go('view-tryon');
+    } }),
   ]);
   panel.appendChild(roomRow);
 
