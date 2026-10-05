@@ -4309,6 +4309,21 @@ app.use('/api', (req, res) => {
   fail(res, 404, 'API 不存在');
 });
 
+// ---------- 进程级兜底：单个 rejection 不许搞垮整家店的服务 ----------
+// Node 22 默认对 unhandled rejection 直接退出进程。Express 4 又不接 async handler
+// 抛出的错（没有 wrapAsync），所以任何一个漏了 catch 的 async 都会变成 rejection。
+// 实测踩过：常量名写错（TRYON_ANON_LIMIT vs ANON_TRYON_LIMIT）让「匿名试摆打满限额」
+// 这条常规路径直接把进程搞崩，之后所有请求 ERR_CONNECTION_REFUSED，直到 systemd 重启。
+// 一家县城的店不能因为一个坏请求就整站 500。这里接住它、留堆栈，让该请求自己失败，
+// 其余请求照常服务。（真要继续退出， policing 交给 systemd 的 Restart=。）
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? `${reason.message}\n${reason.stack}` : String(reason);
+  console.error(`[fatal-guard] unhandled rejection（已接住，进程继续服务）\n${msg}`);
+});
+process.on('uncaughtException', (err) => {
+  console.error(`[fatal-guard] uncaught exception（已接住，进程继续服务）\n${err.stack || err}`);
+});
+
 if (process.env.NODE_ENV !== 'test') {
   // 启动时把 bucket 设为 public read（失败不阻塞，仅警告 → 走本地 fallback）
   ensureBucketPublic().catch(() => {});
