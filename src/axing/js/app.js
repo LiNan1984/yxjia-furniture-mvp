@@ -63,15 +63,18 @@ const ctx = {
   },
 };
 
+// v2.1 spec §70/§71「聊天窗口始终在页面上」：Composer 在几乎所有 view 都在场，
+// 只有 view-voice 让位——语音本身就是另一种聊天输入模态，全屏收音更不容易误触。
+const COMPOSER_HIDDEN_VIEWS = new Set(['view-voice']);
+
 function setActive(viewId) {
   $$('.view').forEach((v) => v.classList.toggle('active', v.id === viewId));
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === viewId));
   const section = document.getElementById(viewId);
   $('#topTitle').textContent = (section && section.dataset.title) || '阿杏';
   $('#backBtn').hidden = history.length === 0;
-  // v2.1 spec §70：Composer 只在 tab 级 view 出现，非 tab 的工作流页面让位给表单
   const phone = $('#phone');
-  if (phone) phone.dataset.composer = VIEWS[viewId] && VIEWS[viewId].tab ? 'on' : 'off';
+  if (phone) phone.dataset.composer = COMPOSER_HIDDEN_VIEWS.has(viewId) ? 'off' : 'on';
   const views = $('#views');
   if (views) views.scrollTop = 0;
 }
