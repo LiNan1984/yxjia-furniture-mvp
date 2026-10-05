@@ -92,10 +92,12 @@ export async function mount(root, ctx) {
       text: '想看你家摆上样子？点「拍照试摆」',
       style: 'margin:10px 0 0;',
     }));
+    // §1-2：上传改底部浮窗，不再跳全屏页。ctx.openUpload 未就绪时退回旧路由。
+    const toUpload = () => (typeof ctx.openUpload === 'function' ? ctx.openUpload() : ctx.go('view-upload'));
     b.appendChild(el('div.row', { style: 'margin-top:8px;flex-wrap:wrap;' }, [
       el('button.btn', {
         text: '📷 拍照试摆', style: 'min-height:44px;',
-        onclick: () => ctx.go('view-upload'),
+        onclick: toUpload,
       }),
       el('button.btn.btn--ghost', {
         text: '浏览家具', style: 'min-height:44px;',

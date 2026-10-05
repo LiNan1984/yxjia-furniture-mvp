@@ -145,12 +145,12 @@ export async function mount(root, ctx) {
     if (s.roomUrl) {
       upRow.appendChild(el('span.tiny', { text: s.roomName || '我家客厅' }));
       upRow.appendChild(el('button.btn.btn--ghost', {
-        text: '换一张', style: 'min-height:40px;padding:8px 14px;', onclick: () => ctx.go('view-upload'),
+        text: '换一张', style: 'min-height:40px;padding:8px 14px;', onclick: () => (ctx.openUpload ? ctx.openUpload() : ctx.go('view-upload')),
       }));
     } else {
       upRow.appendChild(el('span', { text: '还没有客厅照' }));
       upRow.appendChild(el('button.btn.btn--ghost', {
-        text: '去拍照', style: 'min-height:40px;padding:8px 14px;', onclick: () => ctx.go('view-upload'),
+        text: '去拍照', style: 'min-height:40px;padding:8px 14px;', onclick: () => (ctx.openUpload ? ctx.openUpload() : ctx.go('view-upload')),
       }));
     }
     if (s.productId) {
@@ -270,7 +270,7 @@ export async function mount(root, ctx) {
     }
     if (!room) {
       ctx.toast('先拍一张客厅照');
-      ctx.go('view-upload');
+      (ctx.openUpload ? ctx.openUpload() : ctx.go('view-upload'));
       return;
     }
 
@@ -375,7 +375,7 @@ export async function mount(root, ctx) {
       axingSay('先挑一件家具，再拍张客厅照，我就能摆给你看。'),
       el('div.stack--sm', { style: 'margin-top:12px;' }, [
         el('button.btn.btn--apricot.btn--lg.btn--block', { text: '去挑家具', onclick: () => ctx.go('view-products') }),
-        el('button.btn.btn--ghost.btn--block', { text: '去拍客厅照', onclick: () => ctx.go('view-upload') }),
+        el('button.btn.btn--ghost.btn--block', { text: '去拍客厅照', onclick: () => (ctx.openUpload ? ctx.openUpload() : ctx.go('view-upload')) }),
       ]),
     ]));
   }

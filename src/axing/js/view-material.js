@@ -182,7 +182,7 @@ export async function mount(root, ctx) {
   stack.appendChild(el('div.stack.stack--sm', {}, [
     axingSay('纠结的话，拍张照片问我，我按你家情况说。'),
     el('div.chip-row', {}, [
-      el('button.btn.btn--apricot', { type: 'button', text: '拍客厅照试摆', onclick: () => ctx.go('view-upload') }),
+      el('button.btn.btn--apricot', { type: 'button', text: '拍客厅照试摆', onclick: () => (ctx.openUpload ? ctx.openUpload() : ctx.go('view-upload')) }),
       el('button.btn.btn--ghost', { type: 'button', text: '语音问阿杏', onclick: () => ctx.go('view-voice') }),
     ]),
   ]));

@@ -1,4 +1,5 @@
 // 阿杏前端共享 UI 工具：view 模块（view-*.js）都从这里取工具，保证视觉与交互一致。
+import { renderMarkdown } from './markdown.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -82,14 +83,6 @@ export function icon(name, cls = 'ico') {
   return svg;
 }
 
-/** 阿杏说一句话（头像 + 气泡横排） */
-export function axingSay(text, opts = {}) {
-  return el('div.ax-row', {}, [
-    avatar(opts.small ? 'sm' : ''),
-    el('div.ax-bubble.grow', { text }),
-  ]);
-}
-
 /** 骨架块 */
 export function skeleton(style = '') {
   const s = el('div.skeleton');
@@ -97,7 +90,9 @@ export function skeleton(style = '') {
   return s;
 }
 
-/** 商品卡片（结构与 css 的 .p-card 对应） */
+/** 商品卡片（结构与 css 的 .p-card 对应）。
+ *  ops.speaker 默认 true——§2-4 要求阿杏代言的卡片左边都有头像；
+ *  传 false 可退回无头像的裸卡片（例如后台式的密集列表）。 */
 export function productCard(p, ops = {}) {
   const card = el('div.p-card');
   const imgWrap = el('div.p-card__img');
@@ -126,7 +121,9 @@ export function productCard(p, ops = {}) {
   body.appendChild(opsRow);
   card.appendChild(imgWrap);
   card.appendChild(body);
-  return card;
+  // 头像在卡片外侧左侧：不占卡片内 padding，也不挤压 1:1 主图
+  if (ops.speaker === false) return card;
+  return el('div.ax-card-ava.ax-card-ava--pcard', {}, [avatar('sm'), card]);
 }
 
 /** 事件总线（view 之间解耦） */
@@ -149,32 +146,58 @@ export function humanError(err) {
   return (err && err.message) || '出了点小问题，请再试一次';
 }
 
-/** 把常见 Markdown（加粗 / 列表 / 标题）安全地转成文本节点混排，防 XSS */
+/** Markdown → 安全 DOM 节点。实现从 markdown.js 来（ynet 引擎适配层，见 docs/阿杏交互规范 §4）。
+ *  这里只做薄封装：view 模块继续用 mdToNodes(md) 的老签名，不必知道底层换过引擎。
+ *  阿杏气泡里的 Markdown 由后端 GUIDE_INSTRUCTIONS 产出（标题 / 列表 / 引用 / 表格 / 粗体），
+ *  旧的「只认 **粗体** 和 - 列表」实现会把表格和标题原样漏出来，所以必须走完整解析器。 */
 export function mdToNodes(md) {
-  const frag = document.createDocumentFragment();
-  if (!md) return frag;
-  const lines = String(md).split('\n');
-  let list = null;
-  const flushList = () => { if (list) { frag.appendChild(list); list = null; } };
-  const inline = (text) => {
-    const span = el('span');
-    text.split(/(\*\*[^*]+\*\*)/g).forEach((part) => {
-      if (/^\*\*[^*]+\*\*$/.test(part)) span.appendChild(el('strong', { text: part.slice(2, -2) }));
-      else if (part) span.appendChild(document.createTextNode(part));
-    });
-    return span;
-  };
-  lines.forEach((line) => {
-    const t = line.trim().replace(/^#{1,6}\s*/, ''); // 剥 Markdown 标题符，纯展示
-    if (/^[-*·]\s+/.test(t)) {
-      if (!list) list = el('div', { style: 'padding-left:14px;' });
-      list.appendChild(el('div', { text: `· ${t.replace(/^[-*·]\s+/, '')}` }));
-      return;
+  return renderMarkdown(md);
+}
+
+/** 阿杏说一句话（头像 + 气泡横排，气泡内容走 Markdown 渲染） */
+export function axingSay(text, opts = {}) {
+  const row = el('div.ax-row', {}, [
+    avatar(opts.small ? 'sm' : ''),
+    el('div.ax-bubble.grow'),
+  ]);
+  row.lastChild.appendChild(mdToNodes(text));
+  return row;
+}
+
+/** 阿杏卡片（§2-4）：所有由阿杏产出/代言的卡片，左边都有阿杏头像。
+ *  opts = { title, desc?, icon?, tone?: 'apricot'|'stone', body?: Node[], trailing?: Node, onClick? }
+ *  头像在卡片**外侧左侧**，不占卡片内 padding；尺寸与聊天气线头像对齐（30px）。
+ *  trailing 放在标题行最右（例：› 箭头）。 */
+export function axingCard(opts = {}) {
+  const body = el('div.card__body');
+  if (opts.title || opts.trailing) {
+    const head = el('div.ax-card-ava__head');
+    if (opts.icon) {
+      head.appendChild(el(`div.ax-card-ava__ico.ax-card-ava__ico--${opts.tone || 'apricot'}`, {}, [icon(opts.icon)]));
     }
-    flushList();
-    if (!t) return;
-    frag.appendChild(el('div', {}, [inline(t)]));
+    const txt = el('div.grow', {}, [el('div.ax-card-ava__title', { text: opts.title || '' })]);
+    if (opts.desc) txt.appendChild(el('div.ax-card-ava__desc', { text: opts.desc }));
+    head.appendChild(txt);
+    if (opts.trailing) head.appendChild(opts.trailing);
+    body.appendChild(head);
+  }
+  (Array.isArray(opts.body) ? opts.body : [opts.body]).flat().forEach((n) => {
+    if (n != null && n !== false) body.appendChild(typeof n === 'string' ? el('p', { text: n }) : n);
   });
-  flushList();
-  return frag;
+  const card = el('div.card', {}, [body]);
+  const wrap = el('div.ax-card-ava', {}, [avatar('sm'), card]);
+  if (opts.onClick) {
+    card.classList.add('ax-card-ava__card--tap');
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', opts.onClick);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        opts.onClick(e);
+      }
+    });
+  }
+  return wrap;
 }

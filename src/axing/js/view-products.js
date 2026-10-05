@@ -151,7 +151,7 @@ export async function mount(root, ctx) {
     body.appendChild(el('div.stack--sm', { style: 'margin-top:16px;' }, [
       el('button.btn.btn--apricot.btn--lg.btn--block', {
         text: '📷 拍客厅照试摆',
-        onclick: () => ctx.go('view-upload'),
+        onclick: () => (ctx.openUpload ? ctx.openUpload() : ctx.go('view-upload')),
       }),
       el('button.btn.btn--lg.btn--block', {
         text: '◍ 3D 看看',
@@ -171,6 +171,8 @@ export async function mount(root, ctx) {
     const cards = new Map();
     const nodes = list.map((p) => {
       const card = productCard(p, {
+        // §2-4 / P5：商品卡是阿杏代言的，左边带阿杏头像
+        speaker: true,
         onDetail: () => {
           openId = openId === p.id ? null : p.id;
           render();
@@ -215,7 +217,7 @@ export async function mount(root, ctx) {
       el('div.stack--sm', { style: 'margin-top:12px;' }, [
         el('button.btn.btn--apricot.btn--lg.btn--block', {
           text: '📷 拍客厅照试摆',
-          onclick: () => ctx.go('view-upload'),
+          onclick: () => (ctx.openUpload ? ctx.openUpload() : ctx.go('view-upload')),
         }),
         el('button.btn.btn--lg.btn--block', {
           text: '◍ 3D 看看',

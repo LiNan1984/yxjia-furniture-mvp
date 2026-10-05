@@ -1,0 +1,136 @@
+/* ============================================================
+   cards.css — 阿杏卡片样式（交互规范 §2-4 / §2-5 / §5-2）
+   归属：Agent C（ui.js / view-home.js / view-voice.js / sheet-upload.js / view-upload.js）
+   规则：只管「阿杏产出的卡片」——头像前缀、「你可以这样问」沉底、
+        商品卡头像变体、底部浮窗内部内容、上次试摆卡。
+        不要碰 .md-*（markdown.css）和对话层（chat.css），不写死色值。
+   ============================================================ */
+
+/* ---- §2-4 阿杏卡片：头像在卡片外侧左侧，与聊天气线眼睛对齐（30px） ---- */
+.ax-card-ava{
+  display:flex;gap:10px;align-items:flex-start;
+}
+/* 头像固定 30px，不让卡片内容把它挤变形（.ax-avatar--sm 是 34px，这里收一档对齐气泡） */
+.ax-card-ava > .ax-avatar{width:30px;height:30px;font-size:10px;flex:0 0 auto;margin-top:2px;}
+.ax-card-ava > .card{flex:1;min-width:0;}
+
+/* 卡片内的标题行：小圆图标 + 标题/副标题 */
+.ax-card-ava__head{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+.ax-card-ava__head:last-child{margin-bottom:0;}
+.ax-card-ava__ico{
+  width:32px;height:32px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+}
+.ax-card-ava__ico svg{width:18px;height:18px;}
+.ax-card-ava__ico--apricot{background:rgba(232,178,125,.24);color:var(--c-apricot-ink);}
+.ax-card-ava__ico--stone{background:var(--c-stone);color:var(--c-charcoal);}
+.ax-card-ava__title{font-size:14px;letter-spacing:.06em;line-height:1.45;}
+.ax-card-ava__desc{font-size:11px;letter-spacing:.04em;color:var(--c-gray);margin-top:2px;line-height:1.6;}
+.ax-card-ava__card--tap{transition:transform .3s var(--ease);}
+.ax-card-ava__card--tap:active{transform:scale(.99);}
+
+/* ---- 上传客厅照卡：现在住在大头像卡里，去掉自己那层外框，只留内容 ---- */
+.ax-ucard__inner{display:block;width:100%;text-align:left;}
+.ax-ucard__head{display:flex;align-items:center;gap:10px;}
+.ax-ucard__ico{
+  width:38px;height:38px;border-radius:50%;flex:0 0 auto;
+  background:rgba(232,178,125,.24);color:var(--c-apricot-ink);
+  display:flex;align-items:center;justify-content:center;
+}
+.ax-ucard__ico svg{width:21px;height:21px;}
+.ax-ucard__title{font-size:15px;letter-spacing:.06em;line-height:1.4;}
+.ax-ucard__desc{font-size:11px;letter-spacing:.06em;color:var(--c-gray);margin-top:3px;line-height:1.6;}
+.ax-ucard__go{color:var(--c-stone);font-size:20px;font-weight:200;line-height:1;flex:0 0 auto;}
+.ax-ucard__body{display:flex;gap:8px;margin-top:11px;}
+.ax-ucard__main{
+  flex:1.35;min-width:0;border-radius:10px;overflow:hidden;aspect-ratio:2/1;
+  background:var(--c-stone);position:relative;
+}
+.ax-ucard__main img{width:100%;height:100%;object-fit:cover;}
+.ax-ucard__main figcaption{
+  position:absolute;left:0;right:0;bottom:0;padding:16px 10px 8px;
+  background:linear-gradient(to top,rgba(44,44,44,.62),rgba(44,44,44,0));
+  color:var(--c-cream);font-size:10px;letter-spacing:.14em;
+}
+.ax-samples{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+.ax-samples__label{font-size:10px;letter-spacing:.12em;color:var(--c-gray);line-height:1.4;}
+.ax-samples__grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.ax-sample{
+  aspect-ratio:1/1;border-radius:8px;overflow:hidden;padding:0;
+  border:1px solid rgba(217,212,205,.9);background:var(--c-stone);
+  transition:border-color .3s var(--ease);
+}
+.ax-sample img{width:100%;height:100%;object-fit:cover;}
+.ax-sample:active{border-color:var(--c-apricot);}
+.ax-ucard__hint{font-size:10px;letter-spacing:.1em;color:var(--c-gray);margin-top:8px;line-height:1.5;}
+
+/* ---- 上次试摆结果卡：图在标题行下面 ---- */
+.ax-card-ava .card__body > img{display:block;width:100%;height:132px;object-fit:cover;border-radius:var(--radius-sm);transition:height .3s;cursor:pointer;}
+
+/* ---- 商品卡头像变体（§2-5.1）：双列网格里头像占一格之外的空间 ---- */
+.ax-card-ava--pcard{gap:7px;}
+.ax-card-ava--pcard > .ax-avatar{width:24px;height:24px;font-size:9px;margin-top:0;}
+.ax-card-ava--pcard > .p-card{flex:1;min-width:0;}
+
+/* ---- 「你可以这样问」沉底（§1-7 样式一）---- */
+/* 沉到首页最底部后要和上面的内容拉开，并在折叠线附近给一条弱分割 */
+.ax-ask--bottom{margin-top:6px;padding-top:14px;border-top:1px solid rgba(217,212,205,.5);}
+.ax-ask--bottom .ax-ask__head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+.ax-ask--bottom .ax-ask__title{font-size:12px;letter-spacing:.1em;color:var(--c-charcoal);}
+/* chips 收紧一档：参考图那 4 条（现代简约沙发/三千左右的沙发/北欧风格/小户型沙发）
+   要在 390px 宽下一行放得下、不横滑。之前 padding:7px 11px + font-size:11px 会把
+   第 4 条挤出一半，所以左右内距降到 9px、字号 10.5px，留够 gap */
+.ax-ask--bottom .ax-ask__chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+.ax-ask--bottom .ax-ask__chips::-webkit-scrollbar{display:none;}
+.ax-ask--bottom .ax-ask__chips .chip{
+  padding:7px 9px;font-size:10.5px;letter-spacing:.02em;
+  min-height:44px;display:inline-flex;align-items:center;flex:0 0 auto;
+}
+
+/* ---- 四大功能四宫格 ---- */
+.ax-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.ax-quick__tile{
+  background:#fff;border:1px solid rgba(217,212,205,.7);border-radius:var(--radius);
+  box-shadow:var(--shadow-card);padding:9px 3px 8px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;
+  transition:transform .3s var(--ease);
+}
+.ax-quick__tile:active{transform:scale(.97);}
+.ax-quick__ico{
+  width:30px;height:30px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+}
+.ax-quick__ico svg{width:17px;height:17px;}
+.ax-quick__ico--apricot{background:rgba(232,178,125,.26);color:var(--c-apricot-ink);}
+.ax-quick__ico--stone{background:var(--c-stone);color:var(--c-charcoal);}
+.ax-quick__label{font-size:12px;letter-spacing:.08em;line-height:1.3;}
+.ax-quick__desc{font-size:9px;letter-spacing:.02em;color:var(--c-gray);line-height:1.35;}
+
+/* ---- hero（阿杏半身 + 问候）---- */
+.ax-hero{display:flex;gap:14px;align-items:flex-start;}
+.ax-hero__girl{
+  width:98px;height:98px;flex:0 0 auto;border-radius:22px;overflow:hidden;
+  background:linear-gradient(160deg,#FDF3E6,#F1D9BE);
+  box-shadow:0 6px 22px rgba(201,113,43,.16);
+}
+.ax-hero__girl img{width:100%;height:100%;object-fit:cover;object-position:top center;}
+.ax-hero__text{flex:1;min-width:0;padding-top:2px;}
+.ax-hero__title{font-size:22px;font-weight:300;letter-spacing:.03em;line-height:1.35;margin:0;}
+.ax-hero__title em{font-style:normal;color:var(--c-apricot-ink);font-weight:400;}
+.ax-hero__sub{font-size:11px;letter-spacing:.14em;color:var(--c-gray);margin-top:6px;}
+.ax-hero__intro{font-size:12px;line-height:1.75;letter-spacing:.03em;color:var(--c-gray);margin-top:10px;}
+
+/* ============================================================
+   底部浮窗内部（§5-2）
+   浮窗壳（.ax-sheet-root/.ax-sheet/.ax-sheet__grip）在 axing.css，这里只管浮窗里的内容。
+   ============================================================ */
+/* 浮窗里示例房间 chips 的缩略图可能缺失，onerror 会把它藏掉，别留空档 */
+.ax-sheet .chip-scroll .chip img[hidden]{display:none;}
+/* 房间预览图没有 roomUrl 时 stageImg.hidden=true，但全局 img{display:block}
+   会盖掉 UA 的 [hidden]{display:none}，会在白色 stage 左上角漏出「我的客厅」alt 文字。
+   和 CLAUDE.md §9 记的 Composer 按钮那条是同一类坑，必须显式补。 */
+.ax-sheet .stage img[hidden]{display:none;}
+/* 浮窗里的 stage 比全屏页矮一档，724px 上限内要塞下预览+两个按钮+示例+提示 */
+.ax-sheet .stage{aspect-ratio:4/3;}
+/* 浮窗里阿杏的话（axingSay）贴着自己的卡，不要再撑外边距 */
+.ax-sheet .ax-row{margin:0;}
