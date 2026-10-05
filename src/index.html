@@ -621,15 +621,19 @@ async function loadProducts() {
 }
 
 function setHeroImage() {
-  // 用主推沙发（sofa-1，缺省首张在售沙发）的真实图作为主推；回退到未删的实拍图
+  // ⚠️ hero 只能用 /images 下的静态图。原来这里直接拿主推商品的 image，而商品图存在
+  // MinIO 的 /uploads 下、是老板后台上传的原图——生产实测有一张 1.28MB 的 PNG，
+  // 按服务器约 16KB/s 的出口 120 秒都传不完，首页最好的一块位置等于永远是空的。
+  // 商品归商品卡用（那里有 alt、有占位、坏了也看得懂），hero 必须用我们控得住、
+  // 已经优化过的静态图。同一张图也仍是 sofa-1 的真机照，只是压到了 103KB。
   const hero = document.getElementById('heroImg');
+  if (!hero) return;
   const featured = PRODUCTS.find(p => p.id === 'sofa-1')
     || PRODUCTS.find(p => catOf(p) === 'sofa' && p.status !== '下架')
     || PRODUCTS[0];
-  if (!hero) return;
-  const fallback = '/images/sofa-tihua.jpg';
-  const target = (featured && featured.image) || fallback;
-  hero.onerror = () => { if (!hero.src.includes('/sofa-tihua.jpg')) hero.src = fallback; };
+  const local = featured && /^\/images\//.test(String(featured.image || '')) ? featured.image : null;
+  const target = local || '/images/sofa-tihua-hero.jpg';
+  hero.onerror = () => { if (!hero.src.includes('sofa-tihua-hero.jpg')) hero.src = '/images/sofa-tihua-hero.jpg'; };
   hero.src = target;
 }
 
