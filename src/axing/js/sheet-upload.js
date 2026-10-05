@@ -58,7 +58,10 @@ function bindShell() {
     }
   });
 
-  // 下拉把手取消：pointerdown 记起点，上滑超过 60px 即关。
+  // 下拉把手取消：pointerdown 记起点，**向下**拖超过 60px 即关。
+  // ⚠️ 方向必须是「下拉」（clientY 变大）。交互规范 §1-2 写的是「点击蒙版或下拉可直接
+  // 取消浮窗」，而这里原先判的是 startY - e.clientY > 60，也就是上滑——手势反了，
+  // 按规范去下拉的顾客什么都不会发生。而且往上拖 60px 指针就飞出面板顶边，本来就做不成。
   // 必须 setPointerCapture：监听器挂在 panel 上，而手指一旦拖到浮窗顶边之外，
   // pointermove 的 target 就变成蒙版了——触屏有隐式捕获所以看着是好的，
   // 笔记本触控板/鼠标拖拽全程收不到事件，把手完全失效（实测 Y5）。
@@ -77,7 +80,7 @@ function bindShell() {
     });
     panel.addEventListener('pointermove', (e) => {
       if (startY == null || (activePointer != null && e.pointerId !== activePointer)) return;
-      if (startY - e.clientY > 60) {
+      if (e.clientY - startY > 60) {
         startY = null;
         closeUploadSheet();
       }
@@ -202,7 +205,7 @@ async function fileFromUrl(url, name = 'room.jpg') {
  * @param {{chrome?: boolean}} [opts] chrome=false 时不画把手/标题（view-upload 适配器用）
  */
 export function mountUploadSheetBody(panel, ctx, opts = {}) {
-  const { el, axingSay } = ctx.ui;
+  const { el, icon, axingSay } = ctx.ui;
   const api = resolveApi(ctx);
   const offs = [];
   const on = (fn) => offs.push(fn);
@@ -241,8 +244,8 @@ export function mountUploadSheetBody(panel, ctx, opts = {}) {
   // 两个上传入口（label 包 input，点按钮就是开相机/相册）
   const camInput = fileInput(true, (f) => handleFile(f));
   const albumInput = fileInput(false, (f) => handleFile(f));
-  const camBtn = el('label.btn.btn--apricot.btn--lg.btn--block', {}, ['📷 拍一张客厅照', camInput]);
-  const albumBtn = el('label.btn.btn--lg.btn--block', {}, ['🖼 从相册选择', albumInput]);
+  const camBtn = el('label.btn.btn--apricot.btn--lg.btn--block', {}, [icon('camera'), '拍一张客厅照', camInput]);
+  const albumBtn = el('label.btn.btn--lg.btn--block', {}, [icon('image'), '从相册选择', albumInput]);
   panel.appendChild(el('div.stack--sm', { style: 'margin-top:16px;' }, [camBtn, albumBtn]));
 
   // 已传过：重新拍照 / 直接去试摆

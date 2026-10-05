@@ -294,7 +294,18 @@ export function initChat(ctx) {
     host.textContent = '';
     messages.forEach((m) => host.appendChild(messageNode(m)));
     if (typingEl) host.appendChild(typingEl);
-    scrollToEnd();
+    // 刚进店（只有阿杏播种的那句问候、顾客还没说过话）时**不要**滚到底。
+    // 时间线排在 hero / 上传卡 / 四大功能 / 「你可以这样问」的下面，一进来就
+    // scrollToEnd 会把上面全部顶出屏幕——实测 views.scrollTop=194，顾客第一眼看到的是
+    // 中间的对话气泡，反而看不到阿杏的脸和第一 CTA「上传客厅照片」。
+    // 顾客一旦说过话，这里就该滚到底（他在接着之前的聊）。
+    const started = messages.some((m) => m.role === 'user');
+    pinnedToBottom = started;
+    if (started) scrollToEnd();
+    else {
+      const views = document.getElementById('views');
+      if (views) views.scrollTop = 0;
+    }
     watchHostHeight();
   }
 

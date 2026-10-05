@@ -16,7 +16,7 @@
 // 第二波（2026-10-05 真实顾客实测补的洞）见文件末尾 describe('B · …')：
 //   B1 Composer 相册键直达上传浮窗，不自己弹系统相册
 //   B2 把手命中区 ≥44px（原来是 4px，粗手指点不到）
-//   B3 鼠标/触控板也能拖把手收起（触屏有隐式捕获，遮住了这个问题）
+//   B3 鼠标/触控板也能拖把手收起（触屏有隐式捕获，遮住了这个问题）；方向是下拉
 //   B4 浮窗里写明「怎么收起」
 //   B5 试摆页「立即生成」在固定栏（Composer）以上，黄金路径不用滑
 //   B6 追问 chip 落在滚动区内，不被固定 Composer 挡住（真链路）
@@ -579,12 +579,16 @@ test.describe('B · 上传浮窗与试摆主按钮（第二波实测洞）', () 
 
     // page.mouse 走的是无隐式指针捕获的那条路：拖出浮窗体后事件若不到把手，就关不掉。
     // 这正是 setPointerCapture 修的那条路径（触屏有隐式捕获，测不出来）。
+    // ⚠️ 方向必须是「下拉」（clientY 变大）。交互规范 §1-2 第 83 行写的是
+    // 「点击蒙版或下拉可直接取消浮窗」——iOS 底部浮窗的手势惯例也是下拉。
+    // 这条断言曾经写成上滑，跟着一个把方向做反的实现一起绿过；后来方向被改对，
+    // 测试就该红着提醒，而不是继续迁就错的实现。
     const grip = await page.locator('#sheetPanel .ax-sheet__grip').boundingBox();
     expect(grip, '量不到把手').not.toBeNull();
     const cy = grip.y + grip.height / 2;
     await page.mouse.move(grip.x + grip.width / 2, cy);
     await page.mouse.down();
-    await page.mouse.move(grip.x + grip.width / 2, cy - 90, { steps: 10 });
+    await page.mouse.move(grip.x + grip.width / 2, cy + 90, { steps: 10 });
     await page.mouse.up();
     await page.waitForFunction(
       () => !document.getElementById('sheetRoot')?.classList.contains('is-open'),
