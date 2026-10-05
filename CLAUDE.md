@@ -26,7 +26,7 @@
 | 语音导购 | 阶跃 **StepAudio 3 Realtime**（限免，开放平台路径 `/v1`）+ StepAudio 2.5 ASR/TTS 兜底（Step Plan） | `/api/voice/realtime` 实时全双工（默认，env `STEP_RT_MODEL`）；`/api/voice/ask` 一次性兜底 |
 | 前端 | 单 HTML + 原生 CSS | 不引任何前端框架 |
 | 设计 | Apple HIG + 极简两色调 | 深咖 #3a2818 + 奶白 #faf6ef |
-| 测试 | Playwright (Node 48 + Python 23) | 共 71 测试 |
+| 测试 | Playwright 408 全绿（1 skip）+ Python 23 | 顾客/店主 7 条动线各自独立端口 |
 
 ---
 
@@ -473,12 +473,36 @@ src/axing/
 ./node_modules/.bin/playwright test tests/axing-journey.test.js      # 14 个（3460）：四条真实顾客旅程 + 浮窗模态与出路
 ./node_modules/.bin/playwright test tests/markdown.spec.js           # 5 个（3425）：Markdown 渲染
 node src/axing/tests/markdown.smoke.mjs                              # 45 断言（不在 playwright testDir 里，要手跑）
+
+# 真实顾客 / 真实店主动线（7 组 agent team 分区交付，各自 spawn 专属端口，见下表）
+./node_modules/.bin/playwright test tests/e2e-customer-firstvisit.test.js   # 17（3510）县城老人第一次进店
+./node_modules/.bin/playwright test tests/e2e-customer-tryon.test.js        # 21（3533）拍照试摆主链路
+./node_modules/.bin/playwright test tests/e2e-customer-chat.test.js         # 22（3512）任何页面发消息都看得见
+./node_modules/.bin/playwright test tests/e2e-customer-voice-booking.test.js # 27（3513）语音 → 预约 → 店主闭环
+./node_modules/.bin/playwright test tests/e2e-customer-3d-plans.test.js      # 22（3514）3D 台 + 我的方案
+./node_modules/.bin/playwright test tests/markdown-render.spec.js           # 44（3515）Markdown 渲染与 XSS
+./node_modules/.bin/playwright test tests/e2e-customer-main-site.test.js     # 17（3517）主站顾客动线（/，不是 /axing）
+./node_modules/.bin/playwright test tests/e2e-admin-shop-owner.test.js       # 52（3516）后台店主动线
+
 ./node_modules/.bin/playwright test                                  # 全量
 ```
 
-**全量一定要加 `--workers=1`**：这棵树是多会话共享的，`playwright.config.js` 的 webServer 抢 3000 端口，并行跑会互相打死对方的 server（报 `Process from config.webServer was not able to start` / `ERR_CONNECTION_REJECTED` 的假失败）。跑之前先 `node --check src/server.js`——别会话改出的语法错误会造一批假红。
+**当前全量基线：`408 passed / 1 skipped / 0 failed`**（2026-10-05 第三波 agent team 之后）。跑全量约 6 分钟。
+**全量一定要 `--workers=1`**（config 里已是 `fullyParallel:false, workers:1`，但别被人改成并行）：这棵树是多会话共享的，`playwright.config.js` 的 webServer 抢 3000 端口，并行跑会互相打死对方的 server（报 `Process from config.webServer was not able to start` / `ERR_CONNECTION_REJECTED` 的假失败）。跑之前先 `node --check src/server.js`——别会话改出的语法错误会造一批假红。
 
-**Axing 五件套 = 8 + 23 + 17 + 14 + 11 = 73 条**（另有 D/E/F 组的 `tests/e2e-customer-*.test.js` 是别组交付的，跑全量时一起过）。`tests/api.test.js` 早前那 10 条红是 `data/products.json` 被整体覆盖丢掉 `sofa-1`/`table-1` 的数据债，已由 `1a51d0d`/`9e90327` 修好——**判别是不是数据债的方法：`git stash` 后单跑同样红，就是债不是回归**。
+**端口分配（写新测试照这个来，别抢）**：3000=全量 webServer；3100/3412/3420/3425/3430/3460=既有阿杏套件；3510-3517=七组顾客/店主动线。**每个测试文件自己 `spawn('node',['src/server.js'],{env:{PORT}})` 并轮询 `/api/products` 就绪**，不要复用 playwright.config.js 的 3000。
+
+`tests/api.test.js` 早前那 10 条红是 `data/products.json` 被整体覆盖丢掉 `sofa-1`/`table-1` 的数据债，已由 `1a51d0d`/`9e90327` 修好——现在全绿。**判别是不是数据债的方法：`git stash` 后单跑同样红，就是债不是回归**。
+
+**第三波 agent team 修掉的 8 个真 bug**（都已由测试守着，别改回）：
+① `server.js` 常量名拼错（`TRYON_ANON_LIMIT` vs `ANON_TRYON_LIMIT`）→ 匿名试摆打满限额就 ReferenceError → Express 4 不接 async 异常 → Node 22 退出进程 → 全站 500（`5003ed2` 另加了 `unhandledRejection` 进程级兜底）；
+② 3D 台 WebGL 起不来时兜底被自己 `hint.remove()` 删掉，只剩空白框；
+③ 对话时间线排在 chips/拨打按钮**之前**，`scrollToEnd()` 后最新气泡被顶到折叠线以上 96~127px——顾客亲口问的那句他自己看不见；
+④ 异步 markdown 渲染后内容又长高、无补偿滚动（`ResizeObserver` 兜底，注意 pin 判据不能用距离阈值）；
+⑤ 后台 5 个预约筛选按钮全是装饰（`filter` 从没拼进请求）；
+⑥ 后台分组头把「桶个数」当人数，凭空冒出「其他1人」；
+⑦ `GET /api/products?all=1` 零鉴权返回含下架商品——一条 curl 就能看到压着不卖的库存与价格；
+⑧ 主站合成彻底失败时把英文技术文案直接摆给顾客，没有门店电话也没有拨号按钮。
 
 ### 阿杏改前端必须知道的四个坑
 
