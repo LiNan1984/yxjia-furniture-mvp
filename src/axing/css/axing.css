@@ -348,7 +348,7 @@ img{display:block;max-width:100%;}
 .ax-hero__sub{font-size:11px;letter-spacing:.14em;color:var(--c-gray);margin-top:6px;}
 .ax-hero__intro{
   font-size:12px;line-height:1.75;letter-spacing:.03em;color:var(--c-gray);
-  margin-top:10px;
+  margin-top:8px;
 }
 
 /* ---- 聊天时间线 ---- */
@@ -432,24 +432,6 @@ img{display:block;max-width:100%;}
 .ax-ask__chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
 .ax-ask__chips::-webkit-scrollbar{display:none;}
 
-/* ---- 四大功能入口 ---- */
-.ax-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-.ax-quick__tile{
-  background:#fff;border:1px solid rgba(217,212,205,.7);border-radius:var(--radius);
-  box-shadow:var(--shadow-card);padding:9px 3px 8px;
-  display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;
-  transition:transform .3s var(--ease);
-}
-.ax-quick__tile:active{transform:scale(.97);}
-.ax-quick__ico{
-  width:30px;height:30px;border-radius:50%;flex:0 0 auto;
-  display:flex;align-items:center;justify-content:center;
-}
-.ax-quick__ico svg{width:17px;height:17px;}
-.ax-quick__ico--apricot{background:rgba(232,178,125,.26);color:var(--c-apricot-ink);}
-.ax-quick__ico--stone{background:var(--c-stone);color:var(--c-charcoal);}
-.ax-quick__label{font-size:12px;letter-spacing:.08em;line-height:1.3;}
-.ax-quick__desc{font-size:9px;letter-spacing:.02em;color:var(--c-gray);line-height:1.35;}
 
 /* ---- Composer（聊天输入栏，永远在 Tab 上方） ---- */
 .ax-composer{

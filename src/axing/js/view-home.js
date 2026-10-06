@@ -1,5 +1,5 @@
 // view-home.js — 阿杏首页「聊天优先」单屏（视觉基准：docs/最新首页图.png）
-// 结构（从上到下）：hero → 上传客厅照卡 → 上次试摆 → 四大功能 → 聊天时间线 → 你可以这样问（沉底）→ 打给店里
+// 结构（从上到下）：hero → 上传客厅照卡 → 上次试摆 → 你可以这样问（沉底）→ 打给店里 → 聊天时间线
 // 约定：export async function mount(root, ctx)，返回 cleanup；样式只取 css/axing.css + cards.css 的 .ax-* 类。
 //
 // 时间线不归本文件：聊天气泡由 app shell 级的 chat-core.js 持有（交互规范 §1-6 常驻对话），
@@ -21,14 +21,6 @@ const ASKS = [
   '茶几和沙发怎么搭配', '实木家具会不会太老气',
 ];
 const ASK_BATCH = 4;
-
-/** 四大功能（参考图四宫格，顺序固定） */
-const QUICK = [
-  { go: 'view-upload', icon: 'camera', tone: 'apricot', label: '拍照试摆', desc: '把家具搬进你家' },
-  { go: 'view-voice', icon: 'mic', tone: 'stone', label: '语音导购', desc: '说出你的需求' },
-  { go: 'view-products', icon: 'sofa', tone: 'stone', label: '浏览家具', desc: '沙发 / 床 / 柜子' },
-  { go: 'view-plans', icon: 'spark', tone: 'apricot', label: '我的方案', desc: '看过的都在这' },
-];
 
 /** 示例客厅兜底图：品类示例图缺失时先退到这里，再失败才换文字占位 */
 const ROOM_FALLBACK = '/images/default-room.jpg';
@@ -195,19 +187,6 @@ function askBlock(ctx) {
   ]);
 }
 
-/** 四大功能入口（参考图四宫格） */
-function quickBlock(ctx, goView) {
-  const { el, icon } = ctx.ui;
-  return el('div.ax-quick', {}, QUICK.map((q) => el('button.ax-quick__tile', {
-    type: 'button',
-    onclick: () => goView(q.go),
-  }, [
-    el(`div.ax-quick__ico.ax-quick__ico--${q.tone}`, {}, [icon(q.icon)]),
-    el('div.ax-quick__label', { text: q.label }),
-    el('div.ax-quick__desc', { text: q.desc }),
-  ])));
-}
-
 // ---------------------------------------------------------------- 上次试摆结果
 
 /** 「上次试摆结果」小卡：点一下展开大图，再点收起。§2-4：带头像前缀。 */
@@ -250,17 +229,20 @@ export async function mount(root, ctx) {
   root.appendChild(stack);
 
   // ---------- hero：阿杏半身 + 问候 ----------
+  // 介绍语必须待在 .ax-hero__text 里（标题 / 副标题下面）。放在 hero 外面当全宽孤段时，
+  // 头像 98px 比右栏（标题 30 + 副标题 25 ≈ 56px）高出一截，右栏下沿空出 42px，
+  // 紧跟一条通栏段落——视觉上那句话是"飘"在旁边的，和头像脱节（顾客实测反馈排版乱）。
   stack.appendChild(el('div', {}, [
     el('div.ax-hero', {}, [
       axingHero(),
       el('div.ax-hero__text', {}, [
         el('h1.ax-hero__title', {}, ['你好，我是', el('em', { text: '阿杏' }), '～']),
         el('div.ax-hero__sub', { text: '银杏家具 · AI 家居导购助手' }),
+        el('p.ax-hero__intro', {
+          text: '我是提前把家具搬到你家的 AI 助手。把家具先搬进你家看看，再决定要不要。',
+        }),
       ]),
     ]),
-    el('p.ax-hero__intro', {
-      text: '我是提前把家具搬到你家的 AI 助手。把家具先搬进你家看看，再决定要不要。',
-    }),
   ]));
 
   // ---------- 上传客厅照卡（第一 CTA）----------
@@ -287,9 +269,6 @@ export async function mount(root, ctx) {
   addCleanup(ctx.on('state:changed', (s) => {
     if (s.lastTryonUrl && !tryonSlot.firstChild) renderTryon(s.lastTryonUrl);
   }));
-
-  // ---------- 四大功能（不依赖任何数据，立即渲染）----------
-  stack.appendChild(quickBlock(ctx, goView));
 
   // ---------- 你可以这样问（沉底，交互规范 §1-7 样式一）----------
   stack.appendChild(askBlock(ctx));

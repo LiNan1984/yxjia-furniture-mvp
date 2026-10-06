@@ -236,13 +236,12 @@ test.describe('C1 第一眼', () => {
     expect(addr.opacity, '极小字不该隐到看不清').toBeGreaterThan(0.5);
   });
 
-  test('C1.3 第一屏就能看到「上传客厅照片」和四个功能，不用先滚屏', async ({ page }) => {
+  test('C1.3 第一屏就能看到「上传客厅照片」和推荐问题，不用先滚屏', async ({ page }) => {
     await openHome(page);
-    for (const sel of ['.ax-ucard__title', '.ax-quick__tile', '.ax-ask__chips .chip']) {
+    // 四宫格快捷入口已按顾客反馈删除，第一屏守的是第一 CTA（上传卡）+ 「你可以这样问」chips。
+    for (const sel of ['.ax-ucard__title', '.ax-ask__chips .chip']) {
       expect(await visibleOnScreen(page, sel), `${sel} 应落在首屏内（老人不会主动滚屏）`).toBe(true);
     }
-    await expect(page.locator('.ax-quick__tile')).toHaveCount(4);
-    await expect(page.locator('.ax-quick__tile').nth(0)).toContainText('拍照试摆');
   });
 });
 
@@ -463,7 +462,8 @@ test.describe('C4 逛逛家具', () => {
     const errs = collectErrors(page);
     await openHome(page);
 
-    await page.locator('.ax-quick__tile', { hasText: '浏览家具' }).first().click();
+    // 四宫格已删，「浏览家具」改走底部 Tab「商品」（顾客的真实路径）
+    await page.locator('#tabbar .tab[data-view="view-products"]').click();
     await page.waitForFunction(() => document.getElementById('view-products')?.classList.contains('active'), null, { timeout: 15000 });
 
     // 等骨架卡换成真卡
@@ -497,7 +497,8 @@ test.describe('C4 逛逛家具', () => {
   test('C4.2 点一张商品卡 → 详情能看清价格和「我想要」', async ({ page }) => {
     const errs = collectErrors(page);
     await openHome(page);
-    await page.locator('.ax-quick__tile', { hasText: '浏览家具' }).first().click();
+    // 四宫格已删，「浏览家具」改走底部 Tab「商品」（顾客的真实路径）
+    await page.locator('#tabbar .tab[data-view="view-products"]').click();
     await page.waitForFunction(() => document.getElementById('view-products')?.classList.contains('active'), null, { timeout: 15000 });
     await page.waitForFunction(() => {
       const cards = Array.from(document.querySelectorAll('#view-products .p-card'));
@@ -535,7 +536,8 @@ test.describe('C4 逛逛家具', () => {
 
   test('C4.3 商品卡可点高度 ≥ 44px（老人手指粗）', async ({ page }) => {
     await openHome(page);
-    await page.locator('.ax-quick__tile', { hasText: '浏览家具' }).first().click();
+    // 四宫格已删，「浏览家具」改走底部 Tab「商品」（顾客的真实路径）
+    await page.locator('#tabbar .tab[data-view="view-products"]').click();
     await page.waitForFunction(() => document.getElementById('view-products')?.classList.contains('active'), null, { timeout: 15000 });
     await page.waitForFunction(() => document.querySelectorAll('#view-products .p-card').length > 0, null, { timeout: 20000 });
 
@@ -589,7 +591,8 @@ test.describe('C5 不生事', () => {
 
     await page.locator('.ax-ask__chips .chip').first().click();
     await waitAiReply(page);
-    await page.locator('.ax-quick__tile', { hasText: '浏览家具' }).first().click();
+    // 四宫格已删，「浏览家具」改走底部 Tab「商品」（顾客的真实路径）
+    await page.locator('#tabbar .tab[data-view="view-products"]').click();
     await page.waitForFunction(() => document.getElementById('view-products')?.classList.contains('active'), null, { timeout: 15000 });
     await page.waitForTimeout(1200);
     await page.evaluate(() => window.AXING.go('view-home'));
@@ -657,12 +660,13 @@ test.describe('C6 不让他干等', () => {
     const paint = await page.evaluate(() => ({
       ucard: document.querySelectorAll('#view-home .ax-ucard').length,
       chips: document.querySelectorAll('#view-home .ax-ask__chips .chip').length,
-      tiles: document.querySelectorAll('#view-home .ax-quick__tile').length,
+      // 介绍语是页面里唯一的静态文案，不依赖接口：删四宫格后由它充当「同帧首屏」的第二个见证
+      intro: document.querySelectorAll('#view-home .ax-hero__intro').length,
       call: document.querySelectorAll('#view-home a[href^="tel:"]').length,
     }));
     expect(paint.ucard, '上传客厅照卡（第一 CTA）应同帧出现，不等接口').toBe(1);
     expect(paint.chips, 'chips 不依赖接口，应立即渲染').toBeGreaterThanOrEqual(3);
-    expect(paint.tiles, '四大功能 tile 不依赖接口，应立即渲染').toBe(4);
+    expect(paint.intro, 'hero 介绍语不依赖接口，应立即渲染').toBe(1);
     expect(paint.call, '打给店里兜底按钮应立即渲染').toBeGreaterThanOrEqual(1);
     expect(errs.pageErrors).toEqual([]);
   });

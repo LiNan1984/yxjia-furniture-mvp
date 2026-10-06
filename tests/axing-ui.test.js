@@ -12,7 +12,7 @@
 //   F 老人友好            —— 项目铁律（爸妈能直接用的界面）：≥44px 可点高度 + 无障碍标签
 // 断言目标选择器全部来自已定稿契约：
 //   src/axing/css/axing.css（.ax-hero* / .ax-msg* / .ax-ucard* / .ax-samples* /
-//                            .ax-sample / .ax-ask* / .ax-quick* / .ax-composer*）、
+//                            .ax-sample / .ax-ask* / .ax-composer*）、
 //   src/axing/index.html（#composer / #composerInput / #composerSend / #composerImage /
 //                         #composerVoice / #composerPlus / #phone[data-composer]）、
 //   src/axing/js/app.js（window.AXING.go / state / appendChat / emit / on）。
@@ -45,8 +45,10 @@ const COMPOSER_ALWAYS_VIEWS = [
   'view-home', 'view-upload', 'view-products', 'view-tryon', 'view-3d',
   'view-material', 'view-booking', 'view-plans', 'view-me',
 ];
-// §70 布局顺序：功能按钮必须落在 Chat（时间线）之后、Input（Composer）之前
-const ORDER_SELECTORS = ['.ax-timeline', '.ax-quick', '#composer'];
+// §70 布局顺序：「你可以这样问」必须落在 Chat（时间线）之后、Input（Composer）之前
+// （四宫格快捷入口已于 2026-10 按顾客实测反馈删除，四个功能改由底部 Tab / Composer 话筒与相册键 /
+//   首页第一 CTA 上传卡承接，不再需要独立入口。）
+const ORDER_SELECTORS = ['.ax-ask--bottom', '.ax-timeline', '#composer'];
 
 let serverProc = null;
 
@@ -207,14 +209,38 @@ test.describe('A · 首页视觉结构（§70 / 视觉基准）', () => {
     expect(changed, `点「换一换」后建议问题应变化（点之前是：${before.join(' / ')}）`).toBe(true);
   });
 
-  test('A5 四大功能 tile 恰好 4 个，标签为 拍照试摆/语音导购/浏览家具/我的方案', async ({ page }) => {
-    const tiles = page.locator('.ax-quick__tile');
-    await expect(tiles, '四大功能入口应为 .ax-quick__tile ×4').toHaveCount(4);
-    const labels = (await tiles.allInnerTexts()).map((t) => t.replace(/\s+/g, ''));
-    expect(labels[0], '第 1 个功能应是「拍照试摆」').toContain('拍照试摆');
-    expect(labels[1], '第 2 个功能应是「语音导购」').toContain('语音导购');
-    expect(labels[2], '第 3 个功能应是「浏览家具」').toContain('浏览家具');
-    expect(labels[3], '第 4 个功能应是「我的方案」').toContain('我的方案');
+  test('A5 hero 介绍语收在标题栏里，不飘成全宽孤段', async ({ page }) => {
+    // 顾客实测反馈：介绍语原先放在 .ax-hero 外面当全宽段落，而头像 98px 比右栏
+    // （标题 30 + 副标题 25 ≈ 56px）高一截，右栏下沿空出约 42px，紧跟一条通栏段落——
+    // 那句话看着是"飘"在旁边的、和头像脱节，顾客原话「排版好乱」。
+    // 现在它必须是 .ax-hero__text 里紧跟副标题的那一段，宽度等于右栏而不是通栏。
+    const r = await page.evaluate(() => {
+      const col = document.querySelector('.ax-hero__text');
+      const sub = document.querySelector('.ax-hero__sub');
+      const intro = document.querySelector('.ax-hero__intro');
+      if (!intro) return { missing: true };
+      return {
+        missing: false,
+        insideCol: col ? col.contains(intro) : false,
+        width: Math.round(intro.getBoundingClientRect().width),
+        colWidth: col ? Math.round(col.getBoundingClientRect().width) : null,
+        afterSub: Boolean(sub && sub.compareDocumentPosition(intro) & Node.DOCUMENT_POSITION_FOLLOWING),
+        text: (intro.textContent || '').trim(),
+      };
+    });
+    expect(r.missing, '首页应有 hero 介绍语（.ax-hero__intro）').toBe(false);
+    expect(r.insideCol, '介绍语应待在 hero 右栏 .ax-hero__text 里，而不是 hero 外的通栏孤段').toBe(true);
+    expect(r.afterSub, '介绍语应排在「银杏家具 · AI 家居导购助手」下面').toBe(true);
+    expect(r.width, `介绍语宽度应等于右栏宽（${r.colWidth}px）而不是通栏`).toBe(r.colWidth);
+    expect(r.text, '介绍语应讲清「提前把家具搬到你家的」这个定位').toContain('提前把家具搬到你家的');
+  });
+
+  test('A5b 首页没有四宫格快捷入口（2026-10 按顾客反馈删除）', async ({ page }) => {
+    // 四宫格四个功能全部有替代入口：拍照试摆=首页第一 CTA 上传卡 + Composer 相册键、
+    // 语音导购=Composer 话筒键、浏览家具=底部 Tab「商品」、我的方案=底部 Tab「方案」。
+    // 删掉是因为四宫格把上传卡和「你可以这样问」隔开、且 9px 的副标题对老人没有信息量。
+    const count = await page.locator('.ax-quick__tile').count();
+    expect(count, '首页不应再有 .ax-quick__tile（四宫格已删，入口走 Tab / Composer / 上传卡）').toBe(0);
   });
 
   test('A6 首页无 emoji 占位（铁律：真实图标，不用 emoji）', async ({ page }) => {
@@ -254,12 +280,12 @@ test.describe('B · 核心不变式（§70.1）', () => {
     expect(state.display, '语音页是全屏收音，Composer 应收起（不是 flex）').not.toBe('flex');
   });
 
-  test('B2 对话流贴在输入框上方（quick → ask → timeline → composer），滚到底最新消息必须在屏内', async ({ page }) => {
+  test('B2 对话流贴在输入框上方（ask → timeline → composer），滚到底最新消息必须在屏内', async ({ page }) => {
     const r = await rectsOf(page, ORDER_SELECTORS);
     for (const s of ORDER_SELECTORS) {
       expect(r[s], `布局顺序断言需要 ${s} 存在（axing.css 已定义该类）`).not.toBeNull();
     }
-    // (1) 文档顺序：上传卡/四大功能 → 「你可以这样问」→ 打给店里 → **对话时间线** → Composer。
+    // (1) 文档顺序：上传卡 → 「你可以这样问」→ 打给店里 → **对话时间线** → Composer。
     // 依据 docs/最新首页图.png：对话气泡沉在底部、贴着输入框。
     // 为什么时间线必须是**最后一项**（连「打给店里」之后）：chat-core 每次新消息都执行
     // views.scrollTop = views.scrollHeight，滚到的是文档底。时间线原先排在 chips 上面，
@@ -268,18 +294,15 @@ test.describe('B · 核心不变式（§70.1）', () => {
     // （C 组 10 条测试全红、100% 复现。交互规范 §1-6 说「时间线贴在 Composer 上方」，
     //   那就只能是最后一项，不能是倒数第三项。）
     const domOrder = await page.evaluate(() => {
-      const q = document.querySelector('.ax-quick');
       const t = document.querySelector('.ax-timeline');
       const a = document.querySelector('.ax-ask--bottom');
       const c = document.getElementById('composer');
       const before = (x, y) => Boolean(x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING);
       return {
-        quickBeforeAsk: !!(q && before(q, a)),
         askBeforeTimeline: !!(a && before(a, t)),
         timelineBeforeComposer: !!(t && before(t, c)),
       };
     });
-    expect(domOrder.quickBeforeAsk, '四大功能按钮应排在「你可以这样问」之前').toBe(true);
     expect(domOrder.askBeforeTimeline, '「你可以这样问」应排在对话时间线之前（时间线必须沉到最底）').toBe(true);
     expect(domOrder.timelineBeforeComposer, '对话时间线应是最后一项、紧贴 Composer').toBe(true);
 
@@ -308,18 +331,18 @@ test.describe('B · 核心不变式（§70.1）', () => {
     });
     expect(vis.inView, `滚到底后最新气泡应在 #views 视口内（last.top=${vis.lastTop.toFixed(0)} / views=${vis.viewTop.toFixed(0)}..${vis.viewBottom.toFixed(0)}）`).toBe(true);
 
-    // (4) 滚到底后四大功能仍整体落在 Composer 上方、不被盖住。
+    // (4) 滚到底后「你可以这样问」仍整体落在 Composer 上方、不被盖住。
     const bottom = await rectsOf(page, ORDER_SELECTORS);
-    expect(bottom['.ax-quick'].bottom, `滚到底后四大功能按钮仍被输入框压住/落在其下（quick.bottom=${bottom['.ax-quick'].bottom.toFixed(0)} / composer.top=${bottom['#composer'].top.toFixed(0)}）`)
+    expect(bottom['.ax-ask--bottom'].bottom, `滚到底后「你可以这样问」仍被输入框压住/落在其下（ask.bottom=${bottom['.ax-ask--bottom'].bottom.toFixed(0)} / composer.top=${bottom['#composer'].top.toFixed(0)}）`)
       .toBeLessThanOrEqual(bottom['#composer'].top + 1);
   });
 
-  test('B3 「上传客厅照片」卡排在四大功能按钮之前（第一业务 CTA）', async ({ page }) => {
-    const r = await rectsOf(page, ['.ax-ucard', '.ax-quick']);
+  test('B3 「上传客厅照片」卡排在「你可以这样问」之前（第一业务 CTA）', async ({ page }) => {
+    const r = await rectsOf(page, ['.ax-ucard', '.ax-ask--bottom']);
     expect(r['.ax-ucard'], '需要 .ax-ucard 存在').not.toBeNull();
-    expect(r['.ax-quick'], '需要 .ax-quick 存在').not.toBeNull();
-    expect(r['.ax-ucard'].bottom, '上传客厅照卡应在四大功能按钮上方（§70.1 第一业务 CTA）')
-      .toBeLessThanOrEqual(r['.ax-quick'].top + 1);
+    expect(r['.ax-ask--bottom'], '需要 .ax-ask--bottom 存在').not.toBeNull();
+    expect(r['.ax-ucard'].bottom, '上传客厅照卡应在「你可以这样问」上方（§70.1 第一业务 CTA）')
+      .toBeLessThanOrEqual(r['.ax-ask--bottom'].top + 1);
   });
 });
 
@@ -367,7 +390,7 @@ test.describe('C · App shell 布局（390×844）', () => {
   test('C3 切 view 时 #views.scrollTop 归零', async ({ page }) => {
     await page.evaluate(() => { document.getElementById('views').scrollTop = 99999; });
     const scrolled = await page.evaluate(() => document.getElementById('views').scrollTop);
-    expect(scrolled, '首页内容应足够长以产生滚动（v2.1 首页信息量：hero + 时间线 + CTA + chips + 四大功能）').toBeGreaterThan(0);
+    expect(scrolled, '首页内容应足够长以产生滚动（v2.1 首页信息量：hero + 时间线 + CTA + chips）').toBeGreaterThan(0);
     await go(page, 'view-products');
     const top = await page.evaluate(() => document.getElementById('views').scrollTop);
     expect(top, '切 view 后滚动位置应归零（app.js setActive 里 views.scrollTop = 0）').toBe(0);
@@ -474,14 +497,12 @@ test.describe('E · 降级路径（§55 / §74）', () => {
     expect(naked, `以下是既没有文字也没有 alt 的裸破图：${JSON.stringify(naked)}。应像 ui.js 那样回退成文字说明`)
       .toEqual([]);
 
-    // §74「无论 WebGL 是否成功，用户都必须可以继续完成购买决策」：四大功能必须仍可点
-    const tiles = page.locator('.ax-quick__tile');
-    await expect(tiles, '示例图挂掉后四大功能 tile 仍应在场').toHaveCount(4);
-    const disabled = await tiles.evaluateAll((els) => els.filter((e) => e.disabled).length);
-    expect(disabled, '示例图挂掉后四大功能 tile 不应被禁用').toBe(0);
-    for (let i = 0; i < 4; i++) {
-      await expect(tiles.nth(i), `第 ${i + 1} 个功能 tile 在示例图挂掉后仍应可见可点`).toBeVisible();
-    }
+    // §74「无论 WebGL 是否成功，用户都必须可以继续完成购买决策」：首页主要入口必须仍可点
+    // 四宫格已删，现在守的是上传卡 + 底部 Tab + chips 这三类承接入口。
+    const entries = page.locator('#view-home .ax-ucard, #view-home .ax-ask__chips .chip, #tabbar .tab');
+    await expect(entries.first(), '示例图挂掉后首页主要入口仍应在场').toBeVisible();
+    const disabled = await entries.evaluateAll((els) => els.filter((e) => e.disabled).length);
+    expect(disabled, '示例图挂掉后首页主要入口不应被禁用').toBe(0);
   });
 
   test('E2 3D 页：WebGL 可用出 canvas，不可用给图片兜底文案', async ({ page }) => {
@@ -508,7 +529,7 @@ test.describe('F · 老人友好（≥44px 可点高度 + 无障碍标签）', (
 
   test('F1 可点元素高度 ≥ 44px（Apple HIG 最小可点区域）', async ({ page }) => {
     const groups = await page.evaluate(() => {
-      const sels = ['.ax-quick__tile', '.ax-ucard', '#view-home .chip', '.tab'];
+      const sels = ['.ax-ucard', '#view-home .chip', '.tab'];
       const out = [];
       sels.forEach((s) => {
         document.querySelectorAll(s).forEach((el, i) => {
@@ -518,7 +539,7 @@ test.describe('F · 老人友好（≥44px 可点高度 + 无障碍标签）', (
       });
       return out;
     });
-    expect(groups.length, '一个都没量到：.ax-quick__tile / .ax-ucard / #view-home .chip / .tab 应至少各有一个').toBeGreaterThan(0);
+    expect(groups.length, '一个都没量到：.ax-ucard / #view-home .chip / .tab 应至少各有一个').toBeGreaterThan(0);
     const tooSmall = groups.filter((g) => g.h < 44);
     expect(tooSmall, `以下可点元素高度不足 44px（老人手指粗）：${JSON.stringify(tooSmall)}`).toEqual([]);
   });
@@ -540,11 +561,11 @@ test.describe('F · 老人友好（≥44px 可点高度 + 无障碍标签）', (
 // G. 首屏不排队等 API（生产回归守门员）
 // ============================================================================
 test.describe('G · 首屏不阻塞', () => {
-  test('G1 两个 API 被拖慢时，上传卡 / chips / 四大功能仍与 hero 同帧出现', async ({ page }) => {
+  test('G1 两个 API 被拖慢时，上传卡 / chips 仍与 hero 同帧出现', async ({ page }) => {
     test.slow();
     // 复现生产的真实情形：/api/categories + /api/products 慢几秒。
-    // 上传卡要等这两个请求填图，但 chips 与四大功能不依赖任何数据——
-    // 曾经 await 上传卡，把这两块一起堵到首屏外，生产首屏缺一两秒。
+    // 上传卡要等这两个请求填图，但 chips 不依赖任何数据——
+    // 曾经 await 上传卡，把这一块一起堵到首屏外，生产首屏缺一两秒。
     const DELAY = 4000;
     for (const path of ['**/api/categories', '**/api/products']) {
       await page.route(path, async (route) => {
@@ -559,13 +580,11 @@ test.describe('G · 首屏不阻塞', () => {
       ucard: document.querySelectorAll('#view-home .ax-ucard').length,
       ucardTitle: (document.querySelector('.ax-ucard__title') || {}).textContent || '',
       chips: document.querySelectorAll('#view-home .ax-ask__chips .chip').length,
-      tiles: document.querySelectorAll('#view-home .ax-quick__tile').length,
       callBtn: document.querySelectorAll('#view-home a[href^="tel:"]').length,
     }));
     expect(paint.ucard, '上传客厅照卡（第一 CTA）必须与 hero 同帧，不等 API').toBe(1);
     expect(paint.ucardTitle).toContain('上传客厅照片');
     expect(paint.chips, '「你可以这样问」chips 不依赖任何数据，应立即渲染').toBeGreaterThanOrEqual(3);
-    expect(paint.tiles, '四大功能 tile 不依赖任何数据，应立即渲染').toBe(4);
     expect(paint.callBtn, '打给店里兜底按钮应立即渲染').toBe(1);
   });
 
