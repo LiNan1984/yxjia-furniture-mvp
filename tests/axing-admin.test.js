@@ -52,13 +52,17 @@ async function customerCookie() {
   return r.cookie;
 }
 
+// 「今天」按**本地**日期算（toISOString 取的是 UTC，北京时间凌晨那几小时会和记录差一天）
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 function plusDays(n) {
   const d = new Date();
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
+  d.setDate(d.getDate() + n);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 async function createAppointment(over = {}) {

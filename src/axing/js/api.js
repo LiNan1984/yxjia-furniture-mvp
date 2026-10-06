@@ -20,6 +20,25 @@ async function parse(res) {
   return body.data !== undefined ? body.data : body;
 }
 
+// 这台浏览器的随机串，用来把「匿名试摆」和它的生成记录对上。
+// 没登录时 userPhone 是空的，生成记录对顾客就是不可见的——想回看「刚那次成没成、
+// 为什么」只能靠它。格式必须和服务端 normalizeAnonId 的正则一致：ax-anon-<hex>。
+const ANON_ID_KEY = 'ax-anon-id';
+export function getAnonId() {
+  try {
+    let v = localStorage.getItem(ANON_ID_KEY);
+    if (!v) {
+      const buf = new Uint8Array(12);
+      (window.crypto && crypto.getRandomValues) ? crypto.getRandomValues(buf) : buf.forEach((_, i) => { buf[i] = Math.floor(Math.random() * 256); });
+      v = `ax-anon-${Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+      localStorage.setItem(ANON_ID_KEY, v);
+    }
+    return v;
+  } catch {
+    return '';   // 隐私模式 / localStorage 被禁：不报错，就是少了回看能力
+  }
+}
+
 async function req(path, options = {}) {
   let res;
   try {
@@ -27,8 +46,7 @@ async function req(path, options = {}) {
   } catch {
     throw new ApiError('网络不给力，检查一下网络再试', 0);
   }
-  return parse(res);
-}
+  return parse(res);}
 
 function json(body) {
   return {
@@ -203,13 +221,17 @@ export const api = {
     if (extra.productId) fd.append('productId', extra.productId);
     return req('/api/upload/room', { method: 'POST', body: fd });
   },
-  // 匿名 AI 试摆（每 IP 每天 3 次）→ { product, compositionUrl, compositionBase64, aiError, demoType, preset, remaining }
+  // 匿名 AI 试摆（每 IP 每天 3 次）→ { product, compositionUrl, compositionBase64, aiError, demoType, resultInfo, preset, remaining }
   tryonAnon: ({ room, productId, prompt = '', preset = '' }) => {
     const fd = new FormData();
     fd.append('room', room);
     fd.append('productId', productId);
     if (prompt) fd.append('prompt', prompt);
     if (preset) fd.append('preset', preset);
+    // 匿名试摆也要能回看「我刚试成没有、为什么」：没登录时 userPhone 是空的，
+    // 记录就只挂在这个浏览器随机串上。它不是身份，拿不到别人的记录。
+    const anonId = getAnonId();
+    if (anonId) fd.append('anonId', anonId);
     return req('/api/tryon/ai-anon', { method: 'POST', body: fd });
   },
   // 下单（也用于「预约到店体验」）

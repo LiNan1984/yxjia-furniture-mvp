@@ -53,8 +53,19 @@ const get = (p, cookie) => raw('GET', p, { cookie });
 const post = (p, b, cookie) => raw('POST', p, { body: b, cookie });
 const patch = (p, b, cookie) => raw('PATCH', p, { body: b, cookie });
 
-function today() { return new Date().toISOString().slice(0, 10); }
-function plusDays(n) { const d = new Date(); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+// 「今天」按**本地**日期算。原来用 toISOString()（UTC）时，北京时间每天 00:00-08:00
+// 之间 UTC 还停在昨天，断言就和预约记录差一天，凌晨跑全量会假红。
+function today() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function plusDays(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 async function adminCookie() {
   const r = await post('/api/admin/login', ADMIN);

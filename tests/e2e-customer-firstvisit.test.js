@@ -561,7 +561,9 @@ test.describe('C5 不生事', () => {
 
     const report = await page.evaluate(() => {
       const out = [];
-      document.querySelectorAll('#view-home button, #view-home a[href], #view-home [role="button"]').forEach((n) => {
+      // 顶栏必须一起扫：正文里那个全宽大拨打按钮删掉后，右上角极小字是全站唯一拨号入口，
+      // 而它住在 app shell（.topbar）里，不在 #view-home 之内——只扫 view 会漏掉它。
+      document.querySelectorAll('#view-home button, #view-home a[href], #view-home [role="button"], .topbar button, .topbar a[href]').forEach((n) => {
         if (n.closest('[hidden]')) return;
         const cs = getComputedStyle(n);
         if (cs.display === 'none' || cs.visibility === 'hidden') return;
@@ -662,12 +664,13 @@ test.describe('C6 不让他干等', () => {
       chips: document.querySelectorAll('#view-home .ax-ask__chips .chip').length,
       // 介绍语是页面里唯一的静态文案，不依赖接口：删四宫格后由它充当「同帧首屏」的第二个见证
       intro: document.querySelectorAll('#view-home .ax-hero__intro').length,
-      call: document.querySelectorAll('#view-home a[href^="tel:"]').length,
+      // 「打给店里」按 §6 R6 只留在右上角极小字，首页正文不重复
+      call: document.querySelectorAll('.topbar__call[href^="tel:"]').length,
     }));
     expect(paint.ucard, '上传客厅照卡（第一 CTA）应同帧出现，不等接口').toBe(1);
     expect(paint.chips, 'chips 不依赖接口，应立即渲染').toBeGreaterThanOrEqual(3);
     expect(paint.intro, 'hero 介绍语不依赖接口，应立即渲染').toBe(1);
-    expect(paint.call, '打给店里兜底按钮应立即渲染').toBeGreaterThanOrEqual(1);
+    expect(paint.call, '右上角「打给店里」应立即渲染（静态 HTML，不等接口）').toBeGreaterThanOrEqual(1);
     expect(errs.pageErrors).toEqual([]);
   });
 

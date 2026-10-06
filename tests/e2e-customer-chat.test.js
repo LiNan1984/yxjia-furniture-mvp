@@ -246,7 +246,7 @@ async function assertInvariant(page, sent, expectAiReply, label) {
   expect(dup, `${label}：同一条用户消息出现 ${dup} 次`).toBe(1);
 
   // (c1) 新消息必须从 Composer 上方长出来（交互规范 §4-1 铁律 / v1.2 修正）
-  //      timeline 后面若还挂着「你可以这样问」+「打给店里」，滚到底看到的就是它们，
+  //      timeline 后面若还挂着「你可以这样问」等块，滚到底看到的就是它们，
   //      最新气泡被顶到折叠线以上——正是 v1.0/v1.1 被推翻的那个排法。
   expect(s.lastBubbleBottom, `${label}：量不到最新气泡`).not.toBeNull();
   const gapToComposer = s.composerTop - s.lastBubbleBottom;

@@ -233,16 +233,55 @@ export function initChat(ctx) {
     return row;
   }
 
+  // 气泡是**异步长高**的：paintMarkdown 要 await 引擎模块，流式 delta 一段段来，
+  // 工具返回的商品卡也是异步插的（loadUi 要现抓 ui.js 模块）。只在 append 的那一刻
+  // scrollToEnd()，滚的是「当时的高度」，等 markdown 画完高度才定型——实测滚完仍差
+  // 162px，顾客最新的那句话又在屏幕外（C 组 C2）。用 ResizeObserver 补偿：宿主一变高
+  // 就再滚一次。
+  //
+  // ⚠️ 判据是「时间线最后一条还在视口里」，不是 scroll 事件 + 距离阈值。
+  // 原来那版听 scroll、dist<60 就认为用户还在底部：程序自己 scrollTop = scrollHeight
+  // 之后，内容往往还在继续长高（markdown / 商品卡分好几帧才定型），等 scroll 事件
+  // dispatch 时 scrollHeight 已经变了，dist 读出来不是 0 → 被误判成「用户往上滑了」，
+  // 之后所有补偿滚动全被拦下。B6 实测就是这样漏的：最后一次 RO 要滚到底，却被这道
+  // 判断拦下，追问 chip 溢出滚动区 172~1427px，被固定 Composer 挡死。
+  // 换成 DOM 位置：最后一条被划到屏幕上方，才真的是用户在看历史。程序性滚动不会触发
+  // 任何用户手势，所以不会再被自己骗。
+  function shouldFollowTail() {
+    const views = document.getElementById('views');
+    if (!views || !host || !host.lastElementChild) return true;
+    const vr = views.getBoundingClientRect();
+    const lr = host.lastElementChild.getBoundingClientRect();
+    return lr.bottom >= vr.top;            // 最新消息的底还在滚动区内 → 该跟着滚
+  }
+
   function scrollToEnd() {
     const views = document.getElementById('views');
     if (views) views.scrollTop = views.scrollHeight;
   }
 
+  /** 有新内容贴上时间线就重新pin */
+  function pinToBottom() {
+    scrollToEnd();
+  }
+
+  let hostRO = null;
+  function watchHostHeight() {
+    if (typeof ResizeObserver !== 'function' || !host) return;
+    if (hostRO) hostRO.disconnect();
+    hostRO = new ResizeObserver(() => {
+      const views = document.getElementById('views');
+      if (!views) return;
+      if (!shouldFollowTail()) return;
+      views.scrollTop = views.scrollHeight;
+    });
+    hostRO.observe(host);
+  }
   // 追问 chip 必须让人看见。它在气泡**下方**另起一行，而气泡里的 markdown 是异步画完
   // 继续长高的（messageNode 里 paintMarkdown 返回 promise，appendAi 那一刻气泡还是空的）。
   // 所以 appendAi 里那次 scrollToEnd 滚的是「还没有答案」的高度；等 markdown 画完，
   // 这一行能再长 100px+，chips 就被顶到固定 Composer 底下。ResizeObserver 有
-  // distanceFromBottom<80 的防拽阈值（见 watchHostHeight），长答案时它到这一步已经放弃。
+  // 防拽判据（见 shouldFollowTail / watchHostHeight），长答案时它到这一步已经放弃。
   // 这里在 markdown 画完之后单独补一刀。只在顾客还停在底部时才补——他已经划上去看
   // 历史的话不能被拽回来。
   function revealFollowups(row) {
@@ -257,48 +296,6 @@ export function initChat(ctx) {
     if (delta > 0) views.scrollTop += delta;
   }
 
-  // 气泡是**异步长高**的：paintMarkdown 要 await 引擎模块，流式 delta 一段段来，图片也要加载。
-  // 只在 append 的那一刻 scrollToEnd()，滚的是「当时的高度」，等 markdown 画完高度才定型
-  // ——实测滚完仍差 162px，顾客最新的那句话又在屏幕外（C 组 C2）。
-  // 用 ResizeObserver 补偿：宿主一变高就再滚一次。
-  // ⚠️ 判据不能是「离底部多远」：一条正常回复就能长高 100+px，用距离阈值会把该滚的那次
-  // 也当成「用户在看历史」而跳过（第一版用了 80px，实测 gap 107px 就再也不滚了）。
-  // 正确判据是「用户有没有主动往上滑」——程序性滚动后 dist≈0，会把 pinned 保持为 true；
-  // 用户自己滑上去才会把它置 false，之后就不再拽他回来。
-  let pinnedToBottom = true;
-  let pinWatcher = null;
-  function watchUserScrollIntent() {
-    const views = document.getElementById('views');
-    if (!views || typeof views.addEventListener !== 'function') return;
-    if (pinWatcher) views.removeEventListener('scroll', pinWatcher);
-    pinWatcher = () => {
-      const dist = views.scrollHeight - views.scrollTop - views.clientHeight;
-      pinnedToBottom = dist < 60;
-    };
-    views.addEventListener('scroll', pinWatcher, { passive: true });
-  }
-
-  /** 有新内容贴上时间线就重新pin。注意 app.js 的 setActive() 每次切 view 都把
-   *  views.scrollTop 置 0，scroll 事件随之触发、被 pinWatcher 读成「用户上滑」——
-   *  不在这里复位的话，接下来所有补偿滚动都会被那道判断拦住，最新气泡永远差一截。 */
-  function pinToBottom() {
-    pinnedToBottom = true;
-    scrollToEnd();
-  }
-
-  let hostRO = null;
-  function watchHostHeight() {
-    if (typeof ResizeObserver !== 'function' || !host) return;
-    if (hostRO) hostRO.disconnect();
-    hostRO = new ResizeObserver(() => {
-      const views = document.getElementById('views');
-      if (!views || !pinnedToBottom) return;
-      views.scrollTop = views.scrollHeight;
-    });
-    hostRO.observe(host);
-    watchUserScrollIntent();
-  }
-
   function renderAll() {
     if (!host) return;
     host.textContent = '';
@@ -309,9 +306,7 @@ export function initChat(ctx) {
     // scrollToEnd 会把上面全部顶出屏幕——实测 views.scrollTop=194，顾客第一眼看到的是
     // 中间的对话气泡，反而看不到阿杏的脸和第一 CTA「上传客厅照片」。
     // 顾客一旦说过话，这里就该滚到底（他在接着之前的聊）。
-    const started = messages.some((m) => m.role === 'user');
-    pinnedToBottom = started;
-    if (started) scrollToEnd();
+    if (messages.some((m) => m.role === 'user')) scrollToEnd();
     else {
       const views = document.getElementById('views');
       if (views) views.scrollTop = 0;
@@ -378,27 +373,38 @@ export function initChat(ctx) {
    * 模型只拿到文本编号，它的 Markdown 里从来没有 url；而让 LLM 手写 url 又等于
    * 让它编造不存在的图片（幻觉出一张 404 比不出图更糟）。
    * 所以图只能走这条「后端把数组带出来、前端按 id 渲染」的路。
+   *
+   * ⚠️ 先同步把空壳 append 进 col，再异步填卡片。调用方 appendAi 是同步的、
+   * 追问 chips 也是同步追加的：要是等 `await loadUi()` 之后再 append，
+   * 卡片就会排到 chips 后面，视觉上图夹在正文和「猜您还想问」中间。
    */
-  async function appendProductCards(col, products) {
-    const ui = await loadUi();
-    if (!ui || typeof ui.productCard !== 'function') return;
+  function appendProductCards(col, products) {
     const wrap = el('div.ax-chat-products');
-    products.forEach((p) => {
-      let card;
-      try {
-        card = ui.productCard(p, {
-          // 「选它」把家具送上 3D 台：这条链路和商品页的「选它」是同一条（ctx.pickProduct），
-          // 所以 3D 页、尺寸标注、换色都跟着生效，不用再写一套跳转。
-          onPick: (prod) => {
-            ctx.pickProduct(prod);
-            ctx.go('view-3d');
-          },
-          pickLabel: '选它，摆进 3D 台',
-        });
-      } catch { return; }               // 单张卡崩不掉整条回复
-      wrap.appendChild(card);
-    });
-    if (wrap.childElementCount) col.appendChild(wrap);
+    col.appendChild(wrap);
+    loadUi().then((ui) => {
+      if (!ui || typeof ui.productCard !== 'function') { wrap.remove(); return; }
+      products.forEach((p) => {
+        let card;
+        try {
+          card = ui.productCard(p, {
+            // 「选它」把家具送上 3D 台：这条链路和商品页的「选它」是同一条（ctx.pickProduct），
+            // 所以 3D 页、尺寸标注、换色都跟着生效，不用再写一套跳转。
+            onPick: (prod) => {
+              ctx.pickProduct(prod);
+              ctx.go('view-3d');
+            },
+            pickLabel: '选它，摆进 3D 台',
+          });
+        } catch { return; }               // 单张卡崩不掉整条回复
+        wrap.appendChild(card);
+      });
+      // 一张卡都没成（producCard 抛异常 / 全被过滤）就把空壳收掉，
+      // 别在气泡里留一道带 margin 的空白缝。
+      if (!wrap.childElementCount) { wrap.remove(); return; }
+      // 卡片是整批长高的（一屏能飙几百 px），而 ResizeObserver 的补偿滚动要等下一帧，
+      // 中间有几十毫秒界面停在「追问 chip 被顶出视口」的状态。这里显式补一刀。
+      scrollToEnd();
+    }).catch(() => wrap.remove());
   }
 
   function appendAi(markdown, opts = {}) {
@@ -588,7 +594,9 @@ export function initChat(ctx) {
       const wrap = {
         onStatus: (i) => handlers.onStatus && handlers.onStatus(i),
         onThinking: (t) => handlers.onThinking && handlers.onThinking(t),
-        onTool: (n) => handlers.onTool && handlers.onTool(n),
+        // 第二个参数是工具返回的商品数组（含 image）。位置式包装只透传名字的话，
+        // 商品会在这一层被丢掉，时间线里就永远出不了家具图（实测踩过）。
+        onTool: (n, products) => handlers.onTool && handlers.onTool(n, products),
         onDelta: (d) => handlers.onDelta && handlers.onDelta(d),
         onDone: (r) => {
           if (settled) return;

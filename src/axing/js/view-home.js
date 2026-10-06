@@ -1,5 +1,7 @@
 // view-home.js — 阿杏首页「聊天优先」单屏（视觉基准：docs/最新首页图.png）
-// 结构（从上到下）：hero → 上传客厅照卡 → 上次试摆 → 你可以这样问（沉底）→ 打给店里 → 聊天时间线
+// 结构（从上到下）：hero → 上传客厅照卡 → 上次试摆 → 你可以这样问（沉底）→ 聊天时间线
+// 「打给店里 + 门店地址」不在正文里出现：交互规范 §6 R6 已把它收进右上角极小字（index.html 的 topbar），
+// 每个 view 都在场，正文再来一遍就是重复。
 // 约定：export async function mount(root, ctx)，返回 cleanup；样式只取 css/axing.css + cards.css 的 .ax-* 类。
 //
 // 时间线不归本文件：聊天气泡由 app shell 级的 chat-core.js 持有（交互规范 §1-6 常驻对话），
@@ -273,23 +275,8 @@ export async function mount(root, ctx) {
   // ---------- 你可以这样问（沉底，交互规范 §1-7 样式一）----------
   stack.appendChild(askBlock(ctx));
 
-  // ---------- 门店兜底：打给店里是老人卡住时的最终解法，做成全宽主按钮 ----------
-  const phone = icon('phone');
-  phone.style.cssText = 'width:19px;height:19px;flex:0 0 auto;';
-  stack.appendChild(el('div.stack.stack--sm', {}, [
-    el('a.btn.btn--apricot.btn--block.btn--lg', {
-      href: 'tel:13359140982',
-      'aria-label': '打给店里 13359140982',
-      style: 'text-decoration:none;min-height:48px;',
-    }, [phone, '打给店里 13359140982']),
-    el('p.tiny.muted.center', {
-      text: '银杏家具体验店 · 柞水县乾佑街道农机路河西',
-      style: 'line-height:1.8;',
-    }),
-  ]));
-
   // ---------- 聊天时间线：归 app shell 的 chat-core 持有（交互规范 §1-6）----------
-  // ⚠️ 位置是整个首页唯一不能放错的东西：**必须在 stack 最末尾**，连「打给店里」之后。
+  // ⚠️ 位置是整个首页唯一不能放错的东西：**必须在 stack 最末尾**，连「你可以这样问」之后。
   // chat-core 每来一条新消息就执行 views.scrollTop = views.scrollHeight，滚到的是文档底。
   // 时间线原先排在「你可以这样问」上面，后面还跟着 chips(约117px) + 拨打按钮(约88px)，
   // 于是滚到底看见的全是 chips 和拨打按钮，最新那条气泡被顶到折叠线以上 96~127px

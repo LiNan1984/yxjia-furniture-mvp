@@ -40,9 +40,35 @@ async function fileFromUrl(url, name = 'room.jpg') {
   return new File([blob], name, { type: blob.type || 'image/jpeg' });
 }
 
+/** tryonEnabled 关时的「到店引导」：不逐个试摆报错，直接给打电话 + 预约到店两条出路。
+ *  用于 AI 整体不可用（如 twofish key 失效）时，店主在后台把总闸关掉的情形。 */
+function renderTryonPaused(root, ctx) {
+  const { icon, axingSay } = ctx.ui;
+  root.appendChild(el('p.sec-eyebrow', { text: 'AI 试摆 · 今天休息' }));
+  root.appendChild(el('h2.sec-title', { text: '阿杏陪你到店看' }));
+  root.appendChild(el('p.sec-desc', { text: '线上试摆临时休息。阿杏先帮你把想看的家具备好，到店坐一坐、摸一摸实物，最稳。' }));
+  root.appendChild(axingSay('线上试摆今天暂时不可用。先打个电话，或者约个到店，阿杏把你要看的家具先摆出来。'));
+  root.appendChild(el('a.btn.btn--block', { href: 'tel:13359140982' }, [icon('phone'), '打给店里 13359140982']));
+  root.appendChild(el('button.btn.btn--block', { type: 'button', onclick: () => ctx.go('view-booking') }, [icon('calendar'), '预约到店']));
+  root.appendChild(el('p.sec-desc.tiny.muted', { text: '陕西省商洛市柞水县乾佑街道农机路河西 · 9:00–20:00 全年无休' }));
+}
+
 export async function mount(root, ctx) {
   const { icon,  axingSay, priceText } = ctx.ui;
   const api = resolveApi(ctx);
+
+  // —— tryonEnabled 总闸：AI 整体不可用时，不逐个试摆报错，直接切「到店引导」。——
+  //    接口拉不到就默认开着，绝不因为一次网络抖动误伤正常试摆。
+  let tryonEnabled = true;
+  try {
+    const res = await fetch('/api/feature-flags');
+    if (res.ok) {
+      const body = await res.json();
+      const d = body && (body.data || body);
+      if (d && typeof d.tryonEnabled === 'boolean') tryonEnabled = d.tryonEnabled;
+    }
+  } catch { /* 忽略，默认开着 */ }
+  if (!tryonEnabled) { renderTryonPaused(root, ctx); return; }
 
   // ---------- 本地状态 ----------
   /** @type {any[]} */
@@ -82,6 +108,22 @@ export async function mount(root, ctx) {
   });
   const stage = el('div.stage', {}, [stageImg, roomImg, stageHint, compareBtn]);
   root.appendChild(stage);
+
+  // 输入双图：顾客必须看得见「到底拿哪两张图去合成」（房间照 + 选中的家具）。
+  // 家具图在这一页原来从头到尾没露面，只有一行文字「家具：聚木财MT50真皮软包床」——
+  // 顾客无从判断 AI 收到的第二张图是不是自己以为的那一款，出了问题也无法核对。
+  const roomThumb = el('img', { alt: '你的客厅', loading: 'lazy' });
+  const sofaThumb = el('img', { alt: '选的家具', loading: 'lazy' });
+  const roomThumbBox = el('div.ax-ty-input', {}, [
+    roomThumb,
+    el('figcaption', { text: '你的客厅', 'data-label': '你的客厅' }),
+  ]);
+  const sofaThumbBox = el('div.ax-ty-input', {}, [
+    sofaThumb,
+    el('figcaption', { text: '选的家具', 'data-label': '选的家具' }),
+  ]);
+  const inputsRow = el('div.ax-ty-inputs', {}, [roomThumbBox, sofaThumbBox]);
+  root.appendChild(inputsRow);
 
   const upRow = el('div.row', { style: 'margin-top:10px;flex-wrap:wrap;' });
   root.appendChild(upRow);
@@ -169,6 +211,29 @@ export async function mount(root, ctx) {
       }));
     }
     if (s.roomUrl && !roomImg.getAttribute('src')) roomImg.src = s.roomUrl;
+    syncInputs();
+  }
+
+  // 两张输入缩略图跟着 state 走。缺哪张就摆占位（不是留个破图框）：
+  // 顾客得知道「AI 手上只有一张图」，否则生成出来不像会莫名其妙。
+  function syncInputs() {
+    const s = ctx.state;
+    const prod = products.find((p) => p.id === s.productId) || null;
+    paintInput(roomThumbBox, roomThumb, s.roomUrl || '', '还没有客厅照');
+    paintInput(sofaThumbBox, sofaThumb, (prod && prod.image) || s.productImage || '', '还没选家具');
+  }
+
+  function paintInput(box, img, src, emptyText) {
+    const cap = box.querySelector('figcaption');
+    if (!src) {
+      box.classList.add('ax-ty-input--empty');
+      img.removeAttribute('src');
+      if (cap) cap.textContent = emptyText;
+      return;
+    }
+    box.classList.remove('ax-ty-input--empty');
+    if (img.getAttribute('src') !== src) img.src = src;
+    if (cap) cap.textContent = cap.dataset.label;
   }
 
   function renderProducts() {
@@ -303,23 +368,42 @@ export async function mount(root, ctx) {
       if (typeof data.remaining === 'number') bits.push(`今天还能免费试 ${data.remaining} 次`);
       metaLine.textContent = bits.join(' · ');
 
-      if (data.aiError) {
-        // 诚实提示：AI 没出图，展示的是侧边预览
-        say(el('div', {}, [
-          axingSay(`AI 这次没出图（${data.aiError}），先看看侧边预览；也可以到店看实物。`),
-          el('div.stack--sm', { style: 'margin-top:12px;' }, [
-            el('button.btn.btn--lg.btn--block', { onclick: generate }, [icon('refresh'), '再试一次']),
-            el('button.btn.btn--ghost.btn--block', {
-              onclick: () => { window.location.href = 'tel:13359140982'; },
-            }, [icon('phone'), '打店里电话 13359140982']),
-          ]),
-        ]));
+      // 结果怎么说，一律用后端给的 resultInfo（describeGenResult 的产物）。
+      // 原先是 `if (data.aiError) 诚实提示 else 说「摆好了」`——而兜底出了图时 aiError 是
+      // null，于是 Pollinations 那张重画的示意图也被说成「摆好了！这是 X 在你家的样子」。
+      // 实测那张图和顾客的房间对不上（像素差 ~88、比例都没保住），等于拿假效果推 ¥3000 的单。
+      const info = data.resultInfo || {
+        tone: data.aiError ? 'warn' : 'good',
+        label: data.aiError ? 'AI 没接通' : '真合成',
+        note: data.aiError || '',
+      };
+      const name = (data.product && data.product.name) || ctx.state.productName || '家具';
+      const headline = {
+        good: `摆好了！这是「${name}」在你家的样子。按住右上角「对比」可以看原来的房间。`,
+        info: `这是「${name}」的示意效果。旁边就是你家的客厅照，可以对着看。`,
+        warn: `AI 这次没接通，先给你看预览。想要真实摆放效果，建议到店看实物。`,
+        bad: `这次没出图。`,
+      }[info.tone] || `这是「${name}」的预览。`;
+
+      const actions = [];
+      if (info.tone === 'good') {
+        actions.push(el('button.btn.btn--lg.btn--block', { onclick: generate }, [icon('refresh'), '换个氛围再试']));
       } else {
-        const name = (data.product && data.product.name) || ctx.state.productName || '家具';
-        say(el('div', {}, [
-          axingSay(`摆好了！这是「${name}」在你家的样子。按住右上角「对比」可以看原来的房间。`),
-        ]));
+        actions.push(el('button.btn.btn--lg.btn--block', { onclick: generate }, [icon('refresh'), '再试一次']));
+        actions.push(el('button.btn.btn--ghost.btn--block', {
+          onclick: () => { window.location.href = 'tel:13359140982'; },
+        }, [icon('phone'), '打店里电话 13359140982']));
+        actions.push(el('button.btn.btn--ghost.btn--block', {
+          onclick: () => ctx.go('view-booking'),
+        }, [icon('calendar'), '预约到店看实物']));
       }
+
+      say(el('div.ax-ty-result', { 'data-tone': info.tone }, [
+        el('div.ax-ty-result__label', { text: info.label }),
+        el('div.ax-ty-result__note', { text: info.note || '' }),
+        el('div', { style: 'margin-top:12px;' }, [axingSay(headline)]),
+        el('div.stack--sm', { style: 'margin-top:12px;' }, actions),
+      ]));
 
       ctx.setState({ lastTryonUrl: data.compositionUrl || ctx.state.lastTryonUrl });
       ctx.emit('tryon:done', {

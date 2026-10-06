@@ -151,7 +151,12 @@ function ensureDirs() {
     const categoryDefaults = {
       categories: [
         { id: 'sofa', name: '沙发', room: '客厅', noun: '沙发', defaultRoom: '/images/default-room.jpg', badge: '主推', sort: 1, enabled: true },
-        { id: 'bed', name: '卧室 · 床', room: '卧室', noun: '床', defaultRoom: '/images/default-room-bed.jpg', sort: 2, enabled: true },
+        // defaultRoom 必须是 src/images 里真实存在的图：这里原来写 default-room-bed.jpg，
+        // 而那个文件从不存在（本地 data/categories.json 一直正确地指向 bed-double.jpg）。
+        // 新装/数据文件丢失时 server 会把这份兜底写进 data/categories.json，把坏值固化下来——
+        // 生产就是这样中招的：/api/categories 里 bed 指向 404，卧室品类的「用默认图体验」
+        // 只能被前端探测禁用。rsync 从不同步 data/，所以坏值一旦写进去不会自愈。
+        { id: 'bed', name: '卧室 · 床', room: '卧室', noun: '床', defaultRoom: '/images/bed-double.jpg', sort: 2, enabled: true },
         { id: 'cabinet', name: '柜类', room: '客厅', noun: '柜子', defaultRoom: '/images/default-room.jpg', sort: 3, enabled: false },
         { id: 'table', name: '桌几', room: '餐厅', noun: '桌子', defaultRoom: '/images/default-room.jpg', sort: 4, enabled: false },
         { id: 'other', name: '其他', room: '客厅', noun: '家具', defaultRoom: '/images/default-room.jpg', sort: 9, enabled: false },
@@ -160,10 +165,11 @@ function ensureDirs() {
     fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categoryDefaults, null, 2), 'utf-8');
   }
   if (!fs.existsSync(FEATURE_FLAGS_FILE)) {
-    // 默认配置：试摆必须填手机号（无后端验证，仅前端 + 开关文件）
+    // 默认配置：试摆必须填手机号 + AI 试摆总开关（无后端验证，仅前端 + 开关文件）
     fs.writeFileSync(FEATURE_FLAGS_FILE, JSON.stringify({
       tryonRequirePhone: true,
       tryonRequirePhoneMessage: '请先填手机号再试摆，方便店员联系您看效果',
+      tryonEnabled: true,
     }, null, 2), 'utf-8');
   }
 }
@@ -266,8 +272,11 @@ function saveGenerationsContainer(container) {
 }
 
 const GENERATIONS_CAP = 3000; // 防无限增长，只保留最近 3000 条
-// rec: { userPhone, kind, endpoint, productId, productName, preset, prompt,
+// rec: { userPhone, anonId, kind, endpoint, productId, productName, preset, prompt,
 //        status, demoType, compositionUrl, error, trace, totalMs, meta }
+// anonId：没登录的顾客也要能看到自己刚试了什么（否则匿名试摆 = 生成记录对顾客不可见，
+// 「成功没有/失败为什么」就只剩店主知道）。它是浏览器 localStorage 里的随机串，不是手机号，
+// 拿不到别人的，也推断不出真实身份。登录后的记录仍以 userPhone 为准，两者可同时存在。
 function recordGeneration(rec) {
   try {
     const c = loadGenerationsContainer();
@@ -283,10 +292,80 @@ function recordGeneration(rec) {
   }
 }
 
-// 生成记录状态：success=真合成(ai-composition/step/pollinations)；fallback=命中缓存/侧边/仅商品图兜底；failed=无图
+// 生成记录状态（四档，顾客一眼能分清「我真出了图」和「这只是个示意」）：
+//   success      真的把你家客厅照 + 家具图一起喂给了图像编辑模型（twofishai / 阶跃）
+//   illustration 出图了，但走的 Pollinations——它只拿客厅图做弱参考重画，
+//                实测输出和顾客的房间对不上（像素差 ~88、连 4:3 比例都保不住），
+//                所以不能叫 success，只能叫「示意图」。详见 callPollinations 注释。
+//   fallback     根本没调成上游，拿历史合成图 / 侧边预览 / 商品原图顶上去
+//   failed       一张图都没有
 function genStatus(demoType, hasUrl) {
   if (!hasUrl) return 'failed';
-  return ['ai-composition', 'step-image', 'pollinations'].includes(demoType) ? 'success' : 'fallback';
+  if (demoType === 'ai-composition' || demoType === 'step-image') return 'success';
+  if (demoType === 'pollinations') return 'illustration';
+  return 'fallback';
+}
+
+// 「这次到底算成没成、为什么」的唯一说法。前端阿杏 / 主站 / 生成记录页都从这里取，
+// 不要再各自拼一套话术——三处说法不一致时，顾客会以为页面出了 bug。
+// tone: good=真合成 / info=示意图 / warn=兜底 / bad=失败
+function describeGenResult(demoType, aiError) {
+  const reason = aiError ? String(aiError) : '';
+  if (!demoType) {
+    return { tone: 'bad', label: '没出图', note: reason || 'AI 没能完成这次合成，可以再试一次或到店看实物。' };
+  }
+  const map = {
+    'ai-composition': {
+      tone: 'good', label: '真合成',
+      note: '这是拿你上传的客厅照和选中的家具一起生成的，可以直接对照原房间看效果。',
+    },
+    'step-image': {
+      tone: 'good', label: '真合成（阶跃）',
+      note: '这是拿你上传的客厅照和选中的家具一起生成的，可以直接对照原房间看效果。',
+    },
+    'pollinations': {
+      tone: 'info', label: '示意图，不是你家实景',
+      note: '主合成服务这次没接通，这张图是 AI 照着家具描述重新画的示意效果，不一定是你家的户型和光线。想要看真实摆放，建议到店或稍后再试。',
+    },
+    'cached-composition': {
+      tone: 'warn', label: '历史合成图',
+      note: 'AI 这次没接通，展示的是这款家具之前生成过的真实效果图。',
+    },
+    'side-by-side': {
+      tone: 'warn', label: '左右对比预览，不是合成图',
+      note: 'AI 这次没接通，左边是你的客厅原图、右边是家具预览，两张并没有合到一起。',
+    },
+    'product-image': {
+      tone: 'warn', label: '仅家具图',
+      note: 'AI 这次没接通，只展示家具本身的样子。',
+    },
+  };
+  const hit = map[demoType] || { tone: 'warn', label: '预览', note: 'AI 这次没接通。' };
+  // 兜底档要把「为什么没接通」透出来：上游 503 / 超时 / key 失效对顾客也是人话
+  if (hit.tone !== 'good' && reason) hit.note = `${hit.note}（${reason}）`;
+  return hit;
+}
+
+// anonId：浏览器 localStorage 里的随机串，形如 ax-anon-<24 位 hex>。
+// 只做「这台浏览器最近试了什么」的匹配键，不当身份用：长度/字符集卡死，
+// 免得有人拿它当注入面或者塞进 4KB 的垃圾把 generations.json 撑爆。
+function normalizeAnonId(raw) {
+  const v = String(raw || '').trim();
+  if (!/^ax-anon-[0-9a-f]{8,32}$/.test(v)) return '';
+  return v;
+}
+
+// 兜底出了图也要说清「为什么没走成」。
+// 原来只有 callTryonAI 整个抛错时才有 aiError；而只要最后某级兜底给了图，aiError 就是 null，
+// generations.json 的 error 栏空着、前端只剩一句「AI 暂不可用」——店主想排查是 key 失效、
+// 上游 503 还是超时，只能去翻日志。trace 里第一条失败记录就是原因，这里把它提上来。
+function deriveUpstreamError(trace, demoType, aiError) {
+  if (aiError) return aiError;
+  if (demoType === 'ai-composition' || demoType === 'step-image') return null;  // 真合成，没有「失败原因」可言
+  const firstBad = (Array.isArray(trace) ? trace : []).find(t => t && t.ok === false);
+  if (!firstBad || !firstBad.body) return null;
+  const step = firstBad.step ? `${firstBad.step}: ` : '';
+  return `${step}${String(firstBad.body).slice(0, 300)}`;
 }
 
 function loadPresets() {
@@ -403,10 +482,15 @@ function sceneRoomForProduct(product, style) {
 
 // 读取功能开关（前端根据这个决定是否强制手机号、是否显示某按钮等）
 function loadFeatureFlags() {
+  // 新加的开关（tryonEnabled）不能因为「文件是旧的、没这个键」就消失——已部署的
+  // data/feature-flags.json 没有它，只有首次启动写默认值那次才会补。在读取侧合并默认，
+  // 缺键即视为默认值（试摆开着），后台拨动后才真正落盘，改 server.js 也能治既有文件。
+  const defaults = { tryonRequirePhone: false, tryonEnabled: true };
   try {
-    return readJSON(FEATURE_FLAGS_FILE);
+    const raw = readJSON(FEATURE_FLAGS_FILE);
+    return { ...defaults, ...(raw && typeof raw === 'object' ? raw : {}) };
   } catch (err) {
-    return { tryonRequirePhone: false };
+    return { ...defaults };
   }
 }
 
@@ -858,7 +942,12 @@ async function callTryonAI({ productId, roomBuffer, sofaBuffer, productImagePath
       const buf = await callPollinations({ productId, roomBuffer, prompt });
       if (buf) {
         _log('pollinations', { ok: true, ms: Date.now() - _t, bytes: buf.length });
-        return { buffer: buf, demoType: 'ai-composition', trace: T };
+        // ⚠️ demoType 必须是 'pollinations'，不能写成 'ai-composition'。
+        // 这里曾写成 ai-composition，于是「拿客厅照+家具图一起编辑」的承诺被安在了一张
+        // 文生图结果上：状态记 success、前端说「摆好了」，而实测输出和顾客的房间对不上
+        // （16×16 平均像素差 ~88、输入 1448×1086 输出 768×768，比例都没保住）。
+        // 顾客拿它下 ¥3000 的单，被骗的是真金白银——所以宁可叫「示意图」。
+        return { buffer: buf, demoType: 'pollinations', trace: T };
       }
       _log('pollinations', { ok: false, ms: Date.now() - _t, body: 'empty buffer' });
     } catch (e) {
@@ -1132,7 +1221,8 @@ async function callSceneImageAI({ product, productBuffer, style }) {
   // 2) Pollinations 图生图兜底
   try {
     const buf = await callScenePollinations({ product, productBuffer, scene });
-    if (buf) return { buffer: buf, demoType: 'ai-composition' };
+    // 同 callTryonAI：Pollinations 是弱 img2img，不能挂 ai-composition 的名
+    if (buf) return { buffer: buf, demoType: 'pollinations' };
   } catch (e) {
     console.warn('[scene] Pollinations failed: ' + e.message);
   }
@@ -2303,7 +2393,13 @@ app.post('/api/appointments', (req, res) => {
   if (!name) return fail(res, 400, '怎么称呼您？');
   if (!isValidPhone(phone)) return fail(res, 400, '手机号格式不对');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail(res, 400, '请选择到店日期');
-  const today = new Date().toISOString().slice(0, 10);
+  // 「今天」必须是**本地**日期。原来这里是 new Date().toISOString().slice(0,10)——那取的是
+  // UTC，北京时间每天 00:00-08:00 之间 UTC 还停在昨天，于是顾客约「今天」会被下面那句
+  // `date < today` 拦下报 400。门店 9:00 开门，正好把早班那拨想预约的人挡在门外。
+  // 顾客端 view-booking 的 todayLocal() 用的就是本地日期，两边必须一致。
+  const now = new Date();
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const today = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   if (date < today) return fail(res, 400, '到店日期不能早于今天');
   if (!APPOINTMENT_SLOTS.includes(slot)) return fail(res, 400, '请选择到店时段');
 
@@ -2541,6 +2637,30 @@ app.get('/api/tryon/history', (req, res) => {
     return ok(res, { history: list, rooms });
   } catch (err) {
     return fail(res, 500, '读取历史失败');
+  }
+});
+
+// GET /api/generations/recent?anonId=ax-anon-xxx — 没登录的顾客看自己这台浏览器的
+// 最近几次生成（含状态与失败原因）。只回匿名记录，不按手机号过滤——
+// 拿到一个 anonId 也只能看到它自己那几条，谈不上越权。
+app.get('/api/generations/recent', (req, res) => {
+  const anonId = normalizeAnonId(req.query.anonId);
+  if (!anonId) return fail(res, 400, '缺少 anonId');
+  try {
+    const phone = getSessionUserPhone(req);
+    const limit = Math.min(parseInt(req.query.limit || '20', 10) || 20, 50);
+    const c = loadGenerationsContainer();
+    const list = (c.generations || [])
+      .filter(g => g.anonId === anonId || (phone && g.userPhone === phone))
+      .slice(0, limit)
+      .map(g => ({
+        ...g,
+        compositionUrl: fixImageUrl(g.compositionUrl),
+        resultInfo: describeGenResult(g.demoType, g.error),
+      }));
+    return ok(res, { generations: list, count: list.length });
+  } catch (err) {
+    return fail(res, 500, '读取生成记录失败');
   }
 });
 
@@ -2941,7 +3061,11 @@ app.post('/api/upload/room', async (req, res) => {
 
 // ---------- 匿名试摆（无需登录，每 IP 每天 3 次限额） ----------
 
-const ANON_TRYON_LIMIT = 3;
+// 限额可用 ANON_TRYON_LIMIT 覆盖。测试要连着打好几次（三张图 / 诚实横幅 / 生成记录
+// 各自都要跑一轮真实生成），硬编码 3 会让他们互相抢额度：前几个用例打满后，
+// 后面的请求全落 429，永远等不到结果横幅（实测整文件跑到 2.4 分钟后假红）。
+// 线上不设这个变量，行为照旧是 3。
+const ANON_TRYON_LIMIT = Math.max(1, parseInt(process.env.ANON_TRYON_LIMIT || '3', 10) || 3);
 const ANON_TRYON_WINDOW_MS = 24 * 60 * 60 * 1000;
 const anonTryonHits = new Map(); // ip -> number[] (timestamps)
 
@@ -3063,6 +3187,14 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
     } catch (err) {
       aiError = err.message;
     }
+    // 兜底出了图也要把「为什么没走成」提到 aiError，否则前端和生成记录都只说「AI 暂不可用」
+    aiError = deriveUpstreamError(genTrace, demoType, aiError);
+    // 兜底出了图也要把「为什么没走成」提到 aiError，否则前端和生成记录都只说「AI 暂不可用」
+    aiError = deriveUpstreamError(genTrace, demoType, aiError);
+    // 兜底出了图也要把「为什么没走成」提到 aiError，否则前端和生成记录都只说「AI 暂不可用」
+    aiError = deriveUpstreamError(genTrace, demoType, aiError);
+    // 兜底出了图也要把「为什么没走成」提到 aiError，否则前端和生成记录都只说「AI 暂不可用」
+    aiError = deriveUpstreamError(genTrace, demoType, aiError);
 
     let compositionUrl = null;
     if (aiBuffer && aiBuffer.length > 0) {
@@ -3072,6 +3204,7 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
     }
     recordGeneration({
       userPhone: getSessionUserPhone(req) || '',
+      anonId: normalizeAnonId(req.body?.anonId),
       kind: 'tryon',
       anonymous: true,
       endpoint: '/api/tryon/ai-anon',
@@ -3097,10 +3230,12 @@ app.post('/api/tryon/ai-anon', multer({ storage: multer.memoryStorage(), limits:
       preset: presetHit,
       remaining: Math.max(0, ANON_TRYON_LIMIT - (anonTryonHits.get(ip) || []).filter(t => t >= Date.now() - ANON_TRYON_WINDOW_MS).length),
       message: compositionUrl
-        ? (demoType === 'ai-composition' ? '匿名试摆成功' :
-           demoType === 'pollinations' ? '匿名试摆成功（Pollinations 合成）' :
-           '匿名试摆成功（AI 暂不可用，已展示商品预览）')
+        ? (demoType === 'ai-composition' ? '匿名试摆成功（真合成）' :
+           demoType === 'pollinations' ? '示意图（主合成服务未接通）' :
+           'AI 暂不可用，已展示预览')
         : '合成失败',
+      // 一句话说清「这次算成没成、为什么」。前端别再自己拼话术。
+      resultInfo: describeGenResult(demoType, aiError),
     });
   } catch (err) {
     return fail(res, 500, `试摆失败：${err.message}`);
@@ -3176,10 +3311,11 @@ app.post('/api/tryon/ai', requireUser, async (req, res) => {
       aiError,
       demoType,
       message: compositionUrl
-        ? (demoType === 'ai-composition' ? 'AI 试摆成功' :
-           demoType === 'pollinations' ? 'AI 试摆成功（Pollinations 合成）' :
+        ? (demoType === 'ai-composition' ? 'AI 试摆成功（真合成）' :
+           demoType === 'pollinations' ? '示意图（主合成服务未接通）' :
            'AI 暂不可用，已展示商品预览')
         : 'AI 试摆失败，已保存顾客原图，请在后台手动处理',
+      resultInfo: describeGenResult(demoType, aiError),
     };
     return ok(res, result);
   } catch (err) {
@@ -3263,10 +3399,11 @@ app.post('/api/tryon/ai-custom', requireUser, multer({ storage: multer.memorySto
       customPrompt,
       preset: presetHit,
       message: compositionUrl
-        ? (demoType === 'ai-composition' ? '自定义 prompt 合成成功' :
-           demoType === 'pollinations' ? '自定义 prompt 合成成功（Pollinations 合成）' :
+        ? (demoType === 'ai-composition' ? '自定义 prompt 合成成功（真合成）' :
+           demoType === 'pollinations' ? '示意图（主合成服务未接通）' :
            'AI 暂不可用，已展示商品预览')
         : '合成失败',
+      resultInfo: describeGenResult(demoType, aiError),
     });
   } catch (err) {
     return fail(res, 500, `试摆失败：${err.message}`);
@@ -3539,9 +3676,13 @@ app.get('/api/admin/feature-flags', requireAdmin, (req, res) => {
 app.put('/api/admin/feature-flags', requireAdmin, (req, res) => {
   try {
     const body = req.body || {};
+    const cur = loadFeatureFlags();
     const flags = {
       tryonRequirePhone: body.tryonRequirePhone === true,
       tryonRequirePhoneMessage: String(body.tryonRequirePhoneMessage || '').slice(0, 200),
+      // 店主手动开关「AI 试摆」总闸：AI 整体不可用时关掉，全站改走「到店引导」，不再逐次报错。
+      // 老客户端没带这个键时保留现值，缺省 true（试摆开着）。
+      tryonEnabled: (typeof body.tryonEnabled === 'boolean') ? body.tryonEnabled : (cur.tryonEnabled !== false),
     };
     writeJSON(FEATURE_FLAGS_FILE, flags);
     return ok(res, flags);
@@ -3750,10 +3891,11 @@ app.post('/api/tryon/ai-history', requireUser, async (req, res) => {
       demoType,
       preset: presetHit,
       message: compositionUrl
-        ? (demoType === 'ai-composition' ? 'AI 试摆成功（历史图）' :
-           demoType === 'pollinations' ? 'AI 试摆成功（Pollinations 合成）' :
+        ? (demoType === 'ai-composition' ? 'AI 试摆成功（历史图，真合成）' :
+           demoType === 'pollinations' ? '示意图（主合成服务未接通）' :
            'AI 暂不可用，已展示商品预览')
         : '合成失败',
+      resultInfo: describeGenResult(demoType, aiError),
     });
   } catch (err) {
     return fail(res, 500, `试摆失败：${err.message}`);

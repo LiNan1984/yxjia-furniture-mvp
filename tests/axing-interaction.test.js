@@ -458,11 +458,18 @@ test('B6 追问 chip 落在滚动区内，不被固定 Composer 挡住（真链�
   await page.locator('#composerSend').click();
   // streaming 和 typing 都必须消失才算答完：懒建的流式气泡在第一个 delta 前不存在，
   // 只用「没有 streaming」判断会立刻 resolve（Agent F 踩过）。
+  // 但「答完」不等于「界面定型」：工具返回的商品卡是异步铺的（前端要现抓 ui.js 模块），
+  // stop 键消失时它常还没插进去，随后整批长高几百 px。不等它铺完就量 chip 位置，
+  // 量到的是滚动还没补偿到位的中间态——实测 B6 就这样假红过（溢出 172~1427px）。
+  // 判据补上「没有正在填的空壳」：.ax-chat-products 建了但还没 children 就是没铺完。
   await page.waitForFunction(() => {
     const t = document.querySelector('#view-home .ax-msg--typing');
     const s = document.querySelector('#view-home .ax-msg--streaming');
     const stop = document.getElementById('composerStop');
-    return !t && !s && !(stop && stop.offsetParent !== null);
+    if (t || s || (stop && stop.offsetParent !== null)) return false;
+    const shells = document.querySelectorAll('#view-home .ax-chat-products');
+    for (const sh of shells) if (!sh.childElementCount) return false;
+    return true;
   }, null, { timeout: 60000 });
 
   const m = await page.evaluate(() => {

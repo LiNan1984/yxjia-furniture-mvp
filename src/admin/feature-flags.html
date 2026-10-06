@@ -52,6 +52,15 @@ h1{font-size:2rem;color:var(--coffee);margin-bottom:16px}
     </label>
   </div>
 
+  <div class="row">
+    <h2>🪄 AI 试摆总开关</h2>
+    <p class="desc">开启时顾客能试摆。关闭（比如 AI 接口临时不可用）时，阿杏不再逐个报错，而是直接引导顾客「打电话 / 预约到店」。</p>
+    <label>
+      <input type="checkbox" id="f-tryon-enabled">
+      <span>开启 AI 试摆</span>
+    </label>
+  </div>
+
   <button class="save-btn" id="save-btn">💾 保存</button>
 </main>
 
@@ -64,6 +73,7 @@ async function load() {
   if (r.success && r.data) {
     document.getElementById('f-require-phone').checked = !!r.data.tryonRequirePhone;
     document.getElementById('f-msg').value = r.data.tryonRequirePhoneMessage || '';
+    document.getElementById('f-tryon-enabled').checked = r.data.tryonEnabled !== false;
   }
 }
 
@@ -71,6 +81,7 @@ document.getElementById('save-btn').onclick = async () => {
   const body = {
     tryonRequirePhone: document.getElementById('f-require-phone').checked,
     tryonRequirePhoneMessage: document.getElementById('f-msg').value.trim(),
+    tryonEnabled: document.getElementById('f-tryon-enabled').checked,
   };
   try {
     const r = await fetch('/api/admin/feature-flags', {

@@ -285,10 +285,10 @@ test.describe('B · 核心不变式（§70.1）', () => {
     for (const s of ORDER_SELECTORS) {
       expect(r[s], `布局顺序断言需要 ${s} 存在（axing.css 已定义该类）`).not.toBeNull();
     }
-    // (1) 文档顺序：上传卡 → 「你可以这样问」→ 打给店里 → **对话时间线** → Composer。
+    // (1) 文档顺序：上传卡 → 「你可以这样问」→ **对话时间线** → Composer。
     // 依据 docs/最新首页图.png：对话气泡沉在底部、贴着输入框。
-    // 为什么时间线必须是**最后一项**（连「打给店里」之后）：chat-core 每次新消息都执行
-    // views.scrollTop = views.scrollHeight，滚到的是文档底。时间线原先排在 chips 上面，
+    // 为什么时间线必须是**最后一项**（连「你可以这样问」之后）：chat-core 每次新消息都执行
+    // views.scrollTop = views.scrollHeight，滚到的是文档底。早前时间线排在 chips 上面，
     // 后面还跟着 chips(约117px) + 拨打按钮(约88px)，于是滚到底看见的全是它们，
     // 最新那条气泡被顶到折叠线以上 96~127px——顾客亲口问的那句，他自己看不见。
     // （C 组 10 条测试全红、100% 复现。交互规范 §1-6 说「时间线贴在 Composer 上方」，
@@ -580,12 +580,13 @@ test.describe('G · 首屏不阻塞', () => {
       ucard: document.querySelectorAll('#view-home .ax-ucard').length,
       ucardTitle: (document.querySelector('.ax-ucard__title') || {}).textContent || '',
       chips: document.querySelectorAll('#view-home .ax-ask__chips .chip').length,
-      callBtn: document.querySelectorAll('#view-home a[href^="tel:"]').length,
+      callBtn: document.querySelectorAll('.topbar__call[href^="tel:"]').length,
     }));
     expect(paint.ucard, '上传客厅照卡（第一 CTA）必须与 hero 同帧，不等 API').toBe(1);
     expect(paint.ucardTitle).toContain('上传客厅照片');
     expect(paint.chips, '「你可以这样问」chips 不依赖任何数据，应立即渲染').toBeGreaterThanOrEqual(3);
-    expect(paint.callBtn, '打给店里兜底按钮应立即渲染').toBe(1);
+    // 「打给店里」按 §6 R6 只留在右上角极小字，首页正文不再重复一遍（两个都在会显得多余）
+    expect(paint.callBtn, '右上角「打给店里」应立即渲染（静态 HTML，不等 API）').toBe(1);
   });
 
   test('G2 上传卡立即可点：API 还没回来时点它能打开上传', async ({ page }) => {

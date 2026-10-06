@@ -614,32 +614,47 @@ test.describe('D · 试摆生成', () => {
     await reachTryon(page);
     await page.locator('#view-tryon button', { hasText: '立即生成' }).first().click();
 
+    // 结果横幅（.ax-ty-result）只在 API 返回后才出现：它是「阿杏说清了成没成」的唯一标志。
+    // ⚠️ 不能只等文字里出现「摆好了」：那正是这次要修的谎报——兜底出了图时 aiError 是
+    // null，Pollinations 重画的示意图也会被说成「摆好了！这是 X 在你家的样子」，
+    // 而实测那张图和顾客的房间对不上（像素差 ~88、比例都没保住）。
     await page.waitForFunction(() => {
       const t = document.getElementById('view-tryon');
-      const txt = t ? t.textContent || '' : '';
-      return /摆好了！|这次没出图|次数用完|重新选择|这次没成功/.test(txt);
+      return t && !!t.querySelector('.ax-ty-result');
     }, null, { timeout: 140000 });
 
     const r = await page.evaluate(() => {
       const t = document.getElementById('view-tryon');
+      const box = t.querySelector('.ax-ty-result');
       const imgs = Array.from(t.querySelectorAll('img')).filter((i) => !i.hidden && i.getAttribute('src'));
-      const timer = Array.from(t.querySelectorAll('.loading-line')).map((n) => n.textContent).join(' ');
       return {
+        tone: box ? box.getAttribute('data-tone') : null,
+        label: box ? (box.querySelector('.ax-ty-result__label')?.textContent || '').trim() : '',
+        note: box ? (box.querySelector('.ax-ty-result__note')?.textContent || '').trim() : '',
+        headline: box ? (box.querySelector('.ax-msg')?.textContent || '').trim() : '',
         imgCount: imgs.length,
         hasBrokenImg: imgs.some((i) => i.naturalWidth === 0),
         text: (t.textContent || '').slice(0, 400),
-        timer,
       };
     });
 
-    const saidOk = /摆好了！/.test(r.text);
-    const saidHonestFail = /这次没出图/.test(r.text);
-    expect(saidOk || saidHonestFail, '阿杏必须明确说成没成：不能说一半').toBe(true);
+    // 四档色调必须是其中一个：没有 tone 就是「界面没给结论」
+    expect(['good', 'info', 'warn', 'bad'], `未知 tone: ${r.tone}`).toContain(r.tone);
+    expect(r.label, '横幅必须有一句话结论').not.toBe('');
     expect(r.hasBrokenImg, '结果区不能留破图').toBe(false);
-    if (saidHonestFail) {
-      // 诚实报错必须给出 aiError 原文，不能只说「失败」
-      expect(r.text, '诚实报错应带具体原因（aiError）').toMatch(/没出图（.+）/);
+    expect(r.imgCount, '三张图（客厅/家具/结果）都要在场').toBeGreaterThanOrEqual(3);
+
+    if (r.tone === 'good') {
+      // 只有「真拿了客厅照+家具图去编辑」才配说在你家
+      expect(r.label).toBe('真合成');
+      expect(r.headline).toContain('在你家的样子');
+    } else {
+      // 非真合成：既不许说成真合成，还必须说清性质/原因
+      expect(r.headline, `tone=${r.tone} 不能说成真合成`).not.toContain('在你家的样子');
+      expect(r.label).not.toBe('真合成');
+      expect(r.note, `tone=${r.tone} 必须说明为什么`).not.toBe('');
     }
+
     // 秒表收尾要落一个「本次用了 X 秒」（生成结束后）
     await page.waitForFunction(
       () => /本次用了/.test(Array.from(document.querySelectorAll('#view-tryon .loading-line')).map((n) => n.textContent).join(' ')),

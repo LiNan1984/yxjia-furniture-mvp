@@ -22,9 +22,14 @@ h1{font-size:1.7rem;color:var(--coffee);margin-bottom:6px}
 .gen-name{font-size:1.35rem;font-weight:800;color:var(--coffee)}
 .badge{display:inline-block;color:#fff;padding:5px 12px;border-radius:999px;font-size:.95rem;font-weight:700;white-space:nowrap}
 .badge.success{background:var(--green)}
+.badge.illustration{background:var(--amber)}
 .badge.fallback{background:var(--amber)}
 .badge.failed{background:var(--red)}
 .gen-meta{font-size:.95rem;color:#666;margin-top:6px}
+/* resultInfo 的一句话结论 + 解释：状态徽章只说明「成没成」，
+   「为什么」在这里说清楚（原来只有 trace 里有，顾客得自己展开拼） */
+.gen-label{font-size:1.15rem;font-weight:800;color:var(--coffee);margin-top:8px;line-height:1.5}
+.gen-note{font-size:1rem;color:#666;margin-top:4px;line-height:1.6}
 .gen-img{width:100%;border-radius:10px;margin-top:12px;display:block;border:1px solid #e6dcc8}
 .noimg{margin-top:12px;padding:24px;text-align:center;background:#f3ece0;border-radius:10px;color:#886;font-size:1.05rem}
 details{margin-top:10px;border-top:1px dashed #d8cbb4;padding-top:10px}
@@ -55,30 +60,56 @@ summary{cursor:pointer;font-size:1.05rem;font-weight:700;color:var(--coffee)}
 <script>
 function fmt(iso){try{return new Date(iso).toLocaleString('zh-CN',{hour12:false})}catch(e){return iso||''}}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
-const BADGE={success:['✅ 已生成','success'],fallback:['⚠️ 预览/兜底','fallback'],failed:['❌ 失败','failed']};
+const BADGE={
+  success:['✅ 真合成','success'],
+  illustration:['🖼 示意图','illustration'],
+  fallback:['⚠️ 预览/兜底','fallback'],
+  failed:['❌ 失败','failed']
+};
+// 阿杏那套 resultInfo 的话术（server.js describeGenResult）原样摆出来，
+// 不让这一页自己拼一套——两处说法不一致时，顾客会以为页面出了 bug。
+const TONE_COLOR={good:'var(--green)',info:'#8a5310',warn:'#7a3a18',bad:'var(--red)'};
 
 async function init(){
   const content=document.getElementById('content');
   const me=await (await fetch('/api/auth/me')).json();
-  if(!(me.success&&me.data&&me.data.user)){
-    content.innerHTML='<div class="not-login"><p style="font-size:1.2rem">请先登录后查看你的生成记录</p><a class="btn" href="/login">👤 去登录</a></div>';
-    return;
-  }
+  const logged=!!(me.success&&me.data&&me.data.user);
   let gens=[];
-  try{
-    const r=await (await fetch('/api/generations/mine?limit=50')).json();
-    gens=(r.data&&r.data.generations)||[];
-  }catch(e){}
+  if(logged){
+    try{
+      const r=await (await fetch('/api/generations/mine?limit=50')).json();
+      gens=(r.data&&r.data.generations)||[];
+    }catch(e){}
+  }else{
+    // 没登录也给他看：匿名试摆的记录挂在本机随机串上（ax-anon-id，阿杏 api.js 建的）。
+    // 原来这一页一刀切要求登录，于是没登录的顾客试了 3 次，一条记录都看不到——
+    // 「到底成没成、为什么失败」只有店主知道。
+    try{
+      const anonId=localStorage.getItem('ax-anon-id');
+      if(anonId){
+        const r=await (await fetch('/api/generations/recent?limit=50&anonId='+encodeURIComponent(anonId))).json();
+        gens=(r.data&&r.data.generations)||[];
+      }
+    }catch(e){}
+  }
   if(gens.length===0){
-    content.innerHTML='<div class="empty">还没有生成记录<br>去首页选一款家具试摆一下吧</div>';
+    if(logged){
+      content.innerHTML='<div class="empty">还没有生成记录<br>去首页选一款家具试摆一下吧</div>';
+    }else{
+      content.innerHTML='<div class="empty">这台手机还没有试摆记录<br>用阿杏试摆一次，这里就能看到成没成、为什么</div>';
+    }
     return;
   }
   content.innerHTML=gens.map(g=>{
     const [label,cls]=BADGE[g.status]||BADGE.fallback;
     const img=g.compositionUrl
       ? `<a href="${esc(g.compositionUrl)}" target="_blank"><img class="gen-img" loading="lazy" src="${esc(g.compositionUrl)}" alt="合成图"></a>`
-      : `<div class="noimg">这张没有出图（可用上面的链路看原因）</div>`;
+      : `<div class="noimg">这次没有出图（下面「生成链路」里写了原因）</div>`;
     const preset=g.preset&&g.preset.name?(' · '+esc(g.preset.name)):'';
+    const info=g.resultInfo||null;
+    const tone=info&&info.tone?` style="color:${TONE_COLOR[info.tone]||'var(--coffee)'}"`:'';
+    const labelLine=info?`<div class="gen-label"${tone}>${esc(info.label)}</div>`:'';
+    const noteLine=info&&info.note?`<div class="gen-note">${esc(info.note)}</div>`:'';
     const trace=(g.trace||[]).map(t=>{
       const ok=t.ok;
       const mark=ok?'<span class="trace-ok">✓</span>':'<span class="trace-bad">✗</span>';
@@ -92,6 +123,7 @@ async function init(){
         <span class="badge ${cls}">${label}</span>
       </div>
       <div class="gen-meta">${fmt(g.createdAt)}${preset}${g.demoType?(' · '+esc(g.demoType)):''}${g.totalMs!=null?(' · '+g.totalMs+'ms'):''}</div>
+      ${labelLine}${noteLine}
       ${img}
       <details open><summary>📝 当时的提示词</summary><div class="prompt">${esc(g.prompt)}</div></details>
       ${g.error?`<div class="prompt" style="color:var(--red)">错误：${esc(g.error)}</div>`:''}

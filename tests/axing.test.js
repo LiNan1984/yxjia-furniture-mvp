@@ -46,8 +46,11 @@ function post(pathname, body) {
   });
 }
 
+// 「今天」按**本地**日期算（toISOString 取的是 UTC，北京时间凌晨那几小时会和记录差一天）
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 async function waitServerReady(timeoutMs = 15000) {
@@ -175,17 +178,24 @@ test.describe('阿杏 · 黄金路径（选家具 → 示例房间 → 试摆）
     await expect(genBtn).toBeVisible({ timeout: 8000 });
     await genBtn.click();
 
-    // 4) 结果：等阿杏的确认话术（只有 API 返回后才会出现，避免被房间预览图误判）
+    // 4) 结果：等结果横幅出现（只有 API 返回后才会出现，避免被房间预览图误判）
     await page.waitForFunction(() => {
       const t = document.getElementById('view-tryon');
-      return t && /摆好了！|这次没出图|次数用完|重新选择/.test(t.textContent || '');
+      return t && !!t.querySelector('.ax-ty-result');
     }, null, { timeout: 120000 });
     const outcome = await page.evaluate(() => {
       const t = document.getElementById('view-tryon');
       const imgs = Array.from(t.querySelectorAll('img')).filter((i) => !i.hidden && i.src);
-      return { hasImg: imgs.length > 0, text: (t.textContent || '').slice(0, 60) };
+      const box = t.querySelector('.ax-ty-result');
+      return {
+        hasImg: imgs.length > 0,
+        tone: box ? box.getAttribute('data-tone') : null,
+        text: (t.textContent || '').slice(0, 60),
+      };
     });
-    expect(outcome.hasImg || /摆好了！|这次没出图|次数用完/.test(outcome.text)).toBe(true);
+    // 不论真合成还是兜底，都必须给顾客一个明确结论（data-tone 四档之一）
+    expect(['good', 'info', 'warn', 'bad'], `未知 tone: ${outcome.tone}`).toContain(outcome.tone);
+    expect(outcome.hasImg || outcome.tone === 'bad').toBe(true);
 
     expect(errors, `页面报错：${errors.join(' | ')}`).toEqual([]);
   });
