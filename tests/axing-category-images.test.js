@@ -13,7 +13,8 @@
 // ⚠️ 这条同时守 server.js 的兜底表和 data/categories.json 两份来源——不管坏值从
 //    哪来都会红。
 //
-// 端口：3534（独立 spawn，不复用 playwright.config.js 的 3000）
+// 端口：3536（独立 spawn，不复用 playwright.config.js 的 3000，也不碰
+//       3100/3412/3420/3425/3430/3460/3510-3517/3530-3535/3550 的既有测试）
 // 单独跑：./node_modules/.bin/playwright test tests/axing-category-images.test.js --reporter=line
 // ============================================================================
 import { test, expect } from '@playwright/test';
@@ -21,11 +22,27 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-const PORT = 3534;
+const PORT = 3536;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const IMAGES_DIR = path.join(process.cwd(), 'src', 'images');
 
 let serverProc;
+
+/** 端口起飞前必须是空的。
+ *
+ *  每个测试文件都自己 spawn 一个实例，端口靠口头约定分配——两个文件撞到同一个端口时，
+ *  第二个实例的 waitServerReady 会被**第一个**实例应答通过，于是这条测试全程在跟
+ *  别人的 server 说话：能跑完、能全绿，但验的压根不是本文件起的那个进程。
+ *  这是这棵树上最危险的一类假绿（不报错、不超时，只是悄悄测错对象）。
+ *  撞了就大声红出来，好在读报告的人知道去改端口，而不是放过去。 */
+async function assertPortFree() {
+  const probe = await fetch(`${BASE_URL}/api/products`).then(() => true).catch(() => false);
+  if (probe) {
+    throw new Error(
+      `端口 ${PORT} 在我 spawn 之前就已经有服务在应答了——本文件与另一个测试文件撞了端口。`
+      + `把上面的 PORT 改成一个没人用的号，别直接放过去（会变成安静的假绿）。`);
+  }
+}
 
 async function waitServerReady(timeoutMs = 20000) {
   const started = Date.now();
@@ -40,6 +57,7 @@ async function waitServerReady(timeoutMs = 20000) {
 }
 
 test.beforeAll(async () => {
+  await assertPortFree();
   serverProc = spawn('node', ['src/server.js'], {
     env: { ...process.env, PORT: String(PORT) },
     stdio: 'ignore',
