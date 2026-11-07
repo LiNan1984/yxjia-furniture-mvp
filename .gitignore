@@ -106,5 +106,8 @@ data/conversations.json
 docs/9a4531b6cbe044ec4c578ecae92a9eb0.png
 docs/a46cdb987c24aab147ac6d3b9ead8617.png
 
+# ---- 交互规范 PDF：本地参考，不入库（2026-11-07 用户确认）----
+docs/*.pdf
+
 # ---- 工具本地台账（图片 → 商品 ID 的摄入记录，只在 开发 机上有意义）----
 tools/.ingested.local-staging.json
